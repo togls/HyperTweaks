@@ -5,14 +5,18 @@ data class NavBarLayoutConfig(
     val end: NavBarButton = NavBarButton.ImeSwitcher,
 ) {
     fun toHandleLayout(): String {
-        val startValue = start.value
-        val endValue = end.value
+        val startValue = start.layoutValue
+        val endValue = end.layoutValue
 
         if (startValue.isNotBlank() && endValue.isNotBlank()) {
             return "$startValue[70AC];$HomeHandle;$endValue[70AC]"
         }
 
         return DefaultHandleLayout
+    }
+
+    fun usesImePicker(): Boolean {
+        return start == NavBarButton.ImePicker || end == NavBarButton.ImePicker
     }
 
     companion object {
