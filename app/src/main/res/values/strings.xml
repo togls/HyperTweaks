@@ -1,4 +1,32 @@
 <resources>
-    <string name="app_name">Mi AOSP IME Kotlin</string>
+    <string name="app_name">Mi AOSP IME</string>
     <string name="xposed_description">Optimize AOSP IME navigation bar behavior on MIUI / HyperOS.</string>
+
+    <string name="settings_title">Mi AOSP IME</string>
+    <string name="settings_subtitle">Kotlin + Compose + libxposed</string>
+
+    <string name="xposed_service_connected">Xposed Service connected</string>
+    <string name="xposed_service_disconnected">Xposed Service disconnected</string>
+    <string name="status_waiting_service">Waiting for Xposed Service connection</string>
+    <string name="status_service_not_connected">Xposed Service is not connected. Please make sure the module is enabled.</string>
+    <string name="status_config_loaded">Configuration loaded from remote preferences.</string>
+    <string name="status_config_saved">Configuration saved to remote preferences.</string>
+    <string name="status_save_without_service">Xposed Service is not connected. Unable to save configuration.</string>
+    <string name="status_read_config_failed">Failed to read remote preferences.</string>
+    <string name="status_save_config_failed">Failed to save remote preferences.</string>
+    <string name="status_remote_preferences_unsupported">The current Xposed framework does not support remote preferences.</string>
+
+    <string name="action_reload_config">Reload configuration</string>
+
+    <string name="start_button_title">Start Button</string>
+    <string name="start_button_description">Button on the left side of the IME navigation bar</string>
+    <string name="end_button_title">End Button</string>
+    <string name="end_button_description">Button on the right side of the IME navigation bar</string>
+
+    <string name="current_value">Current value: %1$s</string>
+    <string name="handle_preview_title">nav_bar_layout_handle preview</string>
+
+    <string name="nav_button_hide_ime">Hide IME</string>
+    <string name="nav_button_ime_switcher">IME Switcher</string>
+    <string name="nav_button_ime_picker">Input Method Picker</string>
 </resources>

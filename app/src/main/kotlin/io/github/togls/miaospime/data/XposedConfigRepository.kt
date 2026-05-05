@@ -73,7 +73,7 @@ class XposedConfigRepository {
         val supported = service.frameworkProperties and XposedService.PROP_CAP_REMOTE != 0L
 
         if (!supported) {
-            error("当前 Xposed framework 不支持 remote preferences")
+            error("The current Xposed framework does not support remote preferences")
         }
     }
 }

@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.libxposed.service.XposedService
+import io.github.togls.miaospime.R
 import io.github.togls.miaospime.data.NavBarButton
 import io.github.togls.miaospime.data.NavBarLayoutConfig
 import io.github.togls.miaospime.data.XposedConfigRepository
@@ -51,7 +52,7 @@ class SettingsActivity : ComponentActivity() {
             uiState = SettingsUiState(
                 serviceConnected = false,
                 config = uiState.config,
-                message = "Xposed Service 未连接，请确认模块已启用",
+                message = getString(R.string.status_service_not_connected),
             )
             return
         }
@@ -61,14 +62,14 @@ class SettingsActivity : ComponentActivity() {
                 uiState = SettingsUiState(
                     serviceConnected = true,
                     config = config,
-                    message = "配置已从 remote preferences 加载",
+                    message = getString(R.string.status_config_loaded),
                 )
             }
             .onFailure { error ->
                 uiState = SettingsUiState(
                     serviceConnected = true,
                     config = uiState.config,
-                    message = error.message ?: "读取 remote preferences 失败",
+                    message = error.message ?: getString(R.string.status_read_config_failed),
                 )
             }
     }
@@ -89,7 +90,7 @@ class SettingsActivity : ComponentActivity() {
         if (service == null) {
             uiState = uiState.copy(
                 serviceConnected = false,
-                message = "Xposed Service 未连接，无法保存配置",
+                message = getString(R.string.status_save_without_service),
             )
             return
         }
@@ -99,13 +100,13 @@ class SettingsActivity : ComponentActivity() {
                 uiState = uiState.copy(
                     serviceConnected = true,
                     config = savedConfig,
-                    message = "配置已保存到 remote preferences",
+                    message = getString(R.string.status_config_saved),
                 )
             }
             .onFailure { error ->
                 uiState = uiState.copy(
                     serviceConnected = true,
-                    message = error.message ?: "保存 remote preferences 失败",
+                    message = error.message ?: getString(R.string.status_save_config_failed),
                 )
             }
     }

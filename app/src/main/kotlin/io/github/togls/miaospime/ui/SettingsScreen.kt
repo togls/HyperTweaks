@@ -26,7 +26,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import io.github.togls.miaospime.R
 import io.github.togls.miaospime.data.NavBarButton
 
 @Composable
@@ -69,12 +71,12 @@ private fun SettingsContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
-            text = "Mi AOSP IME Kotlin",
+            text = stringResource(R.string.settings_title),
             style = MaterialTheme.typography.headlineSmall,
         )
 
         Text(
-            text = "Kotlin + Compose + libxposed",
+            text = stringResource(R.string.settings_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -86,16 +88,16 @@ private fun SettingsContent(
         )
 
         NavBarButtonSelector(
-            title = "Start Button",
-            description = "输入法导航栏左侧按钮",
+            title = stringResource(R.string.start_button_title),
+            description = stringResource(R.string.start_button_description),
             selected = uiState.config.start,
             enabled = uiState.serviceConnected,
             onSelectedChange = onStartButtonChange,
         )
 
         NavBarButtonSelector(
-            title = "End Button",
-            description = "输入法导航栏右侧按钮",
+            title = stringResource(R.string.end_button_title),
+            description = stringResource(R.string.end_button_description),
             selected = uiState.config.end,
             enabled = uiState.serviceConnected,
             onSelectedChange = onEndButtonChange,
@@ -125,15 +127,17 @@ private fun ServiceStateCard(
         ) {
             Text(
                 text = if (serviceConnected) {
-                    "Xposed Service 已连接"
+                    stringResource(R.string.xposed_service_connected)
                 } else {
-                    "Xposed Service 未连接"
+                    stringResource(R.string.xposed_service_disconnected)
                 },
                 style = MaterialTheme.typography.titleMedium,
             )
 
             Text(
-                text = message,
+                text = message.ifBlank {
+                    stringResource(R.string.status_waiting_service)
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -141,7 +145,7 @@ private fun ServiceStateCard(
             Button(
                 onClick = onReloadClick,
             ) {
-                Text(text = "重新加载配置")
+                Text(text = stringResource(R.string.action_reload_config))
             }
         }
     }
@@ -194,7 +198,7 @@ private fun NavBarButtonSelector(
                         enabled = enabled,
                         onClick = { expanded = true },
                     ) {
-                        Text(text = selected.displayName)
+                        Text(text = stringResource(selected.displayNameRes))
                     }
 
                     DropdownMenu(
@@ -204,7 +208,7 @@ private fun NavBarButtonSelector(
                         NavBarButton.entries.forEach { option ->
                             DropdownMenuItem(
                                 text = {
-                                    Text(text = option.displayName)
+                                    Text(text = stringResource(selected.displayNameRes))
                                 },
                                 onClick = {
                                     expanded = false
@@ -219,7 +223,7 @@ private fun NavBarButtonSelector(
             HorizontalDivider()
 
             Text(
-                text = "当前值：${selected.value}",
+                text = stringResource(R.string.current_value, selected.value),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -242,7 +246,7 @@ private fun HandlePreviewCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = "nav_bar_layout_handle 预览",
+                text = stringResource(R.string.handle_preview_title),
                 style = MaterialTheme.typography.titleMedium,
             )
 

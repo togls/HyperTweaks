@@ -1,0 +1,32 @@
+<resources>
+    <string name="app_name">Mi AOSP IME</string>
+    <string name="xposed_description">优化 MIUI / HyperOS 上 AOSP 输入法导航栏行为。</string>
+
+    <string name="settings_title">Mi AOSP IME</string>
+    <string name="settings_subtitle">Kotlin + Compose + libxposed</string>
+
+    <string name="xposed_service_connected">Xposed Service 已连接</string>
+    <string name="xposed_service_disconnected">Xposed Service 未连接</string>
+    <string name="status_waiting_service">等待 Xposed Service 连接</string>
+    <string name="status_service_not_connected">Xposed Service 未连接，请确认模块已启用</string>
+    <string name="status_config_loaded">配置已从 remote preferences 加载</string>
+    <string name="status_config_saved">配置已保存到 remote preferences</string>
+    <string name="status_save_without_service">Xposed Service 未连接，无法保存配置</string>
+    <string name="status_read_config_failed">读取 remote preferences 失败</string>
+    <string name="status_save_config_failed">保存 remote preferences 失败</string>
+    <string name="status_remote_preferences_unsupported">当前 Xposed framework 不支持 remote preferences</string>
+
+    <string name="action_reload_config">重新加载配置</string>
+
+    <string name="start_button_title">Start Button</string>
+    <string name="start_button_description">输入法导航栏左侧按钮</string>
+    <string name="end_button_title">End Button</string>
+    <string name="end_button_description">输入法导航栏右侧按钮</string>
+
+    <string name="current_value">当前值：%1$s</string>
+    <string name="handle_preview_title">nav_bar_layout_handle 预览</string>
+
+    <string name="nav_button_hide_ime">隐藏输入法</string>
+    <string name="nav_button_ime_switcher">切换到下一个输入法</string>
+    <string name="nav_button_ime_picker">选择输入法</string>
+</resources>
