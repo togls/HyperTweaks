@@ -1,4 +1,4 @@
-package io.github.togls.miaospime.data
+package io.github.togls.hypertweaks.data
 
 data class NavBarLayoutConfig(
     val start: NavBarButton = NavBarButton.Back,

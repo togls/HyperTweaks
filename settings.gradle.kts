@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MiAospIme"
+rootProject.name = "HyperTweaks"
 include(":app")

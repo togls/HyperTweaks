@@ -1,4 +1,4 @@
-package io.github.togls.miaospime.xposed.util
+package io.github.togls.hypertweaks.xposed.util
 
 import android.util.Log
 import io.github.libxposed.api.XposedModule

@@ -1,7 +1,7 @@
-package io.github.togls.miaospime.data
+package io.github.togls.hypertweaks.data
 
 import androidx.annotation.StringRes
-import io.github.togls.miaospime.R
+import io.github.togls.hypertweaks.R
 
 enum class NavBarButton(
     val value: String,

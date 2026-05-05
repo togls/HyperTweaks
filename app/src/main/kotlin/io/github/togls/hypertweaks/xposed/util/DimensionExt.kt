@@ -1,4 +1,4 @@
-package io.github.togls.miaospime.xposed.util
+package io.github.togls.hypertweaks.xposed.util
 
 import android.content.res.Resources
 import android.util.TypedValue

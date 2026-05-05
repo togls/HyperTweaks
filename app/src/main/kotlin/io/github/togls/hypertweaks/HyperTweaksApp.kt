@@ -1,11 +1,11 @@
-package io.github.togls.miaospime
+package io.github.togls.hypertweaks
 
 import android.app.Application
-import io.github.togls.miaospime.service.XposedServiceStore
+import io.github.togls.hypertweaks.service.XposedServiceStore
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
 
-class MiAospImeApp : Application(), XposedServiceHelper.OnServiceListener {
+class HyperTweaksApp : Application(), XposedServiceHelper.OnServiceListener {
 
     override fun onCreate() {
         super.onCreate()

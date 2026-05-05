@@ -1,4 +1,4 @@
-package io.github.togls.miaospime.data
+package io.github.togls.hypertweaks.data
 
 object RemotePreferenceKeys {
     const val GroupName = "conf"

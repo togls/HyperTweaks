@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "io.github.togls.miaospime"
+    namespace = "io.github.togls.hypertweaks"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "io.github.togls.miaospime"
+        applicationId = "io.github.togls.hypertweaks"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
 

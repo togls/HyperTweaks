@@ -1,9 +1,9 @@
-package io.github.togls.miaospime.xposed.hook
+package io.github.togls.hypertweaks.xposed.hook
 
 import android.annotation.SuppressLint
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
-import io.github.togls.miaospime.xposed.util.HookLog
+import io.github.togls.hypertweaks.xposed.util.HookLog
 
 class DeadZoneHook(
     private val module: XposedModule,

@@ -1,4 +1,4 @@
-package io.github.togls.miaospime.ui
+package io.github.togls.hypertweaks.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,8 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import io.github.togls.miaospime.R
-import io.github.togls.miaospime.data.NavBarButton
+import io.github.togls.hypertweaks.R
+import io.github.togls.hypertweaks.data.NavBarButton
 
 @Composable
 fun SettingsScreen(

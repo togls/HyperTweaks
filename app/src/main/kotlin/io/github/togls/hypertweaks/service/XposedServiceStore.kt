@@ -1,4 +1,4 @@
-package io.github.togls.miaospime.service
+package io.github.togls.hypertweaks.service
 
 import android.os.Handler
 import android.os.Looper

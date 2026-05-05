@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">Mi AOSP IME</string>
-    <string name="xposed_description">优化 MIUI / HyperOS 上 AOSP 输入法导航栏行为。</string>
+    <string name="app_name">澎湃微调</string>
+    <string name="xposed_description">基于 LSPosed 的个人 HyperOS 微调模块。</string>
 
-    <string name="settings_title">Mi AOSP IME</string>
-    <string name="settings_subtitle">Kotlin + Compose + libxposed</string>
+    <string name="settings_title">澎湃微调</string>
+    <string name="settings_subtitle">基于 LSPosed 的个人 HyperOS 微调模块</string>
 
     <string name="xposed_service_connected">Xposed Service 已连接</string>
     <string name="xposed_service_disconnected">Xposed Service 未连接</string>

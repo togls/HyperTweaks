@@ -1,21 +1,21 @@
-package io.github.togls.miaospime.xposed
+package io.github.togls.hypertweaks.xposed
 
 import android.os.Build
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
-import io.github.togls.miaospime.xposed.hook.DeadZoneHook
-import io.github.togls.miaospime.xposed.hook.InputMethodBottomManagerHook
-import io.github.togls.miaospime.xposed.hook.InputMethodManagerServiceHook
-import io.github.togls.miaospime.xposed.hook.InputMethodManagerServiceImplHook
-import io.github.togls.miaospime.xposed.hook.InputMethodServiceHook
-import io.github.togls.miaospime.xposed.hook.NavigationBarControllerHook
-import io.github.togls.miaospime.xposed.hook.NavigationBarInflaterHook
-import io.github.togls.miaospime.xposed.hook.NavigationBarViewHook
-import io.github.togls.miaospime.xposed.util.HookLog
+import io.github.togls.hypertweaks.xposed.hook.DeadZoneHook
+import io.github.togls.hypertweaks.xposed.hook.InputMethodBottomManagerHook
+import io.github.togls.hypertweaks.xposed.hook.InputMethodManagerServiceHook
+import io.github.togls.hypertweaks.xposed.hook.InputMethodManagerServiceImplHook
+import io.github.togls.hypertweaks.xposed.hook.InputMethodServiceHook
+import io.github.togls.hypertweaks.xposed.hook.NavigationBarControllerHook
+import io.github.togls.hypertweaks.xposed.hook.NavigationBarInflaterHook
+import io.github.togls.hypertweaks.xposed.hook.NavigationBarViewHook
+import io.github.togls.hypertweaks.xposed.util.HookLog
 
-class ImeModule : XposedModule() {
+class HyperTweaksModule : XposedModule() {
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         HookLog.i(this, "onModuleLoaded")

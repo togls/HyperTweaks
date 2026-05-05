@@ -1,4 +1,4 @@
-package io.github.togls.miaospime.ui
+package io.github.togls.hypertweaks.ui
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -9,12 +9,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.libxposed.service.XposedService
-import io.github.togls.miaospime.R
-import io.github.togls.miaospime.data.NavBarButton
-import io.github.togls.miaospime.data.NavBarLayoutConfig
-import io.github.togls.miaospime.data.XposedConfigRepository
-import io.github.togls.miaospime.service.XposedServiceStore
-import io.github.togls.miaospime.ui.theme.MiAospImeTheme
+import io.github.togls.hypertweaks.R
+import io.github.togls.hypertweaks.data.NavBarButton
+import io.github.togls.hypertweaks.data.NavBarLayoutConfig
+import io.github.togls.hypertweaks.data.XposedConfigRepository
+import io.github.togls.hypertweaks.service.XposedServiceStore
+import io.github.togls.hypertweaks.ui.theme.HyperTweaksTheme
 
 class SettingsActivity : ComponentActivity() {
 
@@ -34,7 +34,7 @@ class SettingsActivity : ComponentActivity() {
                 loadConfig(service)
             }
 
-            MiAospImeTheme {
+            HyperTweaksTheme {
                 SettingsScreen(
                     uiState = uiState,
                     onStartButtonChange = ::updateStartButton,

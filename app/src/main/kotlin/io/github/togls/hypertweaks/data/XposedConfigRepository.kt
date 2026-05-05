@@ -1,4 +1,4 @@
-package io.github.togls.miaospime.data
+package io.github.togls.hypertweaks.data
 
 import android.content.SharedPreferences
 import io.github.libxposed.service.XposedService

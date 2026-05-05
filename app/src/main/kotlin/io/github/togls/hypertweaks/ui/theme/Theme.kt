@@ -1,4 +1,4 @@
-package io.github.togls.miaospime.ui.theme
+package io.github.togls.hypertweaks.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
@@ -15,7 +15,7 @@ private val LightColorScheme = lightColorScheme()
 private val DarkColorScheme = darkColorScheme()
 
 @Composable
-fun MiAospImeTheme(
+fun HyperTweaksTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
