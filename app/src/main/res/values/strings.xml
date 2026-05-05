@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Mi AOSP IME Kotlin</string>
+    <string name="xposed_description">Optimize AOSP IME navigation bar behavior on MIUI / HyperOS.</string>
+</resources>
