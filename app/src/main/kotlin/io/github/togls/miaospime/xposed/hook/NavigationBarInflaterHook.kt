@@ -1,5 +1,6 @@
 package io.github.togls.miaospime.xposed.hook
 
+import android.annotation.SuppressLint
 import android.content.SharedPreferences
 import android.util.Log
 import io.github.libxposed.api.XposedInterface
@@ -43,6 +44,7 @@ class NavigationBarInflaterHook(
         logInfo("hooked $TARGET_CLASS_NAME#inflateLayout(String)")
     }
 
+    @SuppressLint("PrivateApi")
     private fun findInflateLayoutMethod(classLoader: ClassLoader) =
         runCatching {
             val targetClass = classLoader.loadClass(TARGET_CLASS_NAME)

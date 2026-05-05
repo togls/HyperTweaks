@@ -7,6 +7,7 @@ import io.github.libxposed.api.XposedModule
 import io.github.togls.miaospime.xposed.util.HookLog
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
+import android.annotation.SuppressLint
 
 class InputMethodServiceHook(
     private val module: XposedModule,
@@ -46,7 +47,7 @@ class InputMethodServiceHook(
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
                 runCatching {
-                    val thisObject = chain.getThisObject() ?: return@runCatching
+                    val thisObject = chain.thisObject ?: return@runCatching
                     val inputMethodService = thisObject as? InputMethodService ?: return@runCatching
 
                     val stub = loadInputMethodServiceStub(
@@ -72,6 +73,7 @@ class InputMethodServiceHook(
         HookLog.i(module, "hooked InputMethodService#hideImeRenderGesturalNavButtons(String)")
     }
 
+    @SuppressLint("PrivateApi")
     private fun loadInputMethodServiceStub(
         classLoader: ClassLoader,
         receiver: Any,

@@ -1,5 +1,6 @@
 package io.github.togls.miaospime.xposed.hook
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.provider.Settings
 import io.github.libxposed.api.XposedInterface
@@ -13,6 +14,7 @@ class InputMethodManagerServiceHook(
     private val module: XposedModule,
 ) {
 
+    @SuppressLint("PrivateApi")
     fun install(classLoader: ClassLoader) {
         val serviceClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
@@ -92,7 +94,7 @@ class InputMethodManagerServiceHook(
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
                 runCatching {
-                    val thisObject = chain.getThisObject() ?: return@runCatching
+                    val thisObject = chain.thisObject ?: return@runCatching
 
                     val context = contextField.get(thisObject) as? Context
                         ?: return@runCatching

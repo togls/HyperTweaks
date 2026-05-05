@@ -1,5 +1,6 @@
 package io.github.togls.miaospime.xposed.hook
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.view.inputmethod.InputMethodManager
 import io.github.libxposed.api.XposedInterface
@@ -11,6 +12,7 @@ class InputMethodManagerServiceImplHook(
     private val module: XposedModule,
 ) {
 
+    @SuppressLint("PrivateApi")
     fun install(classLoader: ClassLoader) {
         val targetClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
@@ -38,7 +40,7 @@ class InputMethodManagerServiceImplHook(
         module.hook(method)
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
-                val args = chain.getArgs()
+                val args = chain.args
                 val result = chain.proceed()
 
                 if (result is Boolean && !result && shouldTreatAsCallingBetweenCustomIme(args)) {

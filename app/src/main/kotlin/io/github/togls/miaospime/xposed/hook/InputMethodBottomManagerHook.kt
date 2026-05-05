@@ -1,5 +1,6 @@
 package io.github.togls.miaospime.xposed.hook
 
+import android.annotation.SuppressLint
 import android.view.inputmethod.InputMethodManager
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
@@ -16,6 +17,7 @@ class InputMethodBottomManagerHook(
         IdentityHashMap<ClassLoader, Boolean>(),
     )
 
+    @SuppressLint("PrivateApi")
     fun install(classLoader: ClassLoader) {
         val moduleManagerClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
@@ -45,7 +47,7 @@ class InputMethodBottomManagerHook(
                 val result = chain.proceed()
 
                 runCatching {
-                    val imeModuleClassLoader = chain.getArgs()
+                    val imeModuleClassLoader = chain.args
                         .firstOrNull() as? ClassLoader
                         ?: return@runCatching
 
@@ -121,7 +123,7 @@ class InputMethodBottomManagerHook(
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
                 runCatching {
-                    val thisObject = chain.getThisObject()
+                    val thisObject = chain.thisObject
                         ?: return@runCatching null
 
                     val bottomViewHelper = bottomViewHelperField.get(thisObject)
@@ -146,6 +148,6 @@ class InputMethodBottomManagerHook(
             "com.miui.inputmethod.InputMethodBottomManager"
 
         private const val BOTTOM_VIEW_HELPER_CLASS_NAME =
-            "com.miui.inputmethod.InputMethodBottomManager\$BottomViewHelper"
+            $$"com.miui.inputmethod.InputMethodBottomManager$BottomViewHelper"
     }
 }

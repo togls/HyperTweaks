@@ -2,6 +2,7 @@ package io.github.togls.miaospime.data
 
 import android.content.SharedPreferences
 import io.github.libxposed.service.XposedService
+import androidx.core.content.edit
 
 class XposedConfigRepository {
 
@@ -41,11 +42,11 @@ class XposedConfigRepository {
 
             val prefs = service.getRemotePreferences(RemotePreferenceKeys.GroupName)
 
-            prefs.edit()
-                .putString(RemotePreferenceKeys.NavBarLayoutStart, config.start.value)
-                .putString(RemotePreferenceKeys.NavBarLayoutEnd, config.end.value)
-                .putString(RemotePreferenceKeys.NavBarLayoutHandle, config.toHandleLayout())
-                .apply()
+            prefs.edit {
+                putString(RemotePreferenceKeys.NavBarLayoutStart, config.start.value)
+                    .putString(RemotePreferenceKeys.NavBarLayoutEnd, config.end.value)
+                    .putString(RemotePreferenceKeys.NavBarLayoutHandle, config.toHandleLayout())
+            }
 
             config
         }
@@ -61,11 +62,11 @@ class XposedConfigRepository {
             return
         }
 
-        prefs.edit()
-            .putString(RemotePreferenceKeys.NavBarLayoutStart, config.start.value)
-            .putString(RemotePreferenceKeys.NavBarLayoutEnd, config.end.value)
-            .putString(RemotePreferenceKeys.NavBarLayoutHandle, config.toHandleLayout())
-            .apply()
+        prefs.edit {
+            putString(RemotePreferenceKeys.NavBarLayoutStart, config.start.value)
+                .putString(RemotePreferenceKeys.NavBarLayoutEnd, config.end.value)
+                .putString(RemotePreferenceKeys.NavBarLayoutHandle, config.toHandleLayout())
+        }
     }
 
     private fun checkRemotePreferencesSupport(service: XposedService) {

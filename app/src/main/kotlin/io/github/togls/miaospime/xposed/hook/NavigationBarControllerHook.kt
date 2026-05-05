@@ -1,5 +1,6 @@
 package io.github.togls.miaospime.xposed.hook
 
+import android.annotation.SuppressLint
 import android.content.SharedPreferences
 import android.inputmethodservice.InputMethodService
 import android.os.Build
@@ -23,6 +24,7 @@ class NavigationBarControllerHook(
     private val preferenceListeners =
         mutableListOf<SharedPreferences.OnSharedPreferenceChangeListener>()
 
+    @SuppressLint("PrivateApi")
     fun install(classLoader: ClassLoader) {
         val targetClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
@@ -65,9 +67,9 @@ class NavigationBarControllerHook(
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
                 runCatching {
-                    val thisObject = chain.getThisObject() ?: return@runCatching null
+                    val thisObject = chain.thisObject ?: return@runCatching null
 
-                    val args = chain.getArgs()
+                    val args = chain.args
                     val imeShouldShowImeNavBar = if (args.isNotEmpty() && args[0] is Boolean) {
                         args[0] as Boolean
                     } else {
@@ -88,7 +90,7 @@ class NavigationBarControllerHook(
                     ?: chain.proceed()
             }
 
-        HookLog.i(module, "hooked NavigationBarController\$Impl#getImeCaptionBarHeight")
+        HookLog.i(module, $$"hooked NavigationBarController$Impl#getImeCaptionBarHeight")
     }
 
     private fun installImeSwitchButtonClickHook(targetClass: Class<*>) {
@@ -211,6 +213,6 @@ class NavigationBarControllerHook(
 
     private companion object {
         private const val TARGET_CLASS_NAME =
-            "android.inputmethodservice.NavigationBarController\$Impl"
+            $$"android.inputmethodservice.NavigationBarController$Impl"
     }
 }

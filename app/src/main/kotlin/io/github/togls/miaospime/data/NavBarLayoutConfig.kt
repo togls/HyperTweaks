@@ -15,10 +15,6 @@ data class NavBarLayoutConfig(
         return DefaultHandleLayout
     }
 
-    fun usesImePicker(): Boolean {
-        return start == NavBarButton.ImePicker || end == NavBarButton.ImePicker
-    }
-
     companion object {
         const val HomeHandle = "home_handle"
         const val DefaultHandleLayout = "back[70AC];home_handle;ime_switcher[70AC]"

@@ -22,7 +22,7 @@ class ImeModule : XposedModule() {
     }
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
-        val classLoader = param.getClassLoader()
+        val classLoader = param.classLoader
 
         HookLog.i(this, "onSystemServerStarting")
 
@@ -43,12 +43,12 @@ class ImeModule : XposedModule() {
     }
 
     override fun onPackageReady(param: PackageReadyParam) {
-        if (!param.isFirstPackage()) {
+        if (!param.isFirstPackage) {
             return
         }
 
-        val packageName = param.getPackageName()
-        val classLoader = param.getClassLoader()
+        val packageName = param.packageName
+        val classLoader = param.classLoader
 
         HookLog.i(this, "onPackageReady package=$packageName")
 

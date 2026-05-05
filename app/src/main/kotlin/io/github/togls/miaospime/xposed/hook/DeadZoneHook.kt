@@ -1,5 +1,6 @@
 package io.github.togls.miaospime.xposed.hook
 
+import android.annotation.SuppressLint
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.togls.miaospime.xposed.util.HookLog
@@ -8,6 +9,7 @@ class DeadZoneHook(
     private val module: XposedModule,
 ) {
 
+    @SuppressLint("PrivateApi")
     fun install(classLoader: ClassLoader) {
         val targetClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
@@ -42,7 +44,7 @@ class DeadZoneHook(
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
                 val result = chain.proceed()
-                val thisObject = chain.getThisObject() ?: return@intercept result
+                val thisObject = chain.thisObject ?: return@intercept result
 
                 runCatching {
                     sizeMinField.setInt(thisObject, 0)

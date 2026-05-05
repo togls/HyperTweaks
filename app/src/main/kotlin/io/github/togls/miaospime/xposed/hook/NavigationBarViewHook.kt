@@ -1,5 +1,6 @@
 package io.github.togls.miaospime.xposed.hook
 
+import android.annotation.SuppressLint
 import android.view.RoundedCorner
 import android.view.View
 import io.github.libxposed.api.XposedInterface
@@ -12,6 +13,7 @@ class NavigationBarViewHook(
     private val module: XposedModule,
 ) {
 
+    @SuppressLint("PrivateApi")
     fun install(classLoader: ClassLoader) {
         val targetClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
@@ -43,7 +45,7 @@ class NavigationBarViewHook(
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
                 val result = chain.proceed()
-                val thisObject = chain.getThisObject() ?: return@intercept result
+                val thisObject = chain.thisObject ?: return@intercept result
 
                 runCatching {
                     val horizontalView = horizontalField.get(thisObject) as? View
