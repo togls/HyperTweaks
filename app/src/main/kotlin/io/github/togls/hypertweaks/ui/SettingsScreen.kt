@@ -226,7 +226,7 @@ private fun NavBarButtonSelector(
                         NavBarButton.entries.forEach { option ->
                             DropdownMenuItem(
                                 text = {
-                                    Text(text = stringResource(selected.displayNameRes))
+                                    Text(text = stringResource(option.displayNameRes))
                                 },
                                 onClick = {
                                     expanded = false

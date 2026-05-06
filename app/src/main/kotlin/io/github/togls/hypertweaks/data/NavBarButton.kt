@@ -6,7 +6,7 @@ import io.github.togls.hypertweaks.R
 enum class NavBarButton(
     val value: String,
     val layoutValue: String,
-    @StringRes val displayNameRes: Int
+    @field:StringRes val displayNameRes: Int
 ) {
     Back(
         value = "back",
