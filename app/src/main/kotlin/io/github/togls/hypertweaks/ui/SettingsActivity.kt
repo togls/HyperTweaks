@@ -70,6 +70,7 @@ class SettingsActivity : ComponentActivity() {
                     serviceConnected = true,
                     config = config,
                     keepAlivePackagesText = KeepAlivePackages.format(keepAlivePackages),
+                    invalidKeepAlivePackages = emptyList(),
                     message = getString(R.string.status_config_loaded),
                 )
             }
@@ -78,6 +79,7 @@ class SettingsActivity : ComponentActivity() {
                     serviceConnected = true,
                     config = uiState.config,
                     keepAlivePackagesText = KeepAlivePackages.format(keepAlivePackages),
+                    invalidKeepAlivePackages = emptyList(),
                     message = error.message ?: getString(R.string.status_read_config_failed),
                 )
             }
@@ -121,8 +123,11 @@ class SettingsActivity : ComponentActivity() {
     }
 
     private fun updateKeepAlivePackagesText(text: String) {
+        val parseResult = KeepAlivePackages.parseWithInvalid(text)
+
         uiState = uiState.copy(
-            keepAlivePackagesText = text
+            keepAlivePackagesText = text,
+            invalidKeepAlivePackages = parseResult.invalidValues,
         )
     }
 
@@ -137,13 +142,27 @@ class SettingsActivity : ComponentActivity() {
             return
         }
 
-        val packages = KeepAlivePackages.parse(uiState.keepAlivePackagesText)
+        val parseResult = KeepAlivePackages.parseWithInvalid(uiState.keepAlivePackagesText)
 
-        configRepository.saveKeepAlivePackages(service, packages)
+        if (parseResult.invalidValues.isNotEmpty()) {
+            uiState = uiState.copy(
+                serviceConnected = true,
+                invalidKeepAlivePackages = parseResult.invalidValues,
+                message = getString(
+                    R.string.status_keep_alive_invalid_packages,
+                    parseResult.invalidValues.joinToString(),
+                ),
+            )
+
+            return
+        }
+
+        configRepository.saveKeepAlivePackages(service, parseResult.packages)
             .onSuccess { savedPackages ->
                 uiState = uiState.copy(
                     serviceConnected = true,
                     keepAlivePackagesText = KeepAlivePackages.format(savedPackages),
+                    invalidKeepAlivePackages = emptyList(),
                     message = getString(R.string.status_keep_alive_saved),
                 )
             }

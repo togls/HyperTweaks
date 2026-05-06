@@ -35,4 +35,6 @@
     <string name="keep_alive_packages_label">应用包名</string>
     <string name="action_save_keep_alive_packages">保存保活列表</string>
     <string name="status_keep_alive_saved">保活包名列表已保存</string>
+    <string name="status_keep_alive_invalid_packages">保活列表包含无效包名：%1$s</string>
+    <string name="keep_alive_invalid_packages_hint">无效包名：%1$s</string>
 </resources>

@@ -35,4 +35,6 @@
     <string name="keep_alive_packages_label">Package names</string>
     <string name="action_save_keep_alive_packages">Save keep-alive list</string>
     <string name="status_keep_alive_saved">Keep-alive package list saved.</string>
+    <string name="status_keep_alive_invalid_packages">Keep-alive list contains invalid package names: %1$s</string>
+    <string name="keep_alive_invalid_packages_hint">Invalid package names: %1$s</string>
 </resources>

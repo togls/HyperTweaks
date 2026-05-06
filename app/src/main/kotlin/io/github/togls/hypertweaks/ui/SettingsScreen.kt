@@ -126,6 +126,7 @@ private fun SettingsContent(
 
         KeepAlivePackagesCard(
             packagesText = uiState.keepAlivePackagesText,
+            invalidPackages = uiState.invalidKeepAlivePackages,
             enabled = uiState.serviceConnected,
             onPackagesTextChange = onKeepAlivePackagesTextChange,
             onSaveClick = onSaveKeepAlivePackagesClick,
@@ -283,6 +284,7 @@ private fun HandlePreviewCard(
 @Composable
 private fun KeepAlivePackagesCard(
     packagesText: String,
+    invalidPackages: List<String>,
     enabled: Boolean,
     onPackagesTextChange: (String) -> Unit,
     onSaveClick: () -> Unit,
@@ -317,6 +319,7 @@ private fun KeepAlivePackagesCard(
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 4,
                 maxLines = 8,
+                isError = invalidPackages.isNotEmpty(),
                 label = {
                     Text(text = stringResource(R.string.keep_alive_packages_label))
                 },
@@ -324,6 +327,16 @@ private fun KeepAlivePackagesCard(
                     Text(
                         text = "org.mozilla.firefox\norg.mozilla.firefox_beta\norg.mozilla.fenix",
                     )
+                },
+                supportingText = {
+                    if (invalidPackages.isNotEmpty()) {
+                        Text(
+                            text = stringResource(
+                                R.string.keep_alive_invalid_packages_hint,
+                                invalidPackages.joinToString(),
+                            ),
+                        )
+                    }
                 },
             )
 

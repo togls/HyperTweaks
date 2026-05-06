@@ -6,5 +6,6 @@ data class SettingsUiState(
     val serviceConnected: Boolean = false,
     val config: NavBarLayoutConfig = NavBarLayoutConfig(),
     val keepAlivePackagesText: String = "",
+    val invalidKeepAlivePackages: List<String> = emptyList(),
     val message: String = "",
 )
