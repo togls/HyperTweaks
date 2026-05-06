@@ -8,6 +8,7 @@ import io.github.libxposed.api.XposedModule
 import io.github.togls.hypertweaks.data.KeepAlivePackages
 import io.github.togls.hypertweaks.data.RemotePreferenceKeys
 import io.github.togls.hypertweaks.xposed.util.HookLog
+import io.github.togls.hypertweaks.xposed.util.RomUtils
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.Collections
@@ -33,6 +34,12 @@ class KeepAliveHook(
         hookActivityManagerService(classLoader)
         hookProcessRecord(classLoader)
         hookProcessList(classLoader)
+
+        if (!RomUtils.isXiaomiLikeRom()) {
+            HookLog.i(module, "skip MIUI/HyperOS keep-alive hooks on non-Xiaomi ROM")
+            return
+        }
+
         hookMiuiSmartPowerService(classLoader)
     }
 
@@ -68,7 +75,7 @@ class KeepAliveHook(
 
         targetClass.declaredMethods
             .filter { method ->
-                method.name == "kill" || method.name == "killLocked"
+                method.isSupportedProcessRecordKillSignature()
             }
             .forEach { method ->
                 hookProcessRecordKillMethod(method)
@@ -205,7 +212,7 @@ class KeepAliveHook(
                     if (protectedPackage != null) {
                         HookLog.i(
                             module,
-                            "blocked process kill: ${method.declaringClass.name}#${method.name} package=$protectedPackage",
+                            "blocked process kill: ${method.describeSignature()} package=$protectedPackage",
                         )
 
                         return@intercept defaultReturnValue(method.returnType)
@@ -216,12 +223,12 @@ class KeepAliveHook(
 
             HookLog.i(
                 module,
-                "hooked process kill method: ${method.declaringClass.name}#${method.name}",
+                "hooked process kill method: ${method.describeSignature()}",
             )
         }.onFailure { error ->
             HookLog.w(
                 module,
-                "failed to hook process kill method: ${method.declaringClass.name}#${method.name}",
+                "failed to hook process kill method: ${method.describeSignature()}",
                 error,
             )
         }
@@ -477,12 +484,12 @@ class KeepAliveHook(
             java.lang.Boolean.TYPE -> false
             java.lang.Byte.TYPE -> 0.toByte()
             java.lang.Short.TYPE -> 0.toShort()
-            java.lang.Integer.TYPE -> 0
+            Integer.TYPE -> 0
             java.lang.Long.TYPE -> 0L
             java.lang.Float.TYPE -> 0f
             java.lang.Double.TYPE -> 0.0
-            java.lang.Character.TYPE -> 0.toChar()
-            java.lang.Void.TYPE -> null
+            Character.TYPE -> 0.toChar()
+            Void.TYPE -> null
             else -> null
         }
     }
@@ -493,13 +500,14 @@ class KeepAliveHook(
 
             updateKeepAlivePackages(prefs)
 
-            val listener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
-                if (key != RemotePreferenceKeys.KeepAlivePackages) {
-                    return@OnSharedPreferenceChangeListener
-                }
+            val listener =
+                SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+                    if (key != RemotePreferenceKeys.KeepAlivePackages) {
+                        return@OnSharedPreferenceChangeListener
+                    }
 
-                updateKeepAlivePackages(sharedPreferences)
-            }
+                    updateKeepAlivePackages(sharedPreferences)
+                }
 
             preferenceListeners += listener
             prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -570,5 +578,26 @@ class KeepAliveHook(
         }
 
         return "${declaringClass.name}#$name($params): ${returnType.name}"
+    }
+
+    private fun Method.isSupportedProcessRecordKillSignature(): Boolean {
+        if (name != "kill" && name != "killLocked") {
+            return false
+        }
+
+        val params = parameterTypes
+
+        return params.contentEquals(
+            arrayOf(
+                String::class.java,
+                Boolean::class.javaPrimitiveType,
+            ),
+        ) || params.contentEquals(
+            arrayOf(
+                String::class.java,
+                Int::class.javaPrimitiveType,
+                Boolean::class.javaPrimitiveType,
+            ),
+        )
     }
 }

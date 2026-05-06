@@ -153,19 +153,34 @@ class OomAdjProtectHook(
             className = "com.android.server.am.ProcessList",
         ) ?: return
 
-        processListClass.declaredMethods
+        val methods = processListClass.declaredMethods
             .filter { method ->
-                method.name == "setOomAdj" &&
-                    method.parameterTypes.size >= 3 &&
-                    method.parameterTypes[0] == Int::class.javaPrimitiveType &&
-                    method.parameterTypes[1] == Int::class.javaPrimitiveType &&
-                    method.parameterTypes[2] == Int::class.javaPrimitiveType
-            }
-            .forEach { method ->
-                hookSetOomAdj(method)
+                method.isSupportedSetOomAdjSignature()
             }
 
-        HookLog.i(module, "OomAdjProtectHook installed for ProcessList#setOomAdj")
+        if (methods.isEmpty()) {
+            val candidates = processListClass.declaredMethods
+                .filter { method -> method.name == "setOomAdj" }
+                .joinToString(separator = "\n") { method ->
+                    method.describeSignature()
+                }
+
+            HookLog.i(
+                module,
+                "skip ProcessList#setOomAdj: no supported signature, candidates=$candidates",
+            )
+
+            return
+        }
+
+        methods.forEach { method ->
+            hookSetOomAdj(method)
+        }
+
+        HookLog.i(
+            module,
+            "OomAdjProtectHook installed for ProcessList#setOomAdj: count=${methods.size}",
+        )
     }
 
     private fun hookSetOomAdj(method: Method) {
@@ -179,7 +194,7 @@ class OomAdjProtectHook(
             module.hook(method)
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
-                    val args = chain.getArgs()
+                    val args = chain.args
 
                     val pid = args.getOrNull(0) as? Int
                     val adj = args.getOrNull(2) as? Int
@@ -593,6 +608,33 @@ class OomAdjProtectHook(
             module,
             "oom-adj protected packages updated: ${packages.joinToString()}",
         )
+    }
+
+    private fun Method.describeSignature(): String {
+        val params = parameterTypes.joinToString(", ") { type -> type.name }
+        return "${declaringClass.name}#$name($params): ${returnType.name}"
+    }
+
+    private fun Method.isSupportedSetOomAdjSignature(): Boolean {
+        if (!isSupportedOomAdjSdk()) {
+            return false
+        }
+
+        val intType = Int::class.javaPrimitiveType
+
+        return name == "setOomAdj" &&
+            parameterTypes.contentEquals(
+                arrayOf(
+                    intType,
+                    intType,
+                    intType,
+                ),
+            )
+    }
+
+    private fun isSupportedOomAdjSdk(): Boolean {
+        // return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+        return true
     }
 
     private companion object {
