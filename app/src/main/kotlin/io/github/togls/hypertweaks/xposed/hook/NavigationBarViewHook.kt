@@ -82,22 +82,31 @@ class NavigationBarViewHook(
             val bottomRightRadius = bottomRight?.radius ?: 0
 
             view.setPadding(
-                if (bottomLeftRadius > 0) {
-                    bottomLeftRadius - basePadding[0]
-                } else {
-                    basePadding[0]
-                },
+                calculateRoundedCornerPadding(
+                    cornerRadius = bottomLeftRadius,
+                    basePadding = basePadding[0],
+                ),
                 basePadding[1],
-                if (bottomRightRadius > 0) {
-                    bottomRightRadius - basePadding[2]
-                } else {
-                    basePadding[2]
-                },
+                calculateRoundedCornerPadding(
+                    cornerRadius = bottomRightRadius,
+                    basePadding = basePadding[2],
+                ),
                 basePadding[3],
             )
 
             insets
         }
+    }
+
+    private fun calculateRoundedCornerPadding(
+        cornerRadius: Int,
+        basePadding: Int,
+    ): Int {
+        if (cornerRadius <= 0) {
+            return basePadding
+        }
+
+        return maxOf(0, cornerRadius - basePadding)
     }
 
     private companion object {
