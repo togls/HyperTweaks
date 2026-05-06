@@ -33,7 +33,6 @@ class KeepAliveHook(
         hookActivityManagerService(classLoader)
         hookProcessRecord(classLoader)
         hookProcessList(classLoader)
-        hookMiuiProcessManagerService(classLoader)
         hookMiuiSmartPowerService(classLoader)
     }
 
@@ -84,36 +83,32 @@ class KeepAliveHook(
             className = "com.android.server.am.ProcessList",
         ) ?: return
 
-        targetClass.declaredMethods
-            .filter { method ->
-                method.name.contains("kill", ignoreCase = true) ||
-                    method.name.contains("remove", ignoreCase = true)
-            }
-            .forEach { method ->
-                hookMethodWithPackageArgs(method)
-            }
-
-        HookLog.i(module, "KeepAliveHook installed for ProcessList")
+        hookCleanerClass(
+            targetClass = targetClass,
+            keywords = PROCESS_LIST_CLEANUP_KEYWORDS,
+            label = "ProcessList",
+        )
     }
 
-    private fun hookMiuiProcessManagerService(classLoader: ClassLoader) {
-        val targetClass = loadClassOrNull(
-            classLoader = classLoader,
-            className = "com.miui.server.process.ProcessManagerService",
-        ) ?: return
+    private fun hookCleanerClass(
+        targetClass: Class<*>,
+        keywords: Set<String>,
+        label: String,
+    ) {
+        val candidateMethods = targetClass.declaredMethods
+            .filter { method ->
+                method.matchesAnyKeyword(keywords) &&
+                    method.hasSupportedPackageParameter()
+            }
 
-        hookMiuiCleanerClass(
-            targetClass = targetClass,
-            keywords = listOf(
-                "kill",
-                "clean",
-                "trim",
-                "forceStop",
-                "remove",
-            ),
+        candidateMethods.forEach { method ->
+            hookMethodWithPackageArgs(method)
+        }
+
+        HookLog.i(
+            module,
+            "KeepAliveHook installed for $label: candidates=${candidateMethods.size}",
         )
-
-        HookLog.i(module, "KeepAliveHook installed for ProcessManagerService")
     }
 
     private fun hookMiuiSmartPowerService(classLoader: ClassLoader) {
@@ -169,7 +164,7 @@ class KeepAliveHook(
                     if (protectedPackage != null) {
                         HookLog.i(
                             module,
-                            "blocked package cleanup: ${method.declaringClass.name}#${method.name} package=$protectedPackage",
+                            "blocked package cleanup: ${method.describeSignature()} package=$protectedPackage",
                         )
 
                         return@intercept defaultReturnValue(method.returnType)
@@ -180,12 +175,12 @@ class KeepAliveHook(
 
             HookLog.i(
                 module,
-                "hooked keep-alive method: ${method.declaringClass.name}#${method.name}",
+                "hooked keep-alive method: ${method.describeSignature()}",
             )
         }.onFailure { error ->
             HookLog.w(
                 module,
-                "failed to hook keep-alive method: ${method.declaringClass.name}#${method.name}",
+                "failed to hook keep-alive method: ${method.describeSignature()}",
                 error,
             )
         }
@@ -531,5 +526,49 @@ class KeepAliveHook(
 
     private companion object {
         private const val MAX_EXTRACT_DEPTH = 3
+
+        private val PROCESS_LIST_CLEANUP_KEYWORDS = setOf(
+            "kill",
+        )
+
+        private val MIUI_PROCESS_MANAGER_CLEANUP_KEYWORDS = setOf(
+            "kill",
+            "clean",
+            "trim",
+            "forceStop",
+        )
+
+        private val MIUI_SMART_POWER_CLEANUP_KEYWORDS = setOf(
+            "kill",
+            "clean",
+            "trim",
+            "hibernate",
+            "idle",
+            "freeze",
+        )
+    }
+
+    private fun Method.matchesAnyKeyword(keywords: Set<String>): Boolean {
+        return keywords.any { keyword ->
+            name.contains(keyword, ignoreCase = true)
+        }
+    }
+
+    private fun Method.hasSupportedPackageParameter(): Boolean {
+        return parameterTypes.any { parameterType ->
+            parameterType == String::class.java ||
+                parameterType.isArray ||
+                Iterable::class.java.isAssignableFrom(parameterType) ||
+                Map::class.java.isAssignableFrom(parameterType) ||
+                ApplicationInfo::class.java.isAssignableFrom(parameterType)
+        }
+    }
+
+    private fun Method.describeSignature(): String {
+        val params = parameterTypes.joinToString(", ") { parameterType ->
+            parameterType.name
+        }
+
+        return "${declaringClass.name}#$name($params): ${returnType.name}"
     }
 }
