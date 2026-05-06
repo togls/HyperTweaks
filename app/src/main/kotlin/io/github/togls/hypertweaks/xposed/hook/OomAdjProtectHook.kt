@@ -23,6 +23,14 @@ class OomAdjProtectHook(
 
     private val pidToPackage = ConcurrentHashMap<Int, String>()
 
+    private val protectedProcesses = ConcurrentHashMap<Int, ProtectedProcess>()
+
+    private data class ProtectedProcess(
+        val pid: Int,
+        val packageName: String,
+        val processName: String?,
+    )
+
     private val preferenceListeners =
         mutableListOf<SharedPreferences.OnSharedPreferenceChangeListener>()
 
@@ -67,25 +75,56 @@ class OomAdjProtectHook(
             module.hook(method)
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
+                    val processRecord = chain.thisObject
+                    val oldPid = processRecord?.let { readPidFromProcessRecord(it) }
+
                     val result = chain.proceed()
 
-                    val processRecord = chain.getThisObject()
-                    val pid = chain.getArgs().firstOrNull() as? Int
+                    val newPid = chain.args.firstOrNull() as? Int
 
-                    if (processRecord != null && pid != null && pid > 0) {
-                        val protectedPackage = findProtectedPackageFromProcessRecord(processRecord)
+                    if (oldPid != null && oldPid > 0 && oldPid != newPid) {
+                        forgetProtectedProcess(
+                            pid = oldPid,
+                            reason = "pid changed",
+                        )
+                    }
 
-                        if (protectedPackage != null) {
-                            pidToPackage[pid] = protectedPackage
-                            applyProtectedMaxAdj(processRecord)
-                            writeOomScoreAdj(pid, PROTECTED_OOM_ADJ)
-
-                            HookLog.i(
-                                module,
-                                "tracked protected process: pid=$pid package=$protectedPackage",
+                    if (processRecord == null || newPid == null || newPid <= 0) {
+                        if (oldPid != null && oldPid > 0) {
+                            forgetProtectedProcess(
+                                pid = oldPid,
+                                reason = "process pid cleared",
                             )
                         }
+
+                        return@intercept result
                     }
+
+                    val protectedPackage = findProtectedPackageFromProcessRecord(processRecord)
+
+                    if (protectedPackage == null) {
+                        forgetProtectedProcess(
+                            pid = newPid,
+                            reason = "process is not protected",
+                        )
+
+                        return@intercept result
+                    }
+
+                    val protectedProcess = ProtectedProcess(
+                        pid = newPid,
+                        packageName = protectedPackage,
+                        processName = readPrimaryProcessName(processRecord),
+                    )
+
+                    rememberProtectedProcess(protectedProcess)
+                    applyProtectedMaxAdj(processRecord)
+                    writeOomScoreAdj(newPid, PROTECTED_OOM_ADJ)
+
+                    HookLog.i(
+                        module,
+                        "tracked protected process: pid=$newPid package=$protectedPackage process=${protectedProcess.processName.orEmpty()}",
+                    )
 
                     result
                 }
@@ -149,9 +188,15 @@ class OomAdjProtectHook(
                         return@intercept chain.proceed()
                     }
 
-                    val protectedPackage = pidToPackage[pid]
+                    val protectedProcess =
+                        protectedProcesses[pid] ?: return@intercept chain.proceed()
 
-                    if (protectedPackage == null) {
+                    if (!isStillSameProtectedProcess(protectedProcess)) {
+                        forgetProtectedProcess(
+                            pid = pid,
+                            reason = "pid no longer belongs to protected package",
+                        )
+
                         return@intercept chain.proceed()
                     }
 
@@ -164,7 +209,7 @@ class OomAdjProtectHook(
 
                     HookLog.i(
                         module,
-                        "clamp oom adj: pid=$pid package=$protectedPackage $adj->$PROTECTED_OOM_ADJ",
+                        "clamp oom adj: pid=$pid package=${protectedProcess.packageName} $adj->$PROTECTED_OOM_ADJ",
                     )
 
                     chain.proceed(newArgs)
@@ -201,6 +246,58 @@ class OomAdjProtectHook(
         }.onFailure { error ->
             HookLog.w(module, "failed to apply protected max adj", error)
         }
+    }
+
+    private fun rememberProtectedProcess(process: ProtectedProcess) {
+        protectedProcesses[process.pid] = process
+    }
+
+    private fun forgetProtectedProcess(
+        pid: Int,
+        reason: String,
+    ) {
+        val removed = protectedProcesses.remove(pid) ?: return
+
+        HookLog.i(
+            module,
+            "forgot protected process: pid=$pid package=${removed.packageName} reason=$reason",
+        )
+    }
+
+    private fun isStillSameProtectedProcess(process: ProtectedProcess): Boolean {
+        val cmdline = readProcCmdline(process.pid) ?: return false
+
+        return cmdline == process.packageName ||
+            cmdline == process.processName ||
+            cmdline.startsWith("${process.packageName}:") ||
+            process.processName?.let { processName ->
+                cmdline.startsWith("$processName:")
+            } == true
+    }
+
+    private fun readProcCmdline(pid: Int): String? {
+        return runCatching {
+            val bytes = java.io.File("/proc/$pid/cmdline").readBytes()
+            val cmdlineBytes = bytes.takeWhile { byte -> byte.toInt() != 0 }.toByteArray()
+
+            cmdlineBytes
+                .toString(Charsets.UTF_8)
+                .trim()
+                .takeIf { value -> value.isNotEmpty() }
+        }.getOrNull()
+    }
+
+    private fun readPidFromProcessRecord(processRecord: Any): Int? {
+        return listOf(
+            "mPid",
+            "pid",
+        ).firstNotNullOfOrNull { fieldName ->
+            readFieldValue(processRecord, fieldName) as? Int
+        }
+    }
+
+    private fun readPrimaryProcessName(processRecord: Any): String? {
+        return readProcessNameCandidates(processRecord).firstOrNull()
     }
 
     private fun findProtectedPackageFromProcessRecord(processRecord: Any): String? {
@@ -457,13 +554,14 @@ class OomAdjProtectHook(
 
             updateKeepAlivePackages(prefs)
 
-            val listener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
-                if (key != RemotePreferenceKeys.KeepAlivePackages) {
-                    return@OnSharedPreferenceChangeListener
-                }
+            val listener =
+                SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+                    if (key != RemotePreferenceKeys.KeepAlivePackages) {
+                        return@OnSharedPreferenceChangeListener
+                    }
 
-                updateKeepAlivePackages(sharedPreferences)
-            }
+                    updateKeepAlivePackages(sharedPreferences)
+                }
 
             preferenceListeners += listener
             prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -481,6 +579,15 @@ class OomAdjProtectHook(
         val packages = KeepAlivePackages.parse(raw)
 
         keepAlivePackages.set(packages)
+
+        protectedProcesses.forEach { (pid, process) ->
+            if (process.packageName !in packages) {
+                forgetProtectedProcess(
+                    pid = pid,
+                    reason = "package removed from keep-alive list",
+                )
+            }
+        }
 
         HookLog.i(
             module,
