@@ -52,6 +52,37 @@ class XposedConfigRepository {
         }
     }
 
+    fun loadKeepAlivePackages(service: XposedService): Result<Set<String>> {
+        return runCatching {
+            checkRemotePreferencesSupport(service)
+
+            val prefs = service.getRemotePreferences(RemotePreferenceKeys.GroupName)
+
+            val raw = prefs.getString(RemotePreferenceKeys.KeepAlivePackages, "").orEmpty()
+
+            KeepAlivePackages.parse(raw)
+        }
+    }
+
+    fun saveKeepAlivePackages(service: XposedService, packages: Set<String>): Result<Set<String>> {
+        return runCatching {
+            checkRemotePreferencesSupport(service)
+
+            val normalized = packages.toSortedSet()
+
+            val  prefs = service.getRemotePreferences(RemotePreferenceKeys.GroupName)
+
+            prefs.edit {
+                putString(
+                    RemotePreferenceKeys.KeepAlivePackages,
+                    KeepAlivePackages.format(normalized)
+                )
+            }
+
+            normalized
+        }
+    }
+
     private fun initializeIfMissing(
         prefs: SharedPreferences,
         config: NavBarLayoutConfig,

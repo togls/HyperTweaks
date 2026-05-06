@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.libxposed.service.XposedService
 import io.github.togls.hypertweaks.R
+import io.github.togls.hypertweaks.data.KeepAlivePackages
 import io.github.togls.hypertweaks.data.NavBarButton
 import io.github.togls.hypertweaks.data.NavBarLayoutConfig
 import io.github.togls.hypertweaks.data.XposedConfigRepository
@@ -39,6 +40,8 @@ class SettingsActivity : ComponentActivity() {
                     uiState = uiState,
                     onStartButtonChange = ::updateStartButton,
                     onEndButtonChange = ::updateEndButton,
+                    onKeepAlivePackagesTextChange = ::updateKeepAlivePackagesText,
+                    onSaveKeepAlivePackagesClick = ::saveKeepAlivePackages,
                     onReloadClick = {
                         loadConfig(XposedServiceStore.service.value)
                     },
@@ -57,18 +60,24 @@ class SettingsActivity : ComponentActivity() {
             return
         }
 
-        configRepository.loadConfig(service)
+        val navConfigResult = configRepository.loadConfig(service)
+        val keepAlivePackages = configRepository.loadKeepAlivePackages(service)
+            .getOrDefault(emptySet())
+
+        navConfigResult
             .onSuccess { config ->
-                uiState = SettingsUiState(
+                uiState = uiState.copy(
                     serviceConnected = true,
                     config = config,
+                    keepAlivePackagesText = KeepAlivePackages.format(keepAlivePackages),
                     message = getString(R.string.status_config_loaded),
                 )
             }
             .onFailure { error ->
-                uiState = SettingsUiState(
+                uiState = uiState.copy(
                     serviceConnected = true,
                     config = uiState.config,
+                    keepAlivePackagesText = KeepAlivePackages.format(keepAlivePackages),
                     message = error.message ?: getString(R.string.status_read_config_failed),
                 )
             }
@@ -107,6 +116,41 @@ class SettingsActivity : ComponentActivity() {
                 uiState = uiState.copy(
                     serviceConnected = true,
                     message = error.message ?: getString(R.string.status_save_config_failed),
+                )
+            }
+    }
+
+    private fun updateKeepAlivePackagesText(text: String) {
+        uiState = uiState.copy(
+            keepAlivePackagesText = text
+        )
+    }
+
+    private fun saveKeepAlivePackages() {
+        val service = XposedServiceStore.service.value
+
+        if (service == null) {
+            uiState = uiState.copy(
+                serviceConnected = false,
+                message = getString(R.string.status_save_without_service)
+            )
+            return
+        }
+
+        val packages = KeepAlivePackages.parse(uiState.keepAlivePackagesText)
+
+        configRepository.saveKeepAlivePackages(service, packages)
+            .onSuccess { savedPackages ->
+                uiState = uiState.copy(
+                    serviceConnected = true,
+                    keepAlivePackagesText = KeepAlivePackages.format(savedPackages),
+                    message = getString(R.string.status_keep_alive_saved),
+                )
+            }
+            .onFailure { error ->
+                uiState = uiState.copy(
+                    serviceConnected = true,
+                    message = error.message ?: getString(R.string.status_save_config_failed)
                 )
             }
     }

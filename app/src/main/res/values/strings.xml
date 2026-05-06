@@ -29,4 +29,10 @@
     <string name="nav_button_hide_ime">Hide IME</string>
     <string name="nav_button_ime_switcher">IME Switcher</string>
     <string name="nav_button_ime_picker">Input Method Picker</string>
+
+    <string name="keep_alive_title">Keep alive apps</string>
+    <string name="keep_alive_description">Prevent selected apps from being killed by HyperOS background cleanup. Enter one package name per line.</string>
+    <string name="keep_alive_packages_label">Package names</string>
+    <string name="action_save_keep_alive_packages">Save keep-alive list</string>
+    <string name="status_keep_alive_saved">Keep-alive package list saved.</string>
 </resources>

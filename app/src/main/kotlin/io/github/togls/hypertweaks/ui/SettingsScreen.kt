@@ -1,5 +1,6 @@
 package io.github.togls.hypertweaks.ui
 
+import android.widget.Button
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -8,6 +9,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -16,6 +19,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.togls.hypertweaks.R
@@ -36,6 +41,8 @@ fun SettingsScreen(
     uiState: SettingsUiState,
     onStartButtonChange: (NavBarButton) -> Unit,
     onEndButtonChange: (NavBarButton) -> Unit,
+    onKeepAlivePackagesTextChange: (String) -> Unit,
+    onSaveKeepAlivePackagesClick: () -> Unit,
     onReloadClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -48,6 +55,8 @@ fun SettingsScreen(
                 uiState = uiState,
                 onStartButtonChange = onStartButtonChange,
                 onEndButtonChange = onEndButtonChange,
+                onKeepAlivePackagesTextChange = onKeepAlivePackagesTextChange,
+                onSaveKeepAlivePackagesClick = onSaveKeepAlivePackagesClick,
                 onReloadClick = onReloadClick,
                 contentPadding = innerPadding,
             )
@@ -60,6 +69,8 @@ private fun SettingsContent(
     uiState: SettingsUiState,
     onStartButtonChange: (NavBarButton) -> Unit,
     onEndButtonChange: (NavBarButton) -> Unit,
+    onKeepAlivePackagesTextChange: (String) -> Unit,
+    onSaveKeepAlivePackagesClick: () -> Unit,
     onReloadClick: () -> Unit,
     contentPadding: PaddingValues,
 ) {
@@ -67,7 +78,8 @@ private fun SettingsContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(contentPadding)
-            .padding(20.dp),
+            .padding(20.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
@@ -105,6 +117,13 @@ private fun SettingsContent(
 
         HandlePreviewCard(
             handleLayout = uiState.config.toHandleLayout(),
+        )
+
+        KeepAlivePackagesCard(
+            packagesText = uiState.keepAlivePackagesText,
+            enabled = uiState.serviceConnected,
+            onPackagesTextChange = onKeepAlivePackagesTextChange,
+            onSaveClick = onSaveKeepAlivePackagesClick,
         )
     }
 }
@@ -255,6 +274,66 @@ private fun HandlePreviewCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+@Composable
+private fun KeepAlivePackagesCard(
+    packagesText: String,
+    enabled: Boolean,
+    onPackagesTextChange: (String) -> Unit,
+    onSaveClick: () -> Unit,
+) {
+    val focusManager = LocalFocusManager.current
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+          containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.keep_alive_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+
+            Text(
+                text = stringResource(R.string.keep_alive_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            OutlinedTextField(
+                value = packagesText,
+                enabled = enabled,
+                onValueChange = onPackagesTextChange,
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 4,
+                maxLines = 8,
+                label = {
+                    Text(text = stringResource(R.string.keep_alive_packages_label))
+                },
+                placeholder = {
+                    Text(
+                        text = "org.mozilla.firefox\norg.mozilla.firefox_beta\norg.mozilla.fenix",
+                    )
+                },
+            )
+
+            Button(
+                enabled = enabled,
+                onClick = {
+                    focusManager.clearFocus()
+                    onSaveClick()
+                },
+            ) {
+                Text(text = stringResource(R.string.action_save_keep_alive_packages))
+            }
         }
     }
 }

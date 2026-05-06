@@ -29,4 +29,10 @@
     <string name="nav_button_hide_ime">隐藏输入法</string>
     <string name="nav_button_ime_switcher">切换到下一个输入法</string>
     <string name="nav_button_ime_picker">选择输入法</string>
+
+    <string name="keep_alive_title">应用保活</string>
+    <string name="keep_alive_description">阻止 HyperOS 后台清理选中的应用。每行输入一个应用包名。</string>
+    <string name="keep_alive_packages_label">应用包名</string>
+    <string name="action_save_keep_alive_packages">保存保活列表</string>
+    <string name="status_keep_alive_saved">保活包名列表已保存</string>
 </resources>

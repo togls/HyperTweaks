@@ -10,9 +10,11 @@ import io.github.togls.hypertweaks.xposed.hook.InputMethodBottomManagerHook
 import io.github.togls.hypertweaks.xposed.hook.InputMethodManagerServiceHook
 import io.github.togls.hypertweaks.xposed.hook.InputMethodManagerServiceImplHook
 import io.github.togls.hypertweaks.xposed.hook.InputMethodServiceHook
+import io.github.togls.hypertweaks.xposed.hook.KeepAliveHook
 import io.github.togls.hypertweaks.xposed.hook.NavigationBarControllerHook
 import io.github.togls.hypertweaks.xposed.hook.NavigationBarInflaterHook
 import io.github.togls.hypertweaks.xposed.hook.NavigationBarViewHook
+import io.github.togls.hypertweaks.xposed.hook.OomAdjProtectHook
 import io.github.togls.hypertweaks.xposed.util.HookLog
 
 class HyperTweaksModule : XposedModule() {
@@ -24,7 +26,7 @@ class HyperTweaksModule : XposedModule() {
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
         val classLoader = param.classLoader
 
-        HookLog.i(this, "onSystemServerStarting")
+        HookLog.i(this, "========== HyperTweaks system_server loaded ==========")
 
         if (Build.VERSION.SDK_INT == Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             installSystemServerHook("InputMethodManagerService") {
@@ -35,6 +37,14 @@ class HyperTweaksModule : XposedModule() {
                 this,
                 "skip InputMethodManagerServiceHook on sdk=${Build.VERSION.SDK_INT}",
             )
+        }
+
+        installSystemServerHook("KeepAliveHook") {
+            KeepAliveHook(this).installSystemServer(classLoader)
+        }
+
+        installSystemServerHook("OomAdjProtectHook") {
+            OomAdjProtectHook(this).installSystemServer(classLoader)
         }
 
         installSystemServerHook("InputMethodManagerServiceImpl") {
@@ -51,6 +61,11 @@ class HyperTweaksModule : XposedModule() {
         val classLoader = param.classLoader
 
         HookLog.i(this, "onPackageReady package=$packageName")
+
+        if (!isImePackage(packageName)) {
+            HookLog.i(this, "skip IME hooks for non-IME package=$packageName")
+            return
+        }
 
         installPackageHook("InputMethodService", packageName) {
             InputMethodServiceHook(this).install(classLoader)
@@ -75,6 +90,20 @@ class HyperTweaksModule : XposedModule() {
         installPackageHook("InputMethodBottomManager", packageName) {
             InputMethodBottomManagerHook(this).install(classLoader)
         }
+    }
+
+    private fun isImePackage(packageName: String): Boolean {
+        return packageName in setOf(
+            "com.google.android.inputmethod.latin",
+            "com.baidu.input",
+            "com.baidu.input_mi",
+            "com.sohu.inputmethod.sogou",
+            "com.sohu.inputmethod.sogou.xiaomi",
+            "com.iflytek.inputmethod",
+            "com.iflytek.inputmethod.miui",
+            "com.tencent.wetype",
+            "keepass2android.keepass2android",
+        )
     }
 
     private fun installSystemServerHook(
