@@ -109,7 +109,7 @@ class NavigationBarInflaterHook(
     }
 
     private companion object {
-        private const val TAG = "MiAospIme"
+        private const val TAG = "HyperTweaks"
         private const val TARGET_CLASS_NAME =
             "android.inputmethodservice.navigationbar.NavigationBarInflaterView"
     }

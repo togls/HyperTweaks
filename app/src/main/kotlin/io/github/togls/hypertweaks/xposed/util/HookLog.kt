@@ -4,7 +4,7 @@ import android.util.Log
 import io.github.libxposed.api.XposedModule
 
 object HookLog {
-    private const val TAG = "MiAospIme"
+    private const val TAG = "HyperTweaks"
 
     fun i(
         module: XposedModule,
