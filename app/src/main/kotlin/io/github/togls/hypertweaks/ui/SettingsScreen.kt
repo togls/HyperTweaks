@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import io.github.togls.hypertweaks.BuildConfig
 import io.github.togls.hypertweaks.R
 import io.github.togls.hypertweaks.data.NavBarButton
 
@@ -44,6 +45,7 @@ fun SettingsScreen(
     onSaveKeepAlivePackagesClick: () -> Unit,
     onReloadClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showDebugInfo: Boolean = BuildConfig.DEBUG,
 ) {
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -58,6 +60,7 @@ fun SettingsScreen(
                 onSaveKeepAlivePackagesClick = onSaveKeepAlivePackagesClick,
                 onReloadClick = onReloadClick,
                 contentPadding = innerPadding,
+                showDebugInfo = showDebugInfo,
             )
         }
     }
@@ -72,6 +75,7 @@ private fun SettingsContent(
     onSaveKeepAlivePackagesClick: () -> Unit,
     onReloadClick: () -> Unit,
     contentPadding: PaddingValues,
+    showDebugInfo: Boolean = false,
 ) {
     Column(
         modifier = Modifier
@@ -96,6 +100,7 @@ private fun SettingsContent(
             serviceConnected = uiState.serviceConnected,
             message = uiState.message,
             onReloadClick = onReloadClick,
+            showDebugInfo = showDebugInfo,
         )
 
         NavBarButtonSelector(
@@ -114,9 +119,11 @@ private fun SettingsContent(
             onSelectedChange = onEndButtonChange,
         )
 
-        HandlePreviewCard(
-            handleLayout = uiState.config.toHandleLayout(),
-        )
+        if (showDebugInfo) {
+            HandlePreviewCard(
+                handleLayout = uiState.config.toHandleLayout(),
+            )
+        }
 
         KeepAlivePackagesCard(
             packagesText = uiState.keepAlivePackagesText,
@@ -132,6 +139,7 @@ private fun ServiceStateCard(
     serviceConnected: Boolean,
     message: String,
     onReloadClick: () -> Unit,
+    showDebugInfo: Boolean = false,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -151,6 +159,10 @@ private fun ServiceStateCard(
                 },
                 style = MaterialTheme.typography.titleMedium,
             )
+
+            if (!showDebugInfo) {
+                return@Card
+            }
 
             Text(
                 text = message.ifBlank {
@@ -237,14 +249,6 @@ private fun NavBarButtonSelector(
                     }
                 }
             }
-
-            HorizontalDivider()
-
-            Text(
-                text = stringResource(R.string.current_value, selected.value),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
