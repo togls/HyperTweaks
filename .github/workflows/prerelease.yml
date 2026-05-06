@@ -1,0 +1,82 @@
+name: Pre-release APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Pre-release tag name. Leave empty to use pre-release-${run_number}"
+        required: false
+        type: string
+      release_name:
+        description: "Release title. Leave empty to use HyperTweaks Pre-release ${run_number}"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  prerelease:
+    name: Build and publish pre-release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Grant execute permission for Gradle
+        run: chmod +x ./gradlew
+
+      - name: Resolve release metadata
+        run: |
+          if [ -n "${{ inputs.tag_name }}" ]; then
+            TAG_NAME="${{ inputs.tag_name }}"
+          else
+            TAG_NAME="pre-release-${{ github.run_number }}"
+          fi
+
+          if [ -n "${{ inputs.release_name }}" ]; then
+            RELEASE_NAME="${{ inputs.release_name }}"
+          else
+            RELEASE_NAME="HyperTweaks Pre-release ${{ github.run_number }}"
+          fi
+
+          echo "TAG_NAME=${TAG_NAME}" >> "$GITHUB_ENV"
+          echo "RELEASE_NAME=${RELEASE_NAME}" >> "$GITHUB_ENV"
+          echo "APK_NAME=HyperTweaks-${TAG_NAME}.apk" >> "$GITHUB_ENV"
+
+      - name: Decode release keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release-keystore.jks
+
+      - name: Build release APK
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/release-keystore.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew :app:assembleRelease
+
+      - name: Prepare pre-release artifact
+        run: |
+          mkdir -p release
+          cp app/build/outputs/apk/release/app-release.apk "release/${APK_NAME}"
+
+      - name: Create GitHub Pre-release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.RELEASE_NAME }}
+          files: release/*.apk
+          prerelease: true
+          make_latest: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
