@@ -3,8 +3,8 @@
     <application
         android:name=".HyperTweaksApp"
         android:description="@string/xposed_description"
-        android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.HyperTweaks">
