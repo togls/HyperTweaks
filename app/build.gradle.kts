@@ -1,7 +1,52 @@
+
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use(::load)
+    }
+}
+
+fun signingValue(
+    propertyKey: String,
+    environmentKey: String,
+): String? {
+    return keystoreProperties.getProperty(propertyKey)
+        ?: providers.environmentVariable(environmentKey).orNull
+}
+
+val releaseStoreFile = signingValue(
+    propertyKey = "storeFile",
+    environmentKey = "ANDROID_KEYSTORE_PATH",
+)
+
+val releaseStorePassword = signingValue(
+    propertyKey = "storePassword",
+    environmentKey = "ANDROID_KEYSTORE_PASSWORD",
+)
+
+val releaseKeyAlias = signingValue(
+    propertyKey = "keyAlias",
+    environmentKey = "ANDROID_KEY_ALIAS",
+)
+
+val releaseKeyPassword = signingValue(
+    propertyKey = "keyPassword",
+    environmentKey = "ANDROID_KEY_PASSWORD",
+)
+
+val hasReleaseSigning =
+    !releaseStoreFile.isNullOrBlank() &&
+        !releaseStorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
 
 android {
     namespace = "io.github.togls.hypertweaks"
@@ -18,29 +63,28 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
-            val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-            val keyAliasValue = System.getenv("ANDROID_KEY_ALIAS")
-            val keyPasswordValue = System.getenv("ANDROID_KEY_PASSWORD")
-
-            if (
-                keystorePath != null &&
-                keystorePassword != null &&
-                keyAliasValue != null &&
-                keyPasswordValue != null
-            ) {
-                storeFile = file(keystorePath)
-                storePassword = keystorePassword
-                keyAlias = keyAliasValue
-                keyPassword = keyPasswordValue
+            if (hasReleaseSigning) {
+                storeFile = rootProject.file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
             }
         }
     }
 
     buildTypes {
+        debug {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+
         release {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
         }
     }
 
