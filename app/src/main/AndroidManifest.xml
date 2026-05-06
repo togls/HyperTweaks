@@ -2,7 +2,6 @@
 
     <application
         android:name=".HyperTweaksApp"
-        android:allowBackup="false"
         android:description="@string/xposed_description"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
