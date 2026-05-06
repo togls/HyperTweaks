@@ -204,4 +204,8 @@ adb shell 'ps -A | grep "[f]enix" | while read u p rest; do adj=$(cat "/proc/$p/
 
 ## License
 
-本项目仅供个人学习和研究使用。若项目代码参考或派生自 GPL 项目，请遵守对应开源协议。
+Copyright (c) 2026 togls. All rights reserved.
+
+本项目公开发布仅用于个人学习、研究和参考目的。未经作者明确许可，不授权复制、修改、分发、再授权或商业使用。
+
+本项目的部分功能方向参考了第三方开源项目。如果后续确认存在来源于第三方项目的派生代码，对应部分应遵守其上游开源协议。
