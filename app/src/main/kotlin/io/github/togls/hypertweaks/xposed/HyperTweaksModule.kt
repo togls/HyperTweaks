@@ -28,16 +28,7 @@ class HyperTweaksModule : XposedModule() {
 
         HookLog.i(this, "========== HyperTweaks system_server loaded ==========")
 
-        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            installSystemServerHook("InputMethodManagerService") {
-                InputMethodManagerServiceHook(this).install(classLoader)
-            }
-        } else {
-            HookLog.i(
-                this,
-                "skip InputMethodManagerServiceHook on sdk=${Build.VERSION.SDK_INT}",
-            )
-        }
+        installImeSystemServerHooks(classLoader)
 
         installSystemServerHook("KeepAliveHook") {
             KeepAliveHook(this).installSystemServer(classLoader)
@@ -45,10 +36,6 @@ class HyperTweaksModule : XposedModule() {
 
         installSystemServerHook("OomAdjProtectHook") {
             OomAdjProtectHook(this).installSystemServer(classLoader)
-        }
-
-        installSystemServerHook("InputMethodManagerServiceImpl") {
-            InputMethodManagerServiceImplHook(this).install(classLoader)
         }
     }
 
@@ -89,6 +76,22 @@ class HyperTweaksModule : XposedModule() {
 
         installPackageHook("InputMethodBottomManager", packageName) {
             InputMethodBottomManagerHook(this).install(classLoader)
+        }
+    }
+
+    private fun installImeSystemServerHooks(classLoader: ClassLoader) {
+        when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA -> {
+                installSystemServerHook("InputMethodManagerServiceImpl") {
+                    InputMethodManagerServiceImplHook(this).install(classLoader)
+                }
+            }
+
+            else -> {
+                installSystemServerHook("InputMethodManagerService") {
+                    InputMethodManagerServiceHook(this).install(classLoader)
+                }
+            }
         }
     }
 
