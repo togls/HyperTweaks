@@ -28,12 +28,50 @@ class KeepAliveHook(
         IdentityHashMap<Method, Boolean>(),
     )
 
+    private companion object {
+        private const val MAX_EXTRACT_DEPTH = 3
+
+        private val PROCESS_LIST_CLEANUP_KEYWORDS = setOf(
+            "kill",
+        )
+
+        private val MIUI_SMART_POWER_CLEANUP_KEYWORDS = setOf(
+            "kill",
+            "clean",
+            "trim",
+            "hibernate",
+            "idle",
+            "power",
+            "freeze",
+        )
+
+        private val AMS_BACKGROUND_CLEANUP_METHOD_NAMES = setOf(
+            "killBackgroundProcesses",
+            "killBackgroundProcessesWithFeature",
+            "killPackageDependents",
+            "forceStopPackage",
+            "forceStopPackageAsUser",
+            "forceStopPackageLocked",
+        )
+
+        // aggressive mode
+        private val AMS_AGGRESSIVE_METHOD_NAMES = setOf(
+            "forceStopPackage",
+            "forceStopPackageAsUser",
+            "forceStopPackageLocked",
+        )
+    }
+
     fun installSystemServer(classLoader: ClassLoader) {
         loadRemotePreferences()
 
+        HookLog.i(module, "test only hookActivityManagerService")
+
         hookActivityManagerService(classLoader)
-        hookProcessRecord(classLoader)
+
+        // TODO: aggressive mode
         hookProcessList(classLoader)
+        hookProcessRecord(classLoader)
 
         if (!RomUtils.isXiaomiLikeRom()) {
             HookLog.i(module, "skip MIUI/HyperOS keep-alive hooks on non-Xiaomi ROM")
@@ -49,20 +87,9 @@ class KeepAliveHook(
             className = "com.android.server.am.ActivityManagerService",
         ) ?: return
 
-        val methodNames = setOf(
-            "killBackgroundProcesses",
-            "killBackgroundProcessesWithFeature",
-            "killPackageDependents",
-            "forceStopPackage",
-            "forceStopPackageAsUser",
-            "forceStopPackageLocked",
-        )
-
         targetClass.declaredMethods
-            .filter { method -> method.name in methodNames }
-            .forEach { method ->
-                hookMethodWithPackageArgs(method)
-            }
+            .filter { method -> method.name in AMS_BACKGROUND_CLEANUP_METHOD_NAMES }
+            .forEach { method -> hookMethodWithPackageArgs(method, "AMS_BACKGROUND") }
 
         HookLog.i(module, "KeepAliveHook installed for ActivityManagerService")
     }
@@ -109,13 +136,15 @@ class KeepAliveHook(
             }
 
         candidateMethods.forEach { method ->
-            hookMethodWithPackageArgs(method)
+            hookMethodWithPackageArgs(method, "PROCESS_LIST_CLEANUP")
         }
 
-        HookLog.i(
-            module,
-            "KeepAliveHook installed for $label: candidates=${candidateMethods.size}",
-        )
+        candidateMethods.forEach { method ->
+            HookLog.i(
+                module,
+                "KeepAliveHook installed for method: ${method.describeSignature()}",
+            )
+        }
     }
 
     private fun hookMiuiSmartPowerService(classLoader: ClassLoader) {
@@ -126,15 +155,7 @@ class KeepAliveHook(
 
         hookMiuiCleanerClass(
             targetClass = targetClass,
-            keywords = listOf(
-                "kill",
-                "clean",
-                "trim",
-                "hibernate",
-                "idle",
-                "power",
-                "freeze",
-            ),
+            keywords = MIUI_SMART_POWER_CLEANUP_KEYWORDS.toList(),
         )
 
         HookLog.i(module, "KeepAliveHook installed for SmartPowerService")
@@ -151,11 +172,11 @@ class KeepAliveHook(
                 }
             }
             .forEach { method ->
-                hookMethodWithPackageArgs(method)
+                hookMethodWithPackageArgs(method, "MIUI_SMART_POWER")
             }
     }
 
-    private fun hookMethodWithPackageArgs(method: Method) {
+    private fun hookMethodWithPackageArgs(method: Method, group: String) {
         if (!rememberHookedMethod(method)) {
             return
         }
@@ -171,7 +192,7 @@ class KeepAliveHook(
                     if (protectedPackage != null) {
                         HookLog.i(
                             module,
-                            "blocked package cleanup: ${method.describeSignature()} package=$protectedPackage",
+                            "blocked keep-alive: group=$group method=${method.describeSignature()} package=$protectedPackage",
                         )
 
                         return@intercept defaultReturnValue(method.returnType)
@@ -212,7 +233,7 @@ class KeepAliveHook(
                     if (protectedPackage != null) {
                         HookLog.i(
                             module,
-                            "blocked process kill: ${method.describeSignature()} package=$protectedPackage",
+                            "blocked process kill: group=PROCESS_RECORD_KILL ${method.describeSignature()} package=$protectedPackage",
                         )
 
                         return@intercept defaultReturnValue(method.returnType)
@@ -529,30 +550,6 @@ class KeepAliveHook(
         HookLog.i(
             module,
             "keep-alive packages updated: ${packages.joinToString()}",
-        )
-    }
-
-    private companion object {
-        private const val MAX_EXTRACT_DEPTH = 3
-
-        private val PROCESS_LIST_CLEANUP_KEYWORDS = setOf(
-            "kill",
-        )
-
-        private val MIUI_PROCESS_MANAGER_CLEANUP_KEYWORDS = setOf(
-            "kill",
-            "clean",
-            "trim",
-            "forceStop",
-        )
-
-        private val MIUI_SMART_POWER_CLEANUP_KEYWORDS = setOf(
-            "kill",
-            "clean",
-            "trim",
-            "hibernate",
-            "idle",
-            "freeze",
         )
     }
 

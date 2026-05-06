@@ -59,9 +59,12 @@ class OomAdjProtectHook(
             }
             .forEach { method ->
                 hookProcessRecordSetPid(method)
-            }
 
-        HookLog.i(module, "OomAdjProtectHook installed for ProcessRecord")
+                HookLog.i(
+                    module,
+                    "OomAdjProtectHook installed for ProcessRecord: ${method.describeSignature()}"
+                )
+            }
     }
 
     private fun hookProcessRecordSetPid(method: Method) {
@@ -123,7 +126,7 @@ class OomAdjProtectHook(
 
                     HookLog.i(
                         module,
-                        "tracked protected process: pid=$newPid package=$protectedPackage process=${protectedProcess.processName.orEmpty()}",
+                        "tracked protected process: group=PROCESS_RECORD_KILL pid=$newPid package=$protectedPackage process=${protectedProcess.processName.orEmpty()}",
                     )
 
                     result
@@ -175,12 +178,12 @@ class OomAdjProtectHook(
 
         methods.forEach { method ->
             hookSetOomAdj(method)
-        }
 
-        HookLog.i(
-            module,
-            "OomAdjProtectHook installed for ProcessList#setOomAdj: count=${methods.size}",
-        )
+            HookLog.i(
+                module,
+                "OomAdjProtectHook installed for ProcessList#setOomAdj: ${method.describeSignature()}",
+            )
+        }
     }
 
     private fun hookSetOomAdj(method: Method) {
@@ -224,7 +227,7 @@ class OomAdjProtectHook(
 
                     HookLog.i(
                         module,
-                        "clamp oom adj: pid=$pid package=${protectedProcess.packageName} $adj->$PROTECTED_OOM_ADJ",
+                        "clamp oom adj: group=OOM_ADJ pid=$pid package=${protectedProcess.packageName} $adj->$PROTECTED_OOM_ADJ",
                     )
 
                     chain.proceed(newArgs)

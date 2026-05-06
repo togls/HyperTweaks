@@ -28,8 +28,6 @@ class HyperTweaksModule : XposedModule() {
 
         HookLog.i(this, "========== HyperTweaks system_server loaded ==========")
 
-        installImeSystemServerHooks(classLoader)
-
         installSystemServerHook("KeepAliveHook") {
             KeepAliveHook(this).installSystemServer(classLoader)
         }
@@ -37,6 +35,8 @@ class HyperTweaksModule : XposedModule() {
         installSystemServerHook("OomAdjProtectHook") {
             OomAdjProtectHook(this).installSystemServer(classLoader)
         }
+
+        installImeSystemServerHooks(classLoader)
     }
 
     override fun onPackageReady(param: PackageReadyParam) {
