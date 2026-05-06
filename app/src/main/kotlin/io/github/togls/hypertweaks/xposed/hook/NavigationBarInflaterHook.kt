@@ -70,20 +70,21 @@ class NavigationBarInflaterHook(
                 ).orEmpty(),
             )
 
-            val listener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
-                if (key != RemotePreferenceKeys.NavBarLayoutHandle) {
-                    return@OnSharedPreferenceChangeListener
+            val listener =
+                SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+                    if (key != RemotePreferenceKeys.NavBarLayoutHandle) {
+                        return@OnSharedPreferenceChangeListener
+                    }
+
+                    val nextLayout = sharedPreferences.getString(
+                        RemotePreferenceKeys.NavBarLayoutHandle,
+                        "",
+                    ).orEmpty()
+
+                    navBarLayoutHandle.set(nextLayout)
+
+                    logInfo("remote preference changed: $key=$nextLayout")
                 }
-
-                val nextLayout = sharedPreferences.getString(
-                    RemotePreferenceKeys.NavBarLayoutHandle,
-                    "",
-                ).orEmpty()
-
-                navBarLayoutHandle.set(nextLayout)
-
-                logInfo("remote preference changed: $key=$nextLayout")
-            }
 
             preferenceListeners += listener
             prefs.registerOnSharedPreferenceChangeListener(listener)

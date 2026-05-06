@@ -1,8 +1,8 @@
 package io.github.togls.hypertweaks.data
 
 import android.content.SharedPreferences
-import io.github.libxposed.service.XposedService
 import androidx.core.content.edit
+import io.github.libxposed.service.XposedService
 
 class XposedConfigRepository {
 
@@ -70,7 +70,7 @@ class XposedConfigRepository {
 
             val normalized = packages.toSortedSet()
 
-            val  prefs = service.getRemotePreferences(RemotePreferenceKeys.GroupName)
+            val prefs = service.getRemotePreferences(RemotePreferenceKeys.GroupName)
 
             prefs.edit {
                 putString(

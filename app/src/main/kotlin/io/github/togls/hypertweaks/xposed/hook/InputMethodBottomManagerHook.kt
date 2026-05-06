@@ -22,7 +22,11 @@ class InputMethodBottomManagerHook(
         val moduleManagerClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
         }.onFailure { error ->
-            HookLog.w(module, "skip InputMethodBottomManagerHook: InputMethodModuleManager not found", error)
+            HookLog.w(
+                module,
+                "skip InputMethodBottomManagerHook: InputMethodModuleManager not found",
+                error
+            )
         }.getOrNull() ?: return
 
         val loadDexMethod = runCatching {

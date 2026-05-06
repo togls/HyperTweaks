@@ -39,7 +39,11 @@ class InputMethodManagerServiceHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(module, "skip InputMethodManagerServiceHook: mImeDrawsImeNavBarRes not found", error)
+            HookLog.w(
+                module,
+                "skip InputMethodManagerServiceHook: mImeDrawsImeNavBarRes not found",
+                error
+            )
         }.getOrNull() ?: return
 
         val settingsField = runCatching {
@@ -77,7 +81,8 @@ class InputMethodManagerServiceHook(
         }.getOrNull() ?: return
 
         val serviceStubGetInstanceMethod = runCatching {
-            val stubClass = classLoader.loadClass("com.android.server.inputmethod.InputMethodManagerServiceStub")
+            val stubClass =
+                classLoader.loadClass("com.android.server.inputmethod.InputMethodManagerServiceStub")
 
             stubClass.getDeclaredMethod("getInstance").apply {
                 isAccessible = true

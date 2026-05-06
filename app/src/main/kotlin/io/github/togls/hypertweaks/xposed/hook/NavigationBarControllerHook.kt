@@ -120,8 +120,9 @@ class NavigationBarControllerHook(
                     val view = chain.getArg(0) as? View
                         ?: return@runCatching false
 
-                    val inputMethodManager = view.context.getSystemService(InputMethodManager::class.java)
-                        ?: return@runCatching false
+                    val inputMethodManager =
+                        view.context.getSystemService(InputMethodManager::class.java)
+                            ?: return@runCatching false
 
                     inputMethodManager.showInputMethodPicker()
 
@@ -174,16 +175,17 @@ class NavigationBarControllerHook(
 
             updateImePickerEnabled(prefs)
 
-            val listener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
-                if (
-                    key != RemotePreferenceKeys.NavBarLayoutStart &&
-                    key != RemotePreferenceKeys.NavBarLayoutEnd
-                ) {
-                    return@OnSharedPreferenceChangeListener
-                }
+            val listener =
+                SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+                    if (
+                        key != RemotePreferenceKeys.NavBarLayoutStart &&
+                        key != RemotePreferenceKeys.NavBarLayoutEnd
+                    ) {
+                        return@OnSharedPreferenceChangeListener
+                    }
 
-                updateImePickerEnabled(sharedPreferences)
-            }
+                    updateImePickerEnabled(sharedPreferences)
+                }
 
             preferenceListeners += listener
             prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -204,7 +206,7 @@ class NavigationBarControllerHook(
         )
 
         val enabled = start == NavBarButton.ImePicker.value ||
-                end == NavBarButton.ImePicker.value
+            end == NavBarButton.ImePicker.value
 
         imePickerShortClickEnabled.set(enabled)
 

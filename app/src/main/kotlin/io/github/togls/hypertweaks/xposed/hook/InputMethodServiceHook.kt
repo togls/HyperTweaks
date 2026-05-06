@@ -1,5 +1,6 @@
 package io.github.togls.hypertweaks.xposed.hook
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.inputmethodservice.InputMethodService
 import io.github.libxposed.api.XposedInterface
@@ -7,7 +8,6 @@ import io.github.libxposed.api.XposedModule
 import io.github.togls.hypertweaks.xposed.util.HookLog
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
-import android.annotation.SuppressLint
 
 class InputMethodServiceHook(
     private val module: XposedModule,
@@ -25,7 +25,11 @@ class InputMethodServiceHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(module, "skip InputMethodServiceHook: IS_INTERNATIONAL_BUILD not found", error)
+            HookLog.w(
+                module,
+                "skip InputMethodServiceHook: IS_INTERNATIONAL_BUILD not found",
+                error
+            )
         }.getOrNull() ?: return
 
         val hideImeRenderMethod = runCatching {

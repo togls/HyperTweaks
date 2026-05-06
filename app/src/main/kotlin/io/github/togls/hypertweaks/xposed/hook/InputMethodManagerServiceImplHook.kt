@@ -66,7 +66,7 @@ class InputMethodManagerServiceImplHook(
                 ?: return@runCatching false
 
             val inputMethodManager = context.getSystemService(Context.INPUT_METHOD_SERVICE)
-                    as? InputMethodManager
+                as? InputMethodManager
                 ?: return@runCatching false
 
             val currentInputMethodInfo = getCurrentInputMethodInfo(inputMethodManager)
