@@ -1,4 +1,4 @@
-package io.github.togls.hypertweaks.ui.settings
+package io.github.togls.hypertweaks.ui
 
 import android.app.Application
 import androidx.annotation.StringRes
@@ -6,8 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
-import io.github.libxposed.service.XposedService
 import io.github.togls.hypertweaks.R
+import io.github.togls.hypertweaks.data.ConfigRepository
 import io.github.togls.hypertweaks.data.FeatureToggles
 import io.github.togls.hypertweaks.data.KeepAlivePackages
 import io.github.togls.hypertweaks.data.NavBarButton
@@ -16,42 +16,36 @@ import io.github.togls.hypertweaks.data.XposedConfigRepository
 
 class SettingsViewModel(
     application: Application,
+    private val configRepository: ConfigRepository = XposedConfigRepository()
 ) : AndroidViewModel(application) {
-
-    private val configRepository = XposedConfigRepository()
 
     var uiState by mutableStateOf(SettingsUiState())
         private set
 
     fun onAction(
         action: SettingsAction,
-        service: XposedService?,
     ) {
         when (action) {
             is SettingsAction.SetImeEnabled -> {
                 updateImeEnabled(
-                    service = service,
                     enabled = action.enabled,
                 )
             }
 
             is SettingsAction.SetKeepAliveEnabled -> {
                 updateKeepAliveEnabled(
-                    service = service,
                     enabled = action.enabled,
                 )
             }
 
             is SettingsAction.SetStartButton -> {
                 updateStartButton(
-                    service = service,
                     button = action.button,
                 )
             }
 
             is SettingsAction.SetEndButton -> {
                 updateEndButton(
-                    service = service,
                     button = action.button,
                 )
             }
@@ -61,32 +55,25 @@ class SettingsViewModel(
             }
 
             SettingsAction.SaveKeepAlivePackages -> {
-                saveKeepAlivePackages(service)
+                saveKeepAlivePackages()
             }
 
             SettingsAction.ReloadConfig -> {
-                loadConfig(service)
+                loadConfig()
             }
         }
     }
 
-    fun loadConfig(service: XposedService?) {
-        if (service == null) {
-            uiState = uiState.copy(
-                serviceConnected = false,
-                message = string(R.string.status_service_not_connected),
-            )
-            return
-        }
+    fun loadConfig() {
 
-        val navConfigResult = configRepository.loadConfig(service)
+        val navConfigResult = configRepository.loadConfig()
 
         val keepAlivePackages = configRepository
-            .loadKeepAlivePackages(service)
+            .loadKeepAlivePackages()
             .getOrDefault(emptySet())
 
         val featureToggles = configRepository
-            .loadFeatureToggles(service)
+            .loadFeatureToggles()
             .getOrDefault(FeatureToggles())
 
         navConfigResult
@@ -114,41 +101,29 @@ class SettingsViewModel(
     }
 
     private fun updateStartButton(
-        service: XposedService?,
         button: NavBarButton,
     ) {
         val nextConfig = uiState.config.copy(start = button)
         saveConfig(
-            service = service,
             config = nextConfig,
         )
     }
 
     private fun updateEndButton(
-        service: XposedService?,
         button: NavBarButton,
     ) {
         val nextConfig = uiState.config.copy(end = button)
         saveConfig(
-            service = service,
             config = nextConfig,
         )
     }
 
     private fun saveConfig(
-        service: XposedService?,
         config: NavBarLayoutConfig,
     ) {
-        if (service == null) {
-            uiState = uiState.copy(
-                serviceConnected = false,
-                message = string(R.string.status_save_without_service),
-            )
-            return
-        }
 
         configRepository
-            .saveConfig(service, config)
+            .saveConfig(config)
             .onSuccess { savedConfig ->
                 uiState = uiState.copy(
                     serviceConnected = true,
@@ -173,15 +148,7 @@ class SettingsViewModel(
         )
     }
 
-    private fun saveKeepAlivePackages(service: XposedService?) {
-        if (service == null) {
-            uiState = uiState.copy(
-                serviceConnected = false,
-                message = string(R.string.status_save_without_service),
-            )
-            return
-        }
-
+    private fun saveKeepAlivePackages() {
         val parseResult = KeepAlivePackages.parseWithInvalid(uiState.keepAlivePackagesText)
 
         if (parseResult.invalidValues.isNotEmpty()) {
@@ -197,7 +164,7 @@ class SettingsViewModel(
         }
 
         configRepository
-            .saveKeepAlivePackages(service, parseResult.packages)
+            .saveKeepAlivePackages(parseResult.packages)
             .onSuccess { savedPackages ->
                 uiState = uiState.copy(
                     serviceConnected = true,
@@ -215,11 +182,9 @@ class SettingsViewModel(
     }
 
     private fun updateImeEnabled(
-        service: XposedService?,
         enabled: Boolean,
     ) {
         saveFeatureToggles(
-            service = service,
             toggles = FeatureToggles(
                 imeEnabled = enabled,
                 keepAliveEnabled = uiState.keepAliveEnabled,
@@ -228,11 +193,9 @@ class SettingsViewModel(
     }
 
     private fun updateKeepAliveEnabled(
-        service: XposedService?,
         enabled: Boolean,
     ) {
         saveFeatureToggles(
-            service = service,
             toggles = FeatureToggles(
                 imeEnabled = uiState.imeEnabled,
                 keepAliveEnabled = enabled,
@@ -241,19 +204,10 @@ class SettingsViewModel(
     }
 
     private fun saveFeatureToggles(
-        service: XposedService?,
         toggles: FeatureToggles,
     ) {
-        if (service == null) {
-            uiState = uiState.copy(
-                serviceConnected = false,
-                message = string(R.string.status_save_without_service),
-            )
-            return
-        }
-
         configRepository
-            .saveFeatureToggles(service, toggles)
+            .saveFeatureToggles(toggles)
             .onSuccess { savedToggles ->
                 uiState = uiState.copy(
                     serviceConnected = true,

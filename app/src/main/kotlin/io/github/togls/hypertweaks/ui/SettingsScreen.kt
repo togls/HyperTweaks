@@ -1,4 +1,4 @@
-package io.github.togls.hypertweaks.ui.settings
+package io.github.togls.hypertweaks.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

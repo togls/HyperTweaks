@@ -3,15 +3,17 @@ package io.github.togls.hypertweaks.data
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import io.github.libxposed.service.XposedService
+import io.github.togls.hypertweaks.service.XposedServiceStore
 
-class XposedConfigRepository {
+class XposedConfigRepository(
+    private val serviceProvider: () -> XposedService? = { XposedServiceStore.service.value },
+) : ConfigRepository {
 
-    fun loadConfig(service: XposedService): Result<NavBarLayoutConfig> {
-        return runCatching {
-            checkRemotePreferencesSupport(service)
+    override val serviceConnected: Boolean
+        get() = serviceProvider() != null
 
-            val prefs = service.getRemotePreferences(RemotePreferenceKeys.GroupName)
-
+    override fun loadConfig(): Result<NavBarLayoutConfig> {
+        return withRemotePreferences { prefs ->
             val config = NavBarLayoutConfig(
                 start = NavBarButton.fromValue(
                     prefs.getString(
@@ -33,15 +35,8 @@ class XposedConfigRepository {
         }
     }
 
-    fun saveConfig(
-        service: XposedService,
-        config: NavBarLayoutConfig,
-    ): Result<NavBarLayoutConfig> {
-        return runCatching {
-            checkRemotePreferencesSupport(service)
-
-            val prefs = service.getRemotePreferences(RemotePreferenceKeys.GroupName)
-
+    override fun saveConfig(config: NavBarLayoutConfig): Result<NavBarLayoutConfig> {
+        return withRemotePreferences { prefs ->
             prefs.edit {
                 putString(RemotePreferenceKeys.NavBarLayoutStart, config.start.value)
                     .putString(RemotePreferenceKeys.NavBarLayoutEnd, config.end.value)
@@ -52,12 +47,8 @@ class XposedConfigRepository {
         }
     }
 
-    fun loadFeatureToggles(service: XposedService): Result<FeatureToggles> {
-        return runCatching {
-            checkRemotePreferencesSupport(service)
-
-            val prefs = service.getRemotePreferences(RemotePreferenceKeys.GroupName)
-
+    override fun loadFeatureToggles(): Result<FeatureToggles> {
+        return withRemotePreferences { prefs ->
             FeatureToggles(
                 imeEnabled = prefs.getBoolean(RemotePreferenceKeys.ImeEnabled, false),
                 keepAliveEnabled = prefs.getBoolean(RemotePreferenceKeys.KeepAliveEnabled, false),
@@ -65,15 +56,8 @@ class XposedConfigRepository {
         }
     }
 
-    fun saveFeatureToggles(
-        service: XposedService,
-        toggles: FeatureToggles,
-    ): Result<FeatureToggles> {
-        return runCatching {
-            checkRemotePreferencesSupport(service)
-
-            val prefs = service.getRemotePreferences(RemotePreferenceKeys.GroupName)
-
+    override fun saveFeatureToggles(toggles: FeatureToggles): Result<FeatureToggles> {
+        return withRemotePreferences { prefs ->
             prefs.edit {
                 putBoolean(RemotePreferenceKeys.ImeEnabled, toggles.imeEnabled)
                 putBoolean(RemotePreferenceKeys.KeepAliveEnabled, toggles.keepAliveEnabled)
@@ -83,35 +67,48 @@ class XposedConfigRepository {
         }
     }
 
-    fun loadKeepAlivePackages(service: XposedService): Result<Set<String>> {
-        return runCatching {
-            checkRemotePreferencesSupport(service)
-
-            val prefs = service.getRemotePreferences(RemotePreferenceKeys.GroupName)
-
-            val raw = prefs.getString(RemotePreferenceKeys.KeepAlivePackages, "").orEmpty()
+    override fun loadKeepAlivePackages(): Result<Set<String>> {
+        return withRemotePreferences { prefs ->
+            val raw = prefs
+                .getString(RemotePreferenceKeys.KeepAlivePackages, "")
+                .orEmpty()
 
             KeepAlivePackages.parse(raw)
         }
     }
 
-    fun saveKeepAlivePackages(service: XposedService, packages: Set<String>): Result<Set<String>> {
-        return runCatching {
-            checkRemotePreferencesSupport(service)
-
+    override fun saveKeepAlivePackages(packages: Set<String>): Result<Set<String>> {
+        return withRemotePreferences { prefs ->
             val normalized = packages.toSortedSet()
-
-            val prefs = service.getRemotePreferences(RemotePreferenceKeys.GroupName)
 
             prefs.edit {
                 putString(
                     RemotePreferenceKeys.KeepAlivePackages,
-                    KeepAlivePackages.format(normalized)
+                    KeepAlivePackages.format(normalized),
                 )
             }
 
             normalized
         }
+    }
+
+    private fun <T> withRemotePreferences(
+        block: (SharedPreferences) -> T,
+    ): Result<T> {
+        return runCatching {
+            val service = requireService()
+
+            checkRemotePreferencesSupport(service)
+
+            val prefs = service.getRemotePreferences(RemotePreferenceKeys.GroupName)
+
+            block(prefs)
+        }
+    }
+
+    private fun requireService(): XposedService {
+        return serviceProvider()
+            ?: error("Xposed service is not connected")
     }
 
     private fun initializeIfMissing(

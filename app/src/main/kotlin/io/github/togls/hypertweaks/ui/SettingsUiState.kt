@@ -1,4 +1,4 @@
-package io.github.togls.hypertweaks.ui.settings
+package io.github.togls.hypertweaks.ui
 
 import io.github.togls.hypertweaks.data.NavBarLayoutConfig
 
