@@ -1,6 +1,7 @@
 package io.github.togls.hypertweaks.ui.settings
 
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
+import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
 
 sealed interface SettingsAction {
 
@@ -27,4 +28,8 @@ sealed interface SettingsAction {
     data object SaveKeepAlivePackages : SettingsAction
 
     data object ReloadConfig : SettingsAction
+
+    data class SetKeepAliveMode(
+        val mode: KeepAliveMode,
+    ) : SettingsAction
 }

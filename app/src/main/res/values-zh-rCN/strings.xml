@@ -40,6 +40,16 @@
 
     <string name="keep_alive_title">应用保活</string>
     <string name="keep_alive_description">阻止 HyperOS 后台清理选中的应用。每行输入一个应用包名。</string>
+
+    <string name="keep_alive_mode_title">保活模式</string>
+    <string name="keep_alive_mode_conservative_title">保守模式</string>
+    <string name="keep_alive_mode_conservative_description">只拦截后台清理和智能省电清理，推荐日常使用。</string>
+    <string name="keep_alive_mode_aggressive_title">激进模式</string>
+    <string name="keep_alive_mode_aggressive_description">额外拦截强制停止和进程终止调用，可能导致手动结束应用无效。</string>
+    <string name="keep_alive_mode_oom_only_title">仅 OOM 保护</string>
+    <string name="keep_alive_mode_oom_only_description">只保护 OOM 优先级，不拦截 kill 或 force stop 调用。</string>
+    <string name="status_keep_alive_mode_saved">保活模式已保存</string>
+
     <string name="keep_alive_packages_label">应用包名</string>
     <string name="action_save_keep_alive_packages">保存保活列表</string>
     <string name="status_keep_alive_saved">保活包名列表已保存</string>

@@ -10,4 +10,6 @@ object RemotePreferenceKeys {
 
     const val KeepAliveEnabled = "keep_alive_enabled"
     const val KeepAlivePackages = "keep_alive_packages"
+
+    const val KeepAliveMode = "keep_alive_mode"
 }

@@ -40,6 +40,16 @@
 
     <string name="keep_alive_title">Keep alive apps</string>
     <string name="keep_alive_description">Prevent selected apps from being killed by HyperOS background cleanup. Enter one package name per line.</string>
+
+    <string name="keep_alive_mode_title">Keep alive mode</string>
+    <string name="keep_alive_mode_conservative_title">Conservative</string>
+    <string name="keep_alive_mode_conservative_description">Block background cleanup and smart power cleanup. Recommended for daily use.</string>
+    <string name="keep_alive_mode_aggressive_title">Aggressive</string>
+    <string name="keep_alive_mode_aggressive_description">Also block force stop and process kill calls. May make manual app termination ineffective.</string>
+    <string name="keep_alive_mode_oom_only_title">OOM only</string>
+    <string name="keep_alive_mode_oom_only_description">Only protect OOM priority. Do not block kill or force stop calls.</string>
+    <string name="status_keep_alive_mode_saved">Keep alive mode saved</string>
+
     <string name="keep_alive_packages_label">Package names</string>
     <string name="action_save_keep_alive_packages">Save keep-alive list</string>
     <string name="status_keep_alive_saved">Keep-alive package list saved.</string>

@@ -13,6 +13,7 @@ import io.github.togls.hypertweaks.feature.keepalive.data.KeepAlivePackages
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 import io.github.togls.hypertweaks.feature.ime.data.NavBarLayoutConfig
 import io.github.togls.hypertweaks.core.config.XposedConfigRepository
+import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
 
 class SettingsViewModel(
     application: Application,
@@ -61,6 +62,10 @@ class SettingsViewModel(
             SettingsAction.ReloadConfig -> {
                 loadConfig()
             }
+
+            is SettingsAction.SetKeepAliveMode -> {
+                updateKeepAliveMode(action.mode)
+            }
         }
     }
 
@@ -76,6 +81,10 @@ class SettingsViewModel(
             .loadFeatureToggles()
             .getOrDefault(FeatureToggles())
 
+        val keepAliveMode = configRepository
+            .loadKeepAliveMode()
+            .getOrDefault(KeepAliveMode.Default)
+
         navConfigResult
             .onSuccess { config ->
                 uiState = uiState.copy(
@@ -83,6 +92,7 @@ class SettingsViewModel(
                     imeEnabled = featureToggles.imeEnabled,
                     keepAliveEnabled = featureToggles.keepAliveEnabled,
                     config = config,
+                    keepAliveMode = keepAliveMode,
                     keepAlivePackagesText = KeepAlivePackages.format(keepAlivePackages),
                     invalidKeepAlivePackages = emptyList(),
                     message = string(R.string.status_config_loaded),
@@ -92,6 +102,7 @@ class SettingsViewModel(
                 uiState = uiState.copy(
                     serviceConnected = true,
                     imeEnabled = featureToggles.imeEnabled,
+                    keepAliveMode = keepAliveMode,
                     keepAliveEnabled = featureToggles.keepAliveEnabled,
                     keepAlivePackagesText = KeepAlivePackages.format(keepAlivePackages),
                     invalidKeepAlivePackages = emptyList(),
@@ -219,6 +230,32 @@ class SettingsViewModel(
             .onFailure { error ->
                 uiState = uiState.copy(
                     serviceConnected = true,
+                    message = error.message ?: string(R.string.status_save_config_failed),
+                )
+            }
+    }
+
+    private fun updateKeepAliveMode(mode: KeepAliveMode) {
+        if (!configRepository.serviceConnected) {
+            uiState = uiState.copy(
+                serviceConnected = false,
+                message = string(R.string.status_save_without_service),
+            )
+            return
+        }
+
+        configRepository
+            .saveKeepAliveMode(mode)
+            .onSuccess { savedMode ->
+                uiState = uiState.copy(
+                    serviceConnected = true,
+                    keepAliveMode = savedMode,
+                    message = string(R.string.status_keep_alive_mode_saved),
+                )
+            }
+            .onFailure { error ->
+                uiState = uiState.copy(
+                    serviceConnected = configRepository.serviceConnected,
                     message = error.message ?: string(R.string.status_save_config_failed),
                 )
             }

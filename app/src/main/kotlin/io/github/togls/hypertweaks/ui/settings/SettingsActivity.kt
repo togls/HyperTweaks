@@ -39,6 +39,9 @@ class SettingsActivity : ComponentActivity() {
                     onEndButtonChange = { button ->
                         viewModel.onAction(SettingsAction.SetEndButton(button))
                     },
+                    onKeepAliveModeChange = { mode ->
+                        viewModel.onAction(SettingsAction.SetKeepAliveMode(mode))
+                    },
                     onKeepAlivePackagesTextChange = { text ->
                         viewModel.onAction(SettingsAction.UpdateKeepAlivePackagesText(text))
                     },

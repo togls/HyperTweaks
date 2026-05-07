@@ -5,6 +5,7 @@ import androidx.core.content.edit
 import io.github.libxposed.service.XposedService
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 import io.github.togls.hypertweaks.feature.ime.data.NavBarLayoutConfig
+import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAlivePackages
 import io.github.togls.hypertweaks.service.XposedServiceStore
 
@@ -92,6 +93,27 @@ class XposedConfigRepository(
             }
 
             normalized
+        }
+    }
+
+    override fun loadKeepAliveMode(): Result<KeepAliveMode> {
+        return withRemotePreferences { prefs ->
+            KeepAliveMode.fromValue(
+                prefs.getString(
+                    RemotePreferenceKeys.KeepAliveMode,
+                    KeepAliveMode.Default.value,
+                ),
+            )
+        }
+    }
+
+    override fun saveKeepAliveMode(mode: KeepAliveMode): Result<KeepAliveMode> {
+        return withRemotePreferences { prefs ->
+            prefs.edit {
+                putString(RemotePreferenceKeys.KeepAliveMode, mode.value)
+            }
+
+            mode
         }
     }
 

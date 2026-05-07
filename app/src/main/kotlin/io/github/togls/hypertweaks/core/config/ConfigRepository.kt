@@ -1,6 +1,7 @@
 package io.github.togls.hypertweaks.core.config
 
 import io.github.togls.hypertweaks.feature.ime.data.NavBarLayoutConfig
+import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
 
 interface ConfigRepository {
 
@@ -17,4 +18,8 @@ interface ConfigRepository {
     fun loadKeepAlivePackages(): Result<Set<String>>
 
     fun saveKeepAlivePackages(packages: Set<String>): Result<Set<String>>
+
+    fun loadKeepAliveMode(): Result<KeepAliveMode>
+
+    fun saveKeepAliveMode(mode: KeepAliveMode): Result<KeepAliveMode>
 }

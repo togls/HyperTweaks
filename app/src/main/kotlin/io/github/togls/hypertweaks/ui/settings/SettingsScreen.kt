@@ -1,5 +1,6 @@
 package io.github.togls.hypertweaks.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,6 +20,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -31,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -38,6 +41,7 @@ import io.github.togls.hypertweaks.BuildConfig
 import io.github.togls.hypertweaks.R
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 import io.github.togls.hypertweaks.feature.ime.data.NavBarLayoutConfig
+import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
 
 @Composable
 fun SettingsScreen(
@@ -46,6 +50,7 @@ fun SettingsScreen(
     onKeepAliveEnabledChange: (Boolean) -> Unit,
     onStartButtonChange: (NavBarButton) -> Unit,
     onEndButtonChange: (NavBarButton) -> Unit,
+    onKeepAliveModeChange: (KeepAliveMode) -> Unit,
     onKeepAlivePackagesTextChange: (String) -> Unit,
     onSaveKeepAlivePackagesClick: () -> Unit,
     onReloadClick: () -> Unit,
@@ -63,6 +68,7 @@ fun SettingsScreen(
                 onKeepAliveEnabledChange = onKeepAliveEnabledChange,
                 onStartButtonChange = onStartButtonChange,
                 onEndButtonChange = onEndButtonChange,
+                onKeepAliveModeChange = onKeepAliveModeChange,
                 onKeepAlivePackagesTextChange = onKeepAlivePackagesTextChange,
                 onSaveKeepAlivePackagesClick = onSaveKeepAlivePackagesClick,
                 onReloadClick = onReloadClick,
@@ -80,6 +86,7 @@ private fun SettingsContent(
     onKeepAliveEnabledChange: (Boolean) -> Unit,
     onStartButtonChange: (NavBarButton) -> Unit,
     onEndButtonChange: (NavBarButton) -> Unit,
+    onKeepAliveModeChange: (KeepAliveMode) -> Unit,
     onKeepAlivePackagesTextChange: (String) -> Unit,
     onSaveKeepAlivePackagesClick: () -> Unit,
     onReloadClick: () -> Unit,
@@ -125,7 +132,9 @@ private fun SettingsContent(
         KeepAliveTweaksCard(
             connected = uiState.serviceConnected,
             enabled = uiState.keepAliveEnabled,
+            mode = uiState.keepAliveMode,
             onKeepAliveEnabledChange = onKeepAliveEnabledChange,
+            onKeepAliveModeChange = onKeepAliveModeChange,
             packagesText = uiState.keepAlivePackagesText,
             invalidPackages = uiState.invalidKeepAlivePackages,
             onPackagesTextChange = onKeepAlivePackagesTextChange,
@@ -372,7 +381,9 @@ private fun HandlePreviewContent(
 private fun KeepAliveTweaksCard(
     connected: Boolean,
     enabled: Boolean,
+    mode: KeepAliveMode,
     onKeepAliveEnabledChange: (Boolean) -> Unit,
+    onKeepAliveModeChange: (KeepAliveMode) -> Unit,
     packagesText: String,
     invalidPackages: List<String>,
     onPackagesTextChange: (String) -> Unit,
@@ -400,6 +411,12 @@ private fun KeepAliveTweaksCard(
 
             HorizontalDivider()
 
+            KeepAliveModeSelector(
+                selectedMode = mode,
+                enabled = connected && enabled,
+                onModeChange = onKeepAliveModeChange,
+            )
+
             KeepAlivePackagesContent(
                 packagesText = packagesText,
                 invalidPackages = invalidPackages,
@@ -407,6 +424,101 @@ private fun KeepAliveTweaksCard(
                 onPackagesTextChange = onPackagesTextChange,
                 onSaveClick = onSaveClick,
             )
+        }
+    }
+}
+
+@Composable
+private fun KeepAliveModeSelector(
+    selectedMode: KeepAliveMode,
+    enabled: Boolean,
+    onModeChange: (KeepAliveMode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.keep_alive_mode_title),
+            style = MaterialTheme.typography.titleMedium,
+        )
+
+        KeepAliveModeOption(
+            title = stringResource(R.string.keep_alive_mode_conservative_title),
+            description = stringResource(R.string.keep_alive_mode_conservative_description),
+            selected = selectedMode == KeepAliveMode.Conservative,
+            enabled = enabled,
+            onClick = { onModeChange(KeepAliveMode.Conservative) },
+        )
+
+        KeepAliveModeOption(
+            title = stringResource(R.string.keep_alive_mode_aggressive_title),
+            description = stringResource(R.string.keep_alive_mode_aggressive_description),
+            selected = selectedMode == KeepAliveMode.Aggressive,
+            enabled = enabled,
+            onClick = { onModeChange(KeepAliveMode.Aggressive) },
+        )
+
+        KeepAliveModeOption(
+            title = stringResource(R.string.keep_alive_mode_oom_only_title),
+            description = stringResource(R.string.keep_alive_mode_oom_only_description),
+            selected = selectedMode == KeepAliveMode.OomOnly,
+            enabled = enabled,
+            onClick = { onModeChange(KeepAliveMode.OomOnly) },
+        )
+    }
+}
+
+@Composable
+private fun KeepAliveModeOption(
+    title: String,
+    description: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(
+                enabled = enabled,
+                onClick = onClick,
+            ),
+        tonalElevation = if (selected) 2.dp else 0.dp,
+        color = if (selected) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            RadioButton(
+                selected = selected,
+                enabled = enabled,
+                onClick = onClick,
+            )
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

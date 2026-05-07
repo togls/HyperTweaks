@@ -5,9 +5,10 @@ import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
-import io.github.togls.hypertweaks.feature.keepalive.data.KeepAlivePackages
 import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
 import io.github.togls.hypertweaks.core.xposed.util.HookLog
+import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
+import io.github.togls.hypertweaks.feature.keepalive.data.KeepAlivePackages
 import java.lang.Byte
 import java.lang.Double
 import java.lang.Float
@@ -18,6 +19,32 @@ import java.lang.reflect.Method
 import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.Any
+import kotlin.Array
+import kotlin.Boolean
+import kotlin.Int
+import kotlin.String
+import kotlin.apply
+import kotlin.arrayOf
+import kotlin.let
+import kotlin.onFailure
+import kotlin.runCatching
+import kotlin.synchronized
+
+private const val GROUP_AMS_BACKGROUND = "AMS_BACKGROUND"
+private const val GROUP_AMS_AGGRESSIVE = "AMS_AGGRESSIVE"
+private const val GROUP_PROCESS_LIST_CLEANUP = "PROCESS_LIST_CLEANUP"
+private const val GROUP_PROCESS_LIST_REMOVE = "PROCESS_LIST_REMOVE"
+private const val GROUP_PROCESS_RECORD_KILL = "PROCESS_RECORD_KILL"
+private const val GROUP_MIUI_PROCESS_MANAGER = "MIUI_PROCESS_MANAGER_SERVICE"
+private const val GROUP_MIUI_SMART_POWER = "MIUI_SMART_POWER"
+
+private val CONSERVATIVE_BLOCK_GROUPS = setOf(
+    GROUP_AMS_BACKGROUND,
+    GROUP_PROCESS_LIST_CLEANUP,
+    GROUP_MIUI_PROCESS_MANAGER,
+    GROUP_MIUI_SMART_POWER,
+)
 
 class KeepAliveHook(
     private val module: XposedModule,
@@ -31,6 +58,8 @@ class KeepAliveHook(
     private val hookedMethods = Collections.newSetFromMap(
         IdentityHashMap<Method, Boolean>(),
     )
+
+    private val keepAliveMode = AtomicReference(KeepAliveMode.Default)
 
     private companion object {
         private const val MAX_EXTRACT_DEPTH = 3
@@ -54,12 +83,8 @@ class KeepAliveHook(
             "killBackgroundProcesses",
             "killBackgroundProcessesWithFeature",
             "killPackageDependents",
-            "forceStopPackage",
-            "forceStopPackageAsUser",
-            "forceStopPackageLocked",
         )
 
-        // aggressive mode
         private val AMS_AGGRESSIVE_METHOD_NAMES = setOf(
             "forceStopPackage",
             "forceStopPackageAsUser",
@@ -99,7 +124,7 @@ class KeepAliveHook(
                 "forceStop",
                 "remove",
             ),
-            "MIUI_PROCESS_MANAGER_SERVICE"
+            group = GROUP_MIUI_PROCESS_MANAGER,
         )
     }
 
@@ -111,7 +136,15 @@ class KeepAliveHook(
 
         targetClass.declaredMethods
             .filter { method -> method.name in AMS_BACKGROUND_CLEANUP_METHOD_NAMES }
-            .forEach { method -> hookMethodWithPackageArgs(method, "AMS_BACKGROUND") }
+            .forEach { method ->
+                hookMethodWithPackageArgs(method, GROUP_AMS_BACKGROUND)
+            }
+
+        targetClass.declaredMethods
+            .filter { method -> method.name in AMS_AGGRESSIVE_METHOD_NAMES }
+            .forEach { method ->
+                hookMethodWithPackageArgs(method, GROUP_AMS_AGGRESSIVE)
+            }
 
         HookLog.i(module, "KeepAliveHook installed for ActivityManagerService")
     }
@@ -153,13 +186,16 @@ class KeepAliveHook(
         label: String,
     ) {
         val candidateMethods = targetClass.declaredMethods
-            .filter { method ->
-                method.matchesAnyKeyword(keywords)
-                // && method.hasSupportedPackageParameter()
-            }
+            .filter { method -> method.matchesAnyKeyword(keywords) }
 
         candidateMethods.forEach { method ->
-            hookMethodWithPackageArgs(method, "PROCESS_LIST_CLEANUP")
+            val group = if (method.name.contains("remove", ignoreCase = true)) {
+                GROUP_PROCESS_LIST_REMOVE
+            } else {
+                GROUP_PROCESS_LIST_CLEANUP
+            }
+
+            hookMethodWithPackageArgs(method, group)
         }
     }
 
@@ -172,7 +208,7 @@ class KeepAliveHook(
         hookMiuiCleanerClass(
             targetClass = targetClass,
             keywords = MIUI_SMART_POWER_CLEANUP_KEYWORDS.toList(),
-            "MIUI_SMART_POWER",
+            group = GROUP_MIUI_SMART_POWER,
         )
     }
 
@@ -205,12 +241,16 @@ class KeepAliveHook(
                 .intercept { chain ->
                     val protectedPackage = findProtectedPackageFromArgs(chain.args)
 
-                    if (protectedPackage != null) {
+                    if (
+                        protectedPackage != null &&
+                        shouldBlockKeepAliveCall(group)
+                    ) {
                         HookLog.i(
                             module,
-                            "blocked keep-alive: group=${group}"
-                                + " method=${method.describeSignature()}"
-                                + " package=${protectedPackage}",
+                            "blocked keep-alive: group=$group" +
+                                " method=${method.describeSignature()}" +
+                                " package=$protectedPackage" +
+                                " mode=${keepAliveMode.get()}",
                         )
 
                         return@intercept defaultReturnValue(method.returnType)
@@ -244,16 +284,19 @@ class KeepAliveHook(
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept { chain ->
                     val processRecord = chain.thisObject
-
                     val protectedPackage = findProtectedPackageFromArgs(chain.args)
                         ?: findProtectedPackageFromProcessRecord(processRecord)
 
-                    if (protectedPackage != null) {
+                    if (
+                        protectedPackage != null &&
+                        shouldBlockKeepAliveCall(GROUP_PROCESS_RECORD_KILL)
+                    ) {
                         HookLog.i(
                             module,
-                            "blocked process kill: group=PROCESS_RECORD_KILL ${method.describeSignature()} package=$protectedPackage",
+                            "blocked process kill: group=$GROUP_PROCESS_RECORD_KILL " +
+                                "${method.describeSignature()} package=$protectedPackage " +
+                                "mode=${keepAliveMode.get()}",
                         )
-
                         return@intercept defaultReturnValue(method.returnType)
                     }
 
@@ -537,22 +580,42 @@ class KeepAliveHook(
         runCatching {
             val prefs = module.getRemotePreferences(RemotePreferenceKeys.GroupName)
 
-            updateKeepAlivePackages(prefs)
+            updateKeepAliveConfig(prefs)
 
-            val listener =
-                SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
-                    if (key != RemotePreferenceKeys.KeepAlivePackages) {
-                        return@OnSharedPreferenceChangeListener
-                    }
-
-                    updateKeepAlivePackages(sharedPreferences)
+            val listener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+                when (key) {
+                    RemotePreferenceKeys.KeepAlivePackages,
+                    RemotePreferenceKeys.KeepAliveMode,
+                        -> updateKeepAliveConfig(sharedPreferences)
                 }
+            }
 
             preferenceListeners += listener
             prefs.registerOnSharedPreferenceChangeListener(listener)
         }.onFailure { error ->
             HookLog.w(module, "failed to read keep-alive remote preferences", error)
         }
+    }
+
+    private fun updateKeepAliveConfig(prefs: SharedPreferences) {
+        updateKeepAlivePackages(prefs)
+        updateKeepAliveMode(prefs)
+    }
+
+    private fun updateKeepAliveMode(prefs: SharedPreferences) {
+        val mode = KeepAliveMode.fromValue(
+            prefs.getString(
+                RemotePreferenceKeys.KeepAliveMode,
+                KeepAliveMode.Default.value,
+            ),
+        )
+
+        keepAliveMode.set(mode)
+
+        HookLog.i(
+            module,
+            "keep-alive mode updated: $mode",
+        )
     }
 
     private fun updateKeepAlivePackages(prefs: SharedPreferences) {
@@ -569,6 +632,18 @@ class KeepAliveHook(
             module,
             "keep-alive packages updated: ${packages.joinToString()}",
         )
+    }
+
+    private fun shouldBlockKeepAliveCall(group: String): Boolean {
+        return when (keepAliveMode.get()) {
+            KeepAliveMode.OomOnly -> false
+
+            KeepAliveMode.Conservative -> {
+                group in CONSERVATIVE_BLOCK_GROUPS
+            }
+
+            KeepAliveMode.Aggressive -> true
+        }
     }
 
     private fun Method.matchesAnyKeyword(keywords: Set<String>): Boolean {
