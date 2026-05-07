@@ -136,33 +136,6 @@ class HookRegistry(
         }.getOrDefault(false)
     }
 
-    private fun installSystemServerHook(
-        name: String,
-        block: () -> Unit,
-    ) {
-        runCatching(block)
-            .onSuccess {
-                HookLog.i(module, "$name installed in system_server")
-            }
-            .onFailure { error ->
-                HookLog.e(module, "failed to install $name in system_server", error)
-            }
-    }
-
-    private fun installPackageHook(
-        name: String,
-        packageName: String,
-        block: () -> Unit,
-    ) {
-        runCatching(block)
-            .onSuccess {
-                HookLog.i(module, "$name installed for $packageName")
-            }
-            .onFailure { error ->
-                HookLog.e(module, "failed to install $name for $packageName", error)
-            }
-    }
-
     private object KeepAliveSystemServerHookSpec : SystemServerHookSpec {
         override val name: String = "KeepAliveHook"
         override val feature: HookFeature = HookFeature.KeepAlive
