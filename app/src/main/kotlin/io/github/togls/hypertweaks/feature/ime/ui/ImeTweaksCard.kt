@@ -23,7 +23,7 @@ fun ImeTweaksCard(
     onEndButtonChange: (NavBarButton) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val controlsEnabled = serviceConnected && uiState.enabled
+    val controlsEnabled = true  // serviceConnected && uiState.enabled
 
     SettingsSectionCard(
         modifier = modifier,
@@ -32,7 +32,7 @@ fun ImeTweaksCard(
             title = stringResource(R.string.feature_ime_title),
             description = stringResource(R.string.feature_ime_description),
             checked = uiState.enabled,
-            enabled = serviceConnected,
+            enabled = controlsEnabled,
             onCheckedChange = onImeEnabledChange,
         )
 

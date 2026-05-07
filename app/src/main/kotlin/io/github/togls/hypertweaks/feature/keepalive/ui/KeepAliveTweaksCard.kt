@@ -19,6 +19,8 @@ fun KeepAliveTweaksCard(
     onSaveClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val controlsEnabled = true  // serviceConnected && uiState.enabled
+
     SettingsSectionCard(
         modifier = modifier,
     ) {
@@ -26,7 +28,7 @@ fun KeepAliveTweaksCard(
             title = stringResource(R.string.feature_keep_alive_title),
             description = stringResource(R.string.feature_keep_alive_description),
             checked = uiState.enabled,
-            enabled = serviceConnected,
+            enabled = controlsEnabled,
             onCheckedChange = onKeepAliveEnabledChange,
         )
 
@@ -34,14 +36,14 @@ fun KeepAliveTweaksCard(
 
         KeepAliveModeSelector(
             selectedMode = uiState.mode,
-            enabled = serviceConnected && uiState.enabled,
+            enabled = controlsEnabled,
             onModeChange = onKeepAliveModeChange,
         )
 
         KeepAlivePackagesEditor(
             packagesText = uiState.packagesText,
             invalidPackages = uiState.invalidPackages,
-            enabled = serviceConnected,
+            enabled = controlsEnabled,
             onPackagesTextChange = onPackagesTextChange,
             onSaveClick = onSaveClick,
         )
