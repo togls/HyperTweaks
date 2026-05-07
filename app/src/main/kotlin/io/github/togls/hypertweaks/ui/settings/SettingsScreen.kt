@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,24 +13,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
@@ -39,7 +30,7 @@ import androidx.compose.ui.unit.dp
 import io.github.togls.hypertweaks.BuildConfig
 import io.github.togls.hypertweaks.R
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
-import io.github.togls.hypertweaks.feature.ime.data.NavBarLayoutConfig
+import io.github.togls.hypertweaks.feature.ime.ui.ImeTweaksCard
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
 import io.github.togls.hypertweaks.ui.component.FeatureSwitchRow
 import io.github.togls.hypertweaks.ui.component.SettingsSectionCard
@@ -188,147 +179,6 @@ private fun ServiceStateCard(
                 Text(text = stringResource(R.string.action_reload_config))
             }
         }
-    }
-}
-
-@Composable
-private fun ImeTweaksCard(
-    imeEnabled: Boolean,
-    serviceConnected: Boolean,
-    config: NavBarLayoutConfig,
-    showDebugInfo: Boolean,
-    onImeEnabledChange: (Boolean) -> Unit,
-    onStartButtonChange: (NavBarButton) -> Unit,
-    onEndButtonChange: (NavBarButton) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val controlsEnabled = serviceConnected && imeEnabled
-
-    SettingsSectionCard(
-        modifier = modifier,
-    ) {
-        FeatureSwitchRow(
-            title = stringResource(R.string.feature_ime_title),
-            description = stringResource(R.string.feature_ime_description),
-            checked = imeEnabled,
-            enabled = serviceConnected,
-            onCheckedChange = onImeEnabledChange,
-        )
-
-        HorizontalDivider()
-
-        Column(
-            modifier = Modifier.alpha(if (imeEnabled) 1f else 0.5f),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            NavBarButtonSelectorContent(
-                title = stringResource(R.string.start_button_title),
-                description = stringResource(R.string.start_button_description),
-                selected = config.start,
-                enabled = controlsEnabled,
-                onSelectedChange = onStartButtonChange,
-            )
-
-            NavBarButtonSelectorContent(
-                title = stringResource(R.string.end_button_title),
-                description = stringResource(R.string.end_button_description),
-                selected = config.end,
-                enabled = controlsEnabled,
-                onSelectedChange = onEndButtonChange,
-            )
-
-            if (showDebugInfo) {
-                HorizontalDivider()
-
-                HandlePreviewContent(
-                    handleLayout = config.toHandleLayout(),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun NavBarButtonSelectorContent(
-    title: String,
-    description: String,
-    selected: NavBarButton,
-    enabled: Boolean,
-    onSelectedChange: (NavBarButton) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            Spacer(modifier = Modifier.padding(horizontal = 6.dp))
-
-            Column {
-                OutlinedButton(
-                    enabled = enabled,
-                    onClick = { expanded = true },
-                ) {
-                    Text(text = stringResource(selected.displayNameRes))
-                }
-
-                DropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                ) {
-                    NavBarButton.entries.forEach { option ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(text = stringResource(option.displayNameRes))
-                            },
-                            onClick = {
-                                expanded = false
-                                onSelectedChange(option)
-                            },
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HandlePreviewContent(
-    handleLayout: String,
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            text = stringResource(R.string.handle_preview_title),
-            style = MaterialTheme.typography.titleSmall,
-        )
-
-        Text(
-            text = handleLayout,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
