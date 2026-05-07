@@ -19,6 +19,7 @@ import io.github.togls.hypertweaks.feature.keepalive.xposed.OomAdjProtectHook
 class HookRegistry(
     private val module: XposedModule,
 ) {
+    private val installLogger = HookInstallLogger(module)
 
     private val systemServerHooks: List<SystemServerHookSpec> = listOf(
         KeepAliveSystemServerHookSpec,
@@ -36,26 +37,39 @@ class HookRegistry(
     )
 
     fun installSystemServerHooks(classLoader: ClassLoader) {
-        HookLog.i(module, "========== HyperTweaks system_server loaded ==========")
+        installLogger.startSystemServer()
 
         systemServerHooks.forEach { spec ->
+            val target = "system_server"
+
             if (!isFeatureEnabled(spec.feature)) {
-                HookLog.i(
-                    module,
-                    "skip ${spec.name} in system_server: feature=${spec.feature} disabled",
+                installLogger.skippedDisabled(
+                    name = spec.name,
+                    target = target,
+                    feature = spec.feature,
                 )
                 return@forEach
             }
 
-            installSystemServerHook(
-                name = spec.name,
-                block = {
-                    spec.install(
-                        module = module,
-                        classLoader = classLoader,
-                    )
-                },
-            )
+            runCatching {
+                spec.install(
+                    module = module,
+                    classLoader = classLoader,
+                )
+            }.onSuccess {
+                installLogger.installed(
+                    name = spec.name,
+                    target = target,
+                    feature = spec.feature,
+                )
+            }.onFailure { error ->
+                installLogger.failed(
+                    name = spec.name,
+                    target = target,
+                    feature = spec.feature,
+                    error = error,
+                )
+            }
         }
     }
 
@@ -66,39 +80,46 @@ class HookRegistry(
 
         val packageName = param.packageName
 
-        HookLog.i(module, "onPackageReady package=$packageName")
+        installLogger.startPackage(packageName)
 
         packageHooks.forEach { spec ->
-            if (!spec.isSupported(param)) {
-                HookLog.i(
-                    module,
-                    "skip ${spec.name} for unsupported package=$packageName",
-                )
-                return@forEach
-            }
-
             if (!isFeatureEnabled(spec.feature)) {
-                HookLog.i(
-                    module,
-                    "skip ${spec.name} for $packageName: feature=${spec.feature} disabled",
+                installLogger.skippedDisabled(
+                    name = spec.name,
+                    target = packageName,
+                    feature = spec.feature,
                 )
                 return@forEach
             }
 
             if (!spec.isSupported(param)) {
+                installLogger.skippedUnsupported(
+                    name = spec.name,
+                    target = packageName,
+                    feature = spec.feature,
+                )
                 return@forEach
             }
 
-            installPackageHook(
-                name = spec.name,
-                packageName = packageName,
-                block = {
-                    spec.install(
-                        module = module,
-                        param = param,
-                    )
-                },
-            )
+            runCatching {
+                spec.install(
+                    module = module,
+                    param = param,
+                )
+            }.onSuccess {
+                installLogger.installed(
+                    name = spec.name,
+                    target = packageName,
+                    feature = spec.feature,
+                )
+            }.onFailure { error ->
+                installLogger.failed(
+                    name = spec.name,
+                    target = packageName,
+                    feature = spec.feature,
+                    error = error,
+                )
+            }
         }
     }
 
