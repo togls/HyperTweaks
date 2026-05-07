@@ -582,13 +582,14 @@ class KeepAliveHook(
 
             updateKeepAliveConfig(prefs)
 
-            val listener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
-                when (key) {
-                    RemotePreferenceKeys.KeepAlivePackages,
-                    RemotePreferenceKeys.KeepAliveMode,
-                        -> updateKeepAliveConfig(sharedPreferences)
+            val listener =
+                SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+                    when (key) {
+                        RemotePreferenceKeys.KeepAlivePackages,
+                        RemotePreferenceKeys.KeepAliveMode,
+                            -> updateKeepAliveConfig(sharedPreferences)
+                    }
                 }
-            }
 
             preferenceListeners += listener
             prefs.registerOnSharedPreferenceChangeListener(listener)

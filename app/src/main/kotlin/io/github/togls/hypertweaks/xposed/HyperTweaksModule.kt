@@ -1,159 +1,27 @@
 package io.github.togls.hypertweaks.xposed
 
-import android.os.Build
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
-import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
-import io.github.togls.hypertweaks.feature.ime.xposed.DeadZoneHook
-import io.github.togls.hypertweaks.feature.ime.xposed.InputMethodBottomManagerHook
-import io.github.togls.hypertweaks.feature.ime.xposed.InputMethodManagerServiceHook
-import io.github.togls.hypertweaks.feature.ime.xposed.InputMethodManagerServiceImplHook
-import io.github.togls.hypertweaks.feature.ime.xposed.InputMethodServiceHook
-import io.github.togls.hypertweaks.feature.keepalive.xposed.KeepAliveHook
-import io.github.togls.hypertweaks.feature.ime.xposed.NavigationBarControllerHook
-import io.github.togls.hypertweaks.feature.ime.xposed.NavigationBarInflaterHook
-import io.github.togls.hypertweaks.feature.ime.xposed.NavigationBarViewHook
-import io.github.togls.hypertweaks.feature.keepalive.xposed.OomAdjProtectHook
+import io.github.togls.hypertweaks.core.xposed.HookRegistry
 import io.github.togls.hypertweaks.core.xposed.util.HookLog
 
 class HyperTweaksModule : XposedModule() {
+
+    private val hookRegistry by lazy {
+        HookRegistry(this)
+    }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         HookLog.i(this, "onModuleLoaded")
     }
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
-        val classLoader = param.classLoader
-
-        HookLog.i(this, "========== HyperTweaks system_server loaded ==========")
-
-        if (isFeatureEnabled(RemotePreferenceKeys.KeepAliveEnabled)) {
-            installSystemServerHook("KeepAliveHook") {
-                KeepAliveHook(this).installSystemServer(classLoader)
-            }
-
-            installSystemServerHook("OomAdjProtectHook") {
-                OomAdjProtectHook(this).installSystemServer(classLoader)
-            }
-        } else {
-            HookLog.i(this, "skip keep-alive hooks: feature disabled")
-        }
-
-        if (isFeatureEnabled(RemotePreferenceKeys.ImeEnabled)) {
-            installImeSystemServerHooks(classLoader)
-        } else {
-            HookLog.i(this, "skip IME system_server hooks: feature disabled")
-        }
+        hookRegistry.installSystemServerHooks(param.classLoader)
     }
 
     override fun onPackageReady(param: PackageReadyParam) {
-        if (!param.isFirstPackage) {
-            return
-        }
-        if (!isFeatureEnabled(RemotePreferenceKeys.ImeEnabled)) {
-            return
-        }
-
-        val packageName = param.packageName
-        val classLoader = param.classLoader
-
-        HookLog.i(this, "onPackageReady package=$packageName")
-
-        if (!isImePackage(packageName)) {
-            HookLog.i(this, "skip IME hooks for non-IME package=$packageName")
-            return
-        }
-
-        installPackageHook("InputMethodService", packageName) {
-            InputMethodServiceHook(this).install(classLoader)
-        }
-
-        installPackageHook("NavigationBarController", packageName) {
-            NavigationBarControllerHook(this).install(classLoader)
-        }
-
-        installPackageHook("NavigationBarInflaterView", packageName) {
-            NavigationBarInflaterHook(this).install(classLoader)
-        }
-
-        installPackageHook("NavigationBarView", packageName) {
-            NavigationBarViewHook(this).install(classLoader)
-        }
-
-        installPackageHook("DeadZone", packageName) {
-            DeadZoneHook(this).install(classLoader)
-        }
-
-        installPackageHook("InputMethodBottomManager", packageName) {
-            InputMethodBottomManagerHook(this).install(classLoader)
-        }
-    }
-
-    private fun isFeatureEnabled(key: String): Boolean {
-        return runCatching {
-            getRemotePreferences(RemotePreferenceKeys.GroupName)
-                .getBoolean(key, false)
-        }.onFailure { error ->
-            HookLog.w(this, "failed to read feature toggle: key=$key", error)
-        }.getOrDefault(false)
-    }
-
-    private fun installImeSystemServerHooks(classLoader: ClassLoader) {
-        when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA -> {
-                installSystemServerHook("InputMethodManagerServiceImpl") {
-                    InputMethodManagerServiceImplHook(this).install(classLoader)
-                }
-            }
-
-            else -> {
-                installSystemServerHook("InputMethodManagerService") {
-                    InputMethodManagerServiceHook(this).install(classLoader)
-                }
-            }
-        }
-    }
-
-    private fun isImePackage(packageName: String): Boolean {
-        return packageName in setOf(
-            "com.google.android.inputmethod.latin",
-            "com.baidu.input",
-            "com.baidu.input_mi",
-            "com.sohu.inputmethod.sogou",
-            "com.sohu.inputmethod.sogou.xiaomi",
-            "com.iflytek.inputmethod",
-            "com.iflytek.inputmethod.miui",
-            "com.tencent.wetype",
-            "keepass2android.keepass2android",
-        )
-    }
-
-    private fun installSystemServerHook(
-        name: String,
-        block: () -> Unit,
-    ) {
-        runCatching(block)
-            .onSuccess {
-                HookLog.i(this, "$name installed in system_server")
-            }
-            .onFailure { error ->
-                HookLog.e(this, "failed to install $name in system_server", error)
-            }
-    }
-
-    private fun installPackageHook(
-        name: String,
-        packageName: String,
-        block: () -> Unit,
-    ) {
-        runCatching(block)
-            .onSuccess {
-                HookLog.i(this, "$name installed for $packageName")
-            }
-            .onFailure { error ->
-                HookLog.e(this, "failed to install $name for $packageName", error)
-            }
+        hookRegistry.installPackageHooks(param)
     }
 }

@@ -8,10 +8,10 @@ import android.view.View
 import android.view.inputmethod.InputMethodManager
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
-import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
 import io.github.togls.hypertweaks.core.xposed.util.HookLog
 import io.github.togls.hypertweaks.core.xposed.util.dpToPx
+import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicBoolean
 

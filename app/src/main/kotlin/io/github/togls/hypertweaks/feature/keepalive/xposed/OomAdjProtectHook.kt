@@ -5,9 +5,9 @@ import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
-import io.github.togls.hypertweaks.feature.keepalive.data.KeepAlivePackages
 import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
 import io.github.togls.hypertweaks.core.xposed.util.HookLog
+import io.github.togls.hypertweaks.feature.keepalive.data.KeepAlivePackages
 import java.io.File
 import java.lang.reflect.Field
 import java.lang.reflect.Method

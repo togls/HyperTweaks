@@ -9,11 +9,11 @@ import androidx.lifecycle.AndroidViewModel
 import io.github.togls.hypertweaks.R
 import io.github.togls.hypertweaks.core.config.ConfigRepository
 import io.github.togls.hypertweaks.core.config.FeatureToggles
-import io.github.togls.hypertweaks.feature.keepalive.data.KeepAlivePackages
+import io.github.togls.hypertweaks.core.config.XposedConfigRepository
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 import io.github.togls.hypertweaks.feature.ime.data.NavBarLayoutConfig
-import io.github.togls.hypertweaks.core.config.XposedConfigRepository
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
+import io.github.togls.hypertweaks.feature.keepalive.data.KeepAlivePackages
 
 class SettingsViewModel(
     application: Application,
