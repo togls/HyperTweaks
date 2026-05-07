@@ -71,43 +71,20 @@ class SettingsViewModel(
     }
 
     fun loadConfig() {
-
-        val navConfigResult = configRepository.loadConfig()
-
-        val keepAlivePackages = configRepository
-            .loadKeepAlivePackages()
-            .getOrDefault(emptySet())
-
-        val featureToggles = configRepository
-            .loadFeatureToggles()
-            .getOrDefault(FeatureToggles())
-
-        val keepAliveMode = configRepository
-            .loadKeepAliveMode()
-            .getOrDefault(KeepAliveMode.Default)
-
-        navConfigResult
+        configRepository
+            .loadConfig()
             .onSuccess { config ->
-                uiState = uiState.copy(
+                uiState = config.toSettingsUiState(
                     serviceConnected = true,
-                    imeEnabled = featureToggles.imeEnabled,
-                    keepAliveEnabled = featureToggles.keepAliveEnabled,
-                    config = config,
-                    keepAliveMode = keepAliveMode,
-                    keepAlivePackagesText = KeepAlivePackages.format(keepAlivePackages),
-                    invalidKeepAlivePackages = emptyList(),
                     message = string(R.string.status_config_loaded),
                 )
             }
             .onFailure { error ->
                 uiState = uiState.copy(
-                    serviceConnected = true,
-                    imeEnabled = featureToggles.imeEnabled,
-                    keepAliveMode = keepAliveMode,
-                    keepAliveEnabled = featureToggles.keepAliveEnabled,
-                    keepAlivePackagesText = KeepAlivePackages.format(keepAlivePackages),
-                    invalidKeepAlivePackages = emptyList(),
-                    message = error.message ?: string(R.string.status_read_config_failed),
+                    service = uiState.service.copy(
+                        connected = configRepository.serviceConnected,
+                        message = error.message ?: string(R.string.status_read_config_failed),
+                    ),
                 )
             }
     }
@@ -115,38 +92,43 @@ class SettingsViewModel(
     private fun updateStartButton(
         button: NavBarButton,
     ) {
-        val nextConfig = uiState.config.copy(start = button)
-        saveConfig(
-            config = nextConfig,
+        val nextLayout = uiState.ime.navBarLayout.copy(
+            start = button,
         )
+
+        saveNavBarLayout(nextLayout)
     }
 
     private fun updateEndButton(
         button: NavBarButton,
     ) {
-        val nextConfig = uiState.config.copy(end = button)
-        saveConfig(
-            config = nextConfig,
-        )
+        val nextLayout = uiState.ime.navBarLayout.copy(end = button)
+
+        saveNavBarLayout(nextLayout)
     }
 
-    private fun saveConfig(
-        config: NavBarLayoutConfig,
+    private fun saveNavBarLayout(
+        layout: NavBarLayoutConfig,
     ) {
-
         configRepository
-            .saveConfig(config)
-            .onSuccess { savedConfig ->
+            .saveNavBarLayout(layout)
+            .onSuccess { savedLayout ->
                 uiState = uiState.copy(
-                    serviceConnected = true,
-                    config = savedConfig,
-                    message = string(R.string.status_config_saved),
+                    service = uiState.service.copy(
+                        connected = true,
+                        message = string(R.string.status_config_saved),
+                    ),
+                    ime = uiState.ime.copy(
+                        navBarLayout = savedLayout,
+                    ),
                 )
             }
             .onFailure { error ->
                 uiState = uiState.copy(
-                    serviceConnected = true,
-                    message = error.message ?: string(R.string.status_save_config_failed),
+                    service = uiState.service.copy(
+                        connected = configRepository.serviceConnected,
+                        message = error.message ?: string(R.string.status_save_config_failed),
+                    ),
                 )
             }
     }
@@ -155,21 +137,27 @@ class SettingsViewModel(
         val parseResult = KeepAlivePackages.parseWithInvalid(text)
 
         uiState = uiState.copy(
-            keepAlivePackagesText = text,
-            invalidKeepAlivePackages = parseResult.invalidValues,
+            keepAlive = uiState.keepAlive.copy(
+                packagesText = text,
+                invalidPackages = parseResult.invalidValues,
+            ),
         )
     }
 
     private fun saveKeepAlivePackages() {
-        val parseResult = KeepAlivePackages.parseWithInvalid(uiState.keepAlivePackagesText)
+        val parseResult = KeepAlivePackages.parseWithInvalid(uiState.keepAlive.packagesText)
 
         if (parseResult.invalidValues.isNotEmpty()) {
             uiState = uiState.copy(
-                serviceConnected = true,
-                invalidKeepAlivePackages = parseResult.invalidValues,
-                message = string(
-                    R.string.status_keep_alive_invalid_packages,
-                    parseResult.invalidValues.joinToString(),
+                service = uiState.service.copy(
+                    connected = true,
+                    message = string(
+                        R.string.status_keep_alive_invalid_packages,
+                        parseResult.invalidValues.joinToString(),
+                    ),
+                ),
+                keepAlive = uiState.keepAlive.copy(
+                    invalidPackages = parseResult.invalidValues,
                 ),
             )
             return
@@ -179,16 +167,23 @@ class SettingsViewModel(
             .saveKeepAlivePackages(parseResult.packages)
             .onSuccess { savedPackages ->
                 uiState = uiState.copy(
-                    serviceConnected = true,
-                    keepAlivePackagesText = KeepAlivePackages.format(savedPackages),
-                    invalidKeepAlivePackages = emptyList(),
-                    message = string(R.string.status_keep_alive_saved),
+                    service = uiState.service.copy(
+                        connected = true,
+                        message = string(R.string.status_keep_alive_saved),
+                    ),
+                    keepAlive = uiState.keepAlive.copy(
+                        packagesText = KeepAlivePackages.format(savedPackages),
+                        invalidPackages = emptyList()
+                    )
+
                 )
             }
             .onFailure { error ->
                 uiState = uiState.copy(
-                    serviceConnected = true,
-                    message = error.message ?: string(R.string.status_save_config_failed),
+                    service = uiState.service.copy(
+                        connected = true,
+                        message = error.message ?: string(R.string.status_save_config_failed),
+                    )
                 )
             }
     }
@@ -199,7 +194,7 @@ class SettingsViewModel(
         saveFeatureToggles(
             toggles = FeatureToggles(
                 imeEnabled = enabled,
-                keepAliveEnabled = uiState.keepAliveEnabled,
+                keepAliveEnabled = uiState.keepAlive.enabled,
             ),
         )
     }
@@ -209,7 +204,7 @@ class SettingsViewModel(
     ) {
         saveFeatureToggles(
             toggles = FeatureToggles(
-                imeEnabled = uiState.imeEnabled,
+                imeEnabled = uiState.ime.enabled,
                 keepAliveEnabled = enabled,
             ),
         )
@@ -222,16 +217,24 @@ class SettingsViewModel(
             .saveFeatureToggles(toggles)
             .onSuccess { savedToggles ->
                 uiState = uiState.copy(
-                    serviceConnected = true,
-                    imeEnabled = savedToggles.imeEnabled,
-                    keepAliveEnabled = savedToggles.keepAliveEnabled,
-                    message = string(R.string.status_feature_toggle_saved),
+                    service = uiState.service.copy(
+                        connected = true,
+                        message = string(R.string.status_feature_toggle_saved),
+                    ),
+                    ime = uiState.ime.copy(
+                        enabled = savedToggles.imeEnabled,
+                    ),
+                    keepAlive = uiState.keepAlive.copy(
+                        enabled = savedToggles.keepAliveEnabled,
+                    ),
                 )
             }
             .onFailure { error ->
                 uiState = uiState.copy(
-                    serviceConnected = true,
-                    message = error.message ?: string(R.string.status_save_config_failed),
+                    service = uiState.service.copy(
+                        connected = configRepository.serviceConnected,
+                        message = error.message ?: string(R.string.status_save_config_failed),
+                    )
                 )
             }
     }
@@ -239,8 +242,10 @@ class SettingsViewModel(
     private fun updateKeepAliveMode(mode: KeepAliveMode) {
         if (!configRepository.serviceConnected) {
             uiState = uiState.copy(
-                serviceConnected = false,
-                message = string(R.string.status_save_without_service),
+                service = uiState.service.copy(
+                    connected = false,
+                    message = string(R.string.status_save_without_service),
+                )
             )
             return
         }
@@ -249,15 +254,21 @@ class SettingsViewModel(
             .saveKeepAliveMode(mode)
             .onSuccess { savedMode ->
                 uiState = uiState.copy(
-                    serviceConnected = true,
-                    keepAliveMode = savedMode,
-                    message = string(R.string.status_keep_alive_mode_saved),
+                    service = uiState.service.copy(
+                        connected = true,
+                        message = string(R.string.status_keep_alive_mode_saved),
+                    ),
+                    keepAlive = uiState.keepAlive.copy(
+                        mode = savedMode,
+                    ),
                 )
             }
             .onFailure { error ->
                 uiState = uiState.copy(
-                    serviceConnected = configRepository.serviceConnected,
-                    message = error.message ?: string(R.string.status_save_config_failed),
+                    service = uiState.service.copy(
+                        connected = configRepository.serviceConnected,
+                        message = error.message ?: string(R.string.status_save_config_failed),
+                    )
                 )
             }
     }

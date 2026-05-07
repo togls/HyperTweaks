@@ -16,30 +16,44 @@ class XposedConfigRepository(
     override val serviceConnected: Boolean
         get() = serviceProvider() != null
 
-    override fun loadConfig(): Result<NavBarLayoutConfig> {
+    override fun loadConfig(): Result<HyperTweaksConfig> {
         return withRemotePreferences { prefs ->
-            val config = NavBarLayoutConfig(
-                start = NavBarButton.fromValue(
-                    prefs.getString(
-                        RemotePreferenceKeys.NavBarLayoutStart,
-                        NavBarButton.Back.value,
-                    ),
-                ),
-                end = NavBarButton.fromValue(
-                    prefs.getString(
-                        RemotePreferenceKeys.NavBarLayoutEnd,
-                        NavBarButton.ImeSwitcher.value,
-                    ),
-                ),
+            val navBarLayout = readNavBarLayout(prefs)
+
+            initializeIfMissing(
+                prefs = prefs,
+                config = navBarLayout,
             )
 
-            initializeIfMissing(prefs, config)
+            HyperTweaksConfig(
+                features = readFeatureToggles(prefs),
+                ime = ImeConfig(
+                    navBarLayout = navBarLayout,
+                ),
+                keepAlive = KeepAliveConfig(
+                    mode = readKeepAliveMode(prefs),
+                    packages = readKeepAlivePackages(prefs),
+                ),
+            )
+        }
+    }
+
+    override fun saveImeConfig(config: ImeConfig): Result<ImeConfig> {
+        return withRemotePreferences { prefs ->
+            prefs.edit {
+                putString(RemotePreferenceKeys.NavBarLayoutStart, config.navBarLayout.start.value)
+                    .putString(RemotePreferenceKeys.NavBarLayoutEnd, config.navBarLayout.end.value)
+                    .putString(
+                        RemotePreferenceKeys.NavBarLayoutHandle,
+                        config.navBarLayout.toHandleLayout()
+                    )
+            }
 
             config
         }
     }
 
-    override fun saveConfig(config: NavBarLayoutConfig): Result<NavBarLayoutConfig> {
+    override fun saveNavBarLayout(config: NavBarLayoutConfig): Result<NavBarLayoutConfig> {
         return withRemotePreferences { prefs ->
             prefs.edit {
                 putString(RemotePreferenceKeys.NavBarLayoutStart, config.start.value)
@@ -51,33 +65,30 @@ class XposedConfigRepository(
         }
     }
 
-    override fun loadFeatureToggles(): Result<FeatureToggles> {
-        return withRemotePreferences { prefs ->
-            FeatureToggles(
-                imeEnabled = prefs.getBoolean(RemotePreferenceKeys.ImeEnabled, false),
-                keepAliveEnabled = prefs.getBoolean(RemotePreferenceKeys.KeepAliveEnabled, false),
-            )
-        }
-    }
-
     override fun saveFeatureToggles(toggles: FeatureToggles): Result<FeatureToggles> {
         return withRemotePreferences { prefs ->
             prefs.edit {
                 putBoolean(RemotePreferenceKeys.ImeEnabled, toggles.imeEnabled)
-                putBoolean(RemotePreferenceKeys.KeepAliveEnabled, toggles.keepAliveEnabled)
+                    .putBoolean(RemotePreferenceKeys.KeepAliveEnabled, toggles.keepAliveEnabled)
             }
 
             toggles
         }
     }
 
-    override fun loadKeepAlivePackages(): Result<Set<String>> {
+    override fun saveKeepAliveConfig(config: KeepAliveConfig): Result<KeepAliveConfig> {
         return withRemotePreferences { prefs ->
-            val raw = prefs
-                .getString(RemotePreferenceKeys.KeepAlivePackages, "")
-                .orEmpty()
+            val normalized = config.packages.toSortedSet()
 
-            KeepAlivePackages.parse(raw)
+            prefs.edit {
+                putString(RemotePreferenceKeys.KeepAliveMode, config.mode.value)
+                    .putString(
+                        RemotePreferenceKeys.KeepAlivePackages,
+                        KeepAlivePackages.format(normalized),
+                    )
+            }
+
+            config
         }
     }
 
@@ -96,17 +107,6 @@ class XposedConfigRepository(
         }
     }
 
-    override fun loadKeepAliveMode(): Result<KeepAliveMode> {
-        return withRemotePreferences { prefs ->
-            KeepAliveMode.fromValue(
-                prefs.getString(
-                    RemotePreferenceKeys.KeepAliveMode,
-                    KeepAliveMode.Default.value,
-                ),
-            )
-        }
-    }
-
     override fun saveKeepAliveMode(mode: KeepAliveMode): Result<KeepAliveMode> {
         return withRemotePreferences { prefs ->
             prefs.edit {
@@ -115,6 +115,55 @@ class XposedConfigRepository(
 
             mode
         }
+    }
+
+    private fun readNavBarLayout(
+        prefs: SharedPreferences,
+    ): NavBarLayoutConfig {
+        return NavBarLayoutConfig(
+            start = NavBarButton.fromValue(
+                prefs.getString(
+                    RemotePreferenceKeys.NavBarLayoutStart,
+                    NavBarButton.Back.value,
+                ),
+            ),
+            end = NavBarButton.fromValue(
+                prefs.getString(
+                    RemotePreferenceKeys.NavBarLayoutEnd,
+                    NavBarButton.ImeSwitcher.value,
+                ),
+            ),
+        )
+    }
+
+    private fun readFeatureToggles(
+        prefs: SharedPreferences,
+    ): FeatureToggles {
+        return FeatureToggles(
+            imeEnabled = prefs.getBoolean(RemotePreferenceKeys.ImeEnabled, false),
+            keepAliveEnabled = prefs.getBoolean(RemotePreferenceKeys.KeepAliveEnabled, false),
+        )
+    }
+
+    private fun readKeepAlivePackages(
+        prefs: SharedPreferences,
+    ): Set<String> {
+        val raw = prefs
+            .getString(RemotePreferenceKeys.KeepAlivePackages, "")
+            .orEmpty()
+
+        return KeepAlivePackages.parse(raw)
+    }
+
+    private fun readKeepAliveMode(
+        prefs: SharedPreferences,
+    ): KeepAliveMode {
+        return KeepAliveMode.fromValue(
+            prefs.getString(
+                RemotePreferenceKeys.KeepAliveMode,
+                KeepAliveMode.Default.value,
+            ),
+        )
     }
 
     private fun <T> withRemotePreferences(

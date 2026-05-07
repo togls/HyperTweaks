@@ -4,22 +4,19 @@ import io.github.togls.hypertweaks.feature.ime.data.NavBarLayoutConfig
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
 
 interface ConfigRepository {
-
     val serviceConnected: Boolean
 
-    fun loadConfig(): Result<NavBarLayoutConfig>
+    fun loadConfig(): Result<HyperTweaksConfig>
 
-    fun saveConfig(config: NavBarLayoutConfig): Result<NavBarLayoutConfig>
-
-    fun loadFeatureToggles(): Result<FeatureToggles>
+    fun saveImeConfig(config: ImeConfig): Result<ImeConfig>
 
     fun saveFeatureToggles(toggles: FeatureToggles): Result<FeatureToggles>
 
-    fun loadKeepAlivePackages(): Result<Set<String>>
+    fun saveKeepAliveConfig(config: KeepAliveConfig): Result<KeepAliveConfig>
 
-    fun saveKeepAlivePackages(packages: Set<String>): Result<Set<String>>
-
-    fun loadKeepAliveMode(): Result<KeepAliveMode>
+    fun saveNavBarLayout(config: NavBarLayoutConfig): Result<NavBarLayoutConfig>
 
     fun saveKeepAliveMode(mode: KeepAliveMode): Result<KeepAliveMode>
+
+    fun saveKeepAlivePackages(packages: Set<String>): Result<Set<String>>
 }

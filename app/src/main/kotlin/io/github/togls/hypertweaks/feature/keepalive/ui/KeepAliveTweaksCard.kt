@@ -11,13 +11,10 @@ import io.github.togls.hypertweaks.ui.component.SettingsSectionCard
 
 @Composable
 fun KeepAliveTweaksCard(
-    connected: Boolean,
-    enabled: Boolean,
-    mode: KeepAliveMode,
+    serviceConnected: Boolean,
+    uiState: KeepAliveSettingsUiState,
     onKeepAliveEnabledChange: (Boolean) -> Unit,
     onKeepAliveModeChange: (KeepAliveMode) -> Unit,
-    packagesText: String,
-    invalidPackages: List<String>,
     onPackagesTextChange: (String) -> Unit,
     onSaveClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -28,23 +25,23 @@ fun KeepAliveTweaksCard(
         FeatureSwitchRow(
             title = stringResource(R.string.feature_keep_alive_title),
             description = stringResource(R.string.feature_keep_alive_description),
-            checked = enabled,
-            enabled = connected,
+            checked = uiState.enabled,
+            enabled = serviceConnected,
             onCheckedChange = onKeepAliveEnabledChange,
         )
 
         HorizontalDivider()
 
         KeepAliveModeSelector(
-            selectedMode = mode,
-            enabled = connected && enabled,
+            selectedMode = uiState.mode,
+            enabled = serviceConnected && uiState.enabled,
             onModeChange = onKeepAliveModeChange,
         )
 
         KeepAlivePackagesContent(
-            packagesText = packagesText,
-            invalidPackages = invalidPackages,
-            enabled = connected,
+            packagesText = uiState.packagesText,
+            invalidPackages = uiState.invalidPackages,
+            enabled = serviceConnected,
             onPackagesTextChange = onPackagesTextChange,
             onSaveClick = onSaveClick,
         )

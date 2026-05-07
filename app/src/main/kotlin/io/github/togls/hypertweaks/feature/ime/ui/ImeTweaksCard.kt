@@ -10,22 +10,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.togls.hypertweaks.R
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
-import io.github.togls.hypertweaks.feature.ime.data.NavBarLayoutConfig
 import io.github.togls.hypertweaks.ui.component.FeatureSwitchRow
 import io.github.togls.hypertweaks.ui.component.SettingsSectionCard
 
 @Composable
 fun ImeTweaksCard(
-    imeEnabled: Boolean,
     serviceConnected: Boolean,
-    config: NavBarLayoutConfig,
+    uiState: ImeSettingsUiState,
     showDebugInfo: Boolean,
     onImeEnabledChange: (Boolean) -> Unit,
     onStartButtonChange: (NavBarButton) -> Unit,
     onEndButtonChange: (NavBarButton) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val controlsEnabled = serviceConnected && imeEnabled
+    val controlsEnabled = serviceConnected && uiState.enabled
 
     SettingsSectionCard(
         modifier = modifier,
@@ -33,7 +31,7 @@ fun ImeTweaksCard(
         FeatureSwitchRow(
             title = stringResource(R.string.feature_ime_title),
             description = stringResource(R.string.feature_ime_description),
-            checked = imeEnabled,
+            checked = uiState.enabled,
             enabled = serviceConnected,
             onCheckedChange = onImeEnabledChange,
         )
@@ -41,13 +39,13 @@ fun ImeTweaksCard(
         HorizontalDivider()
 
         Column(
-            modifier = Modifier.alpha(if (imeEnabled) 1f else 0.5f),
+            modifier = Modifier.alpha(if (uiState.enabled) 1f else 0.5f),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             NavBarButtonSelectorContent(
                 title = stringResource(R.string.start_button_title),
                 description = stringResource(R.string.start_button_description),
-                selected = config.start,
+                selected = uiState.navBarLayout.start,
                 enabled = controlsEnabled,
                 onSelectedChange = onStartButtonChange,
             )
@@ -55,7 +53,7 @@ fun ImeTweaksCard(
             NavBarButtonSelectorContent(
                 title = stringResource(R.string.end_button_title),
                 description = stringResource(R.string.end_button_description),
-                selected = config.end,
+                selected = uiState.navBarLayout.end,
                 enabled = controlsEnabled,
                 onSelectedChange = onEndButtonChange,
             )
@@ -64,7 +62,7 @@ fun ImeTweaksCard(
                 HorizontalDivider()
 
                 HandlePreviewContent(
-                    handleLayout = config.toHandleLayout(),
+                    handleLayout = uiState.navBarLayout.toHandleLayout(),
                 )
             }
         }
