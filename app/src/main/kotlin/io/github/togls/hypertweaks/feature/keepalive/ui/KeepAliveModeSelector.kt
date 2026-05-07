@@ -36,6 +36,14 @@ fun KeepAliveModeSelector(
         )
 
         KeepAliveModeOption(
+            title = stringResource(R.string.keep_alive_mode_oom_only_title),
+            description = stringResource(R.string.keep_alive_mode_oom_only_description),
+            selected = selectedMode == KeepAliveMode.OomOnly,
+            enabled = enabled,
+            onClick = { onModeChange(KeepAliveMode.OomOnly) },
+        )
+
+        KeepAliveModeOption(
             title = stringResource(R.string.keep_alive_mode_conservative_title),
             description = stringResource(R.string.keep_alive_mode_conservative_description),
             selected = selectedMode == KeepAliveMode.Conservative,
@@ -49,14 +57,6 @@ fun KeepAliveModeSelector(
             selected = selectedMode == KeepAliveMode.Aggressive,
             enabled = enabled,
             onClick = { onModeChange(KeepAliveMode.Aggressive) },
-        )
-
-        KeepAliveModeOption(
-            title = stringResource(R.string.keep_alive_mode_oom_only_title),
-            description = stringResource(R.string.keep_alive_mode_oom_only_description),
-            selected = selectedMode == KeepAliveMode.OomOnly,
-            enabled = enabled,
-            onClick = { onModeChange(KeepAliveMode.OomOnly) },
         )
     }
 }
