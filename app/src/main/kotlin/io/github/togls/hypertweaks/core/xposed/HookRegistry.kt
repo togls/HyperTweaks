@@ -1,10 +1,8 @@
 package io.github.togls.hypertweaks.core.xposed
 
 import android.os.Build
-import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
-import io.github.togls.hypertweaks.core.xposed.util.HookLog
 import io.github.togls.hypertweaks.feature.ime.xposed.DeadZoneHook
 import io.github.togls.hypertweaks.feature.ime.xposed.InputMethodBottomManagerHook
 import io.github.togls.hypertweaks.feature.ime.xposed.InputMethodManagerServiceHook
@@ -17,9 +15,13 @@ import io.github.togls.hypertweaks.feature.keepalive.xposed.KeepAliveHook
 import io.github.togls.hypertweaks.feature.keepalive.xposed.OomAdjProtectHook
 
 class HookRegistry(
-    private val module: XposedModule,
+    private val context: HookContext,
 ) {
-    private val installLogger = HookInstallLogger(module)
+
+    private val module = context.module
+    private val log = context.log
+
+    private val installLogger = HookInstallLogger(log)
 
     private val systemServerHooks: List<SystemServerHookSpec> = listOf(
         KeepAliveSystemServerHookSpec,
@@ -37,10 +39,11 @@ class HookRegistry(
     )
 
     fun installSystemServerHooks(classLoader: ClassLoader) {
-        installLogger.startSystemServer()
+        val target = "system_server"
+
+        installLogger.startSystemServer(target)
 
         systemServerHooks.forEach { spec ->
-            val target = "system_server"
 
             if (!isFeatureEnabled(spec.feature)) {
                 installLogger.skippedDisabled(
@@ -53,7 +56,7 @@ class HookRegistry(
 
             runCatching {
                 spec.install(
-                    module = module,
+                    context = context.child(spec.name),
                     classLoader = classLoader,
                 )
             }.onSuccess {
@@ -98,7 +101,7 @@ class HookRegistry(
 
             runCatching {
                 spec.install(
-                    module = module,
+                    context = context.child(spec.name),
                     param = param,
                 )
             }.onSuccess {
@@ -123,10 +126,11 @@ class HookRegistry(
             module.getRemotePreferences(RemotePreferenceKeys.GroupName)
                 .getBoolean(feature.preferenceKey, false)
         }.onFailure { error ->
-            HookLog.w(
-                module,
-                "failed to read feature toggle: feature=$feature key=${feature.preferenceKey}",
-                error,
+            log.w(
+                message = "failed to read feature toggle",
+                error = error,
+                "feature" to feature.name,
+                "key" to feature.preferenceKey,
             )
         }.getOrDefault(false)
     }
@@ -136,10 +140,10 @@ class HookRegistry(
         override val feature: HookFeature = HookFeature.KeepAlive
 
         override fun install(
-            module: XposedModule,
+            context: HookContext,
             classLoader: ClassLoader,
         ) {
-            KeepAliveHook(module).installSystemServer(classLoader)
+            KeepAliveHook(context).installSystemServer(classLoader)
         }
     }
 
@@ -148,10 +152,10 @@ class HookRegistry(
         override val feature: HookFeature = HookFeature.KeepAlive
 
         override fun install(
-            module: XposedModule,
+            context: HookContext,
             classLoader: ClassLoader,
         ) {
-            OomAdjProtectHook(module).installSystemServer(classLoader)
+            OomAdjProtectHook(context).installSystemServer(classLoader)
         }
     }
 
@@ -160,13 +164,13 @@ class HookRegistry(
         override val feature: HookFeature = HookFeature.Ime
 
         override fun install(
-            module: XposedModule,
+            context: HookContext,
             classLoader: ClassLoader,
         ) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
-                InputMethodManagerServiceImplHook(module).install(classLoader)
+                InputMethodManagerServiceImplHook(context).install(classLoader)
             } else {
-                InputMethodManagerServiceHook(module).install(classLoader)
+                InputMethodManagerServiceHook(context).install(classLoader)
             }
         }
     }
@@ -184,10 +188,10 @@ class HookRegistry(
 
     private object InputMethodServicePackageHookSpec : ImePackageHookSpec("InputMethodService") {
         override fun install(
-            module: XposedModule,
+            context: HookContext,
             param: PackageReadyParam,
         ) {
-            InputMethodServiceHook(module).install(param.classLoader)
+            InputMethodServiceHook(context).install(param.classLoader)
         }
     }
 
@@ -195,10 +199,10 @@ class HookRegistry(
         ImePackageHookSpec("NavigationBarController") {
 
         override fun install(
-            module: XposedModule,
+            context: HookContext,
             param: PackageReadyParam,
         ) {
-            NavigationBarControllerHook(module).install(param.classLoader)
+            NavigationBarControllerHook(context).install(param.classLoader)
         }
     }
 
@@ -206,28 +210,28 @@ class HookRegistry(
         ImePackageHookSpec("NavigationBarInflaterView") {
 
         override fun install(
-            module: XposedModule,
+            context: HookContext,
             param: PackageReadyParam,
         ) {
-            NavigationBarInflaterHook(module).install(param.classLoader)
+            NavigationBarInflaterHook(context).install(param.classLoader)
         }
     }
 
     private object NavigationBarViewPackageHookSpec : ImePackageHookSpec("NavigationBarView") {
         override fun install(
-            module: XposedModule,
+            context: HookContext,
             param: PackageReadyParam,
         ) {
-            NavigationBarViewHook(module).install(param.classLoader)
+            NavigationBarViewHook(context).install(param.classLoader)
         }
     }
 
     private object DeadZonePackageHookSpec : ImePackageHookSpec("DeadZone") {
         override fun install(
-            module: XposedModule,
+            context: HookContext,
             param: PackageReadyParam,
         ) {
-            DeadZoneHook(module).install(param.classLoader)
+            DeadZoneHook(context).install(param.classLoader)
         }
     }
 
@@ -235,10 +239,10 @@ class HookRegistry(
         ImePackageHookSpec("InputMethodBottomManager") {
 
         override fun install(
-            module: XposedModule,
+            context: HookContext,
             param: PackageReadyParam,
         ) {
-            InputMethodBottomManagerHook(module).install(param.classLoader)
+            InputMethodBottomManagerHook(context).install(param.classLoader)
         }
     }
 }

@@ -4,21 +4,23 @@ import android.annotation.SuppressLint
 import android.view.RoundedCorner
 import android.view.View
 import io.github.libxposed.api.XposedInterface
-import io.github.libxposed.api.XposedModule
-import io.github.togls.hypertweaks.core.xposed.util.HookLog
+import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.core.xposed.util.dpToPx
 import java.util.WeakHashMap
 
 class NavigationBarViewHook(
-    private val module: XposedModule,
+    context: HookContext
 ) {
+
+    private val module = context.module
+    private val log = context.log
 
     @SuppressLint("PrivateApi")
     fun install(classLoader: ClassLoader) {
         val targetClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
         }.onFailure { error ->
-            HookLog.w(module, "skip NavigationBarViewHook: class not found", error)
+            log.w("skip NavigationBarViewHook: class not found", error)
         }.getOrNull() ?: return
 
         val updateOrientationViewsMethod = runCatching {
@@ -26,11 +28,7 @@ class NavigationBarViewHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(
-                module,
-                "skip NavigationBarViewHook: updateOrientationViews not found",
-                error,
-            )
+            log.w("skip NavigationBarViewHook: updateOrientationViews not found", error)
         }.getOrNull() ?: return
 
         val horizontalField = runCatching {
@@ -38,7 +36,7 @@ class NavigationBarViewHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(module, "skip NavigationBarViewHook: mHorizontal not found", error)
+            log.w("skip NavigationBarViewHook: mHorizontal not found", error)
         }.getOrNull() ?: return
 
         module.hook(updateOrientationViewsMethod)
@@ -53,13 +51,13 @@ class NavigationBarViewHook(
 
                     installRoundedCornerPaddingListener(horizontalView)
                 }.onFailure { error ->
-                    HookLog.e(module, "hook NavigationBarView.updateOrientationViews failed", error)
+                    log.e("hook NavigationBarView.updateOrientationViews failed", error)
                 }
 
                 result
             }
 
-        HookLog.i(module, "hooked NavigationBarView#updateOrientationViews")
+        log.i("hooked NavigationBarView#updateOrientationViews")
     }
 
     private fun installRoundedCornerPaddingListener(horizontalView: View) {

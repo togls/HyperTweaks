@@ -4,6 +4,7 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
+import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.core.xposed.HookFeature
 import io.github.togls.hypertweaks.core.xposed.HookRegistry
 import io.github.togls.hypertweaks.core.xposed.PackageHookSpec
@@ -23,12 +24,23 @@ import io.github.togls.hypertweaks.core.xposed.util.HookLog
  */
 class HyperTweaksModule : XposedModule() {
 
-    private val hookRegistry by lazy {
-        HookRegistry(this)
+    private val rootContext: HookContext by xposedLazy {
+        HookContext(
+            module = this,
+            log = HookLog.create(this),
+        )
+    }
+
+    private val log by xposedLazy {
+        rootContext.log.child("HyperTweaksModule")
+    }
+
+    private val hookRegistry by xposedLazy {
+        HookRegistry(rootContext.child("HookRegistry"))
     }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
-        HookLog.i(this, "onModuleLoaded")
+        log.i("onModuleLoaded")
     }
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
@@ -37,5 +49,16 @@ class HyperTweaksModule : XposedModule() {
 
     override fun onPackageReady(param: PackageReadyParam) {
         hookRegistry.installPackageHooks(param)
+    }
+
+    private companion object {
+        fun <T> xposedLazy(
+            initializer: () -> T,
+        ): Lazy<T> {
+            return lazy(
+                mode = LazyThreadSafetyMode.NONE,
+                initializer = initializer,
+            )
+        }
     }
 }

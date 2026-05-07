@@ -6,6 +6,7 @@ import android.content.pm.ApplicationInfo
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
+import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.core.xposed.util.HookLog
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAlivePackages
 import java.io.File
@@ -17,8 +18,11 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 
 class OomAdjProtectHook(
-    private val module: XposedModule,
+    context: HookContext
 ) {
+    
+    private val module = context.module
+    private val log = context.log
 
     private val keepAlivePackages = AtomicReference<Set<String>>(emptySet())
 
@@ -120,8 +124,7 @@ class OomAdjProtectHook(
                     applyProtectedMaxAdj(processRecord)
                     writeOomScoreAdj(newPid, PROTECTED_OOM_ADJ)
 
-                    HookLog.i(
-                        module,
+                    log.i(
                         "tracked protected process:"
                             + " group=PROCESS_RECORD_KILL"
                             + " method=${method.describeSignature()}"
@@ -132,9 +135,9 @@ class OomAdjProtectHook(
                     result
                 }
 
-            HookLog.i(module, "hooked ProcessRecord#setPid(int)")
+            log.i("hooked ProcessRecord#setPid(int)")
         }.onFailure { error ->
-            HookLog.w(module, "failed to hook ProcessRecord#setPid", error)
+            log.w( "failed to hook ProcessRecord#setPid", error)
         }
     }
 
@@ -144,9 +147,9 @@ class OomAdjProtectHook(
     ) {
         runCatching {
             File("/proc/$pid/oom_score_adj").writeText(adj.toString())
-            HookLog.i(module, "write oom_score_adj: pid=$pid adj=$adj")
+            log.i( "write oom_score_adj: pid=$pid adj=$adj")
         }.onFailure { error ->
-            HookLog.w(module, "failed to write oom_score_adj: pid=$pid adj=$adj", error)
+            log.w( "failed to write oom_score_adj: pid=$pid adj=$adj", error)
         }
     }
 
@@ -168,8 +171,7 @@ class OomAdjProtectHook(
                     method.describeSignature()
                 }
 
-            HookLog.i(
-                module,
+            log.i(
                 "skip ProcessList#setOomAdj: no supported signature, candidates=$candidates",
             )
 
@@ -179,8 +181,7 @@ class OomAdjProtectHook(
         methods.forEach { method ->
             hookSetOomAdj(method)
 
-            HookLog.i(
-                module,
+            log.i(
                 "OomAdjProtectHook installed for ProcessList#setOomAdj: ${method.describeSignature()}",
             )
         }
@@ -225,8 +226,7 @@ class OomAdjProtectHook(
                     val newArgs = args.toTypedArray()
                     newArgs[2] = PROTECTED_OOM_ADJ
 
-                    HookLog.i(
-                        module,
+                    log.i(
                         "clamp oom adj: group=OOM_ADJ pid=$pid"
                             + " package=${protectedProcess.packageName}"
                             + " method=${method.describeSignature()}"
@@ -236,12 +236,11 @@ class OomAdjProtectHook(
                     chain.proceed(newArgs)
                 }
 
-            HookLog.i(
-                module,
+            log.i(
                 "hooked ProcessList#setOomAdj: ${method.describeSignature()}",
             )
         }.onFailure { error ->
-            HookLog.w(module, "failed to hook ProcessList#setOomAdj", error)
+            log.w( "failed to hook ProcessList#setOomAdj", error)
         }
     }
 
@@ -265,7 +264,7 @@ class OomAdjProtectHook(
                 )
             }
         }.onFailure { error ->
-            HookLog.w(module, "failed to apply protected max adj", error)
+            log.w( "failed to apply protected max adj", error)
         }
     }
 
@@ -279,8 +278,7 @@ class OomAdjProtectHook(
     ) {
         val removed = protectedProcesses.remove(pid) ?: return
 
-        HookLog.i(
-            module,
+        log.i(
             "forgot protected process: pid=$pid package=${removed.packageName} reason=$reason",
         )
     }
@@ -486,7 +484,7 @@ class OomAdjProtectHook(
         runCatching {
             method.invoke(receiver, value)
         }.onFailure { error ->
-            HookLog.w(module, "failed to invoke ${receiver.javaClass.name}#$methodName", error)
+            log.w( "failed to invoke ${receiver.javaClass.name}#$methodName", error)
         }
     }
 
@@ -565,7 +563,7 @@ class OomAdjProtectHook(
         return runCatching {
             classLoader.loadClass(className)
         }.onFailure { error ->
-            HookLog.w(module, "skip OomAdjProtectHook: $className not found", error)
+            log.w( "skip OomAdjProtectHook: $className not found", error)
         }.getOrNull()
     }
 
@@ -587,7 +585,7 @@ class OomAdjProtectHook(
             preferenceListeners += listener
             prefs.registerOnSharedPreferenceChangeListener(listener)
         }.onFailure { error ->
-            HookLog.w(module, "failed to read oom-adj remote preferences", error)
+            log.w( "failed to read oom-adj remote preferences", error)
         }
     }
 
@@ -610,8 +608,7 @@ class OomAdjProtectHook(
             }
         }
 
-        HookLog.i(
-            module,
+        log.i(
             "oom-adj protected packages updated: ${packages.joinToString()}",
         )
     }

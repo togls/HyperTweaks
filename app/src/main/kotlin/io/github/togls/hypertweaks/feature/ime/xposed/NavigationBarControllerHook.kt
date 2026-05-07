@@ -7,17 +7,19 @@ import android.os.Build
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import io.github.libxposed.api.XposedInterface
-import io.github.libxposed.api.XposedModule
 import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
-import io.github.togls.hypertweaks.core.xposed.util.HookLog
+import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.core.xposed.util.dpToPx
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicBoolean
 
 class NavigationBarControllerHook(
-    private val module: XposedModule,
+    context: HookContext
 ) {
+
+    private val module = context.module
+    private val log = context.log
 
     private val imePickerShortClickEnabled = AtomicBoolean(false)
 
@@ -29,7 +31,7 @@ class NavigationBarControllerHook(
         val targetClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
         }.onFailure { error ->
-            HookLog.w(module, "skip NavigationBarControllerHook: class not found", error)
+            log.w("skip NavigationBarControllerHook: class not found", error)
         }.getOrNull() ?: return
 
         loadRemotePreferences()
@@ -37,7 +39,7 @@ class NavigationBarControllerHook(
         installCaptionBarHeightHook(targetClass)
         installImeSwitchButtonClickHook(targetClass)
 
-        HookLog.i(module, "NavigationBarControllerHook installed")
+        log.i("NavigationBarControllerHook installed")
     }
 
     private fun installCaptionBarHeightHook(targetClass: Class<*>) {
@@ -46,7 +48,7 @@ class NavigationBarControllerHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(module, "skip caption bar hook: mImeDrawsImeNavBar not found", error)
+            log.w("skip caption bar hook: mImeDrawsImeNavBar not found", error)
         }.getOrNull() ?: return
 
         val serviceField = runCatching {
@@ -54,12 +56,12 @@ class NavigationBarControllerHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(module, "skip caption bar hook: mService not found", error)
+            log.w("skip caption bar hook: mService not found", error)
         }.getOrNull() ?: return
 
         val captionBarHeightMethod = findCaptionBarHeightMethod(targetClass)
             ?: run {
-                HookLog.w(module, "skip caption bar hook: getImeCaptionBarHeight method not found")
+                log.w("skip caption bar hook: getImeCaptionBarHeight method not found")
                 return
             }
 
@@ -85,12 +87,12 @@ class NavigationBarControllerHook(
 
                     dpToPx(48, service.resources)
                 }.onFailure { error ->
-                    HookLog.e(module, "hook getImeCaptionBarHeight failed", error)
+                    log.e("hook getImeCaptionBarHeight failed", error)
                 }.getOrNull()
                     ?: chain.proceed()
             }
 
-        HookLog.i(module, $$"hooked NavigationBarController$Impl#getImeCaptionBarHeight")
+        log.i($$"hooked NavigationBarController$Impl#getImeCaptionBarHeight")
     }
 
     private fun installImeSwitchButtonClickHook(targetClass: Class<*>) {
@@ -102,8 +104,7 @@ class NavigationBarControllerHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(
-                module,
+            log.w(
                 "skip IME picker short-click hook: onImeSwitchButtonClick(View) not found",
                 error,
             )
@@ -126,17 +127,17 @@ class NavigationBarControllerHook(
 
                     inputMethodManager.showInputMethodPicker()
 
-                    HookLog.i(module, "show input method picker from IME switch short click")
+                    log.i("show input method picker from IME switch short click")
 
                     true
                 }.onFailure { error ->
-                    HookLog.e(module, "show input method picker failed", error)
+                    log.e("show input method picker failed", error)
                 }.getOrDefault(false)
 
                 null
             }
 
-        HookLog.i(module, $$"hooked NavigationBarController$Impl#onImeSwitchButtonClick(View)")
+        log.i($$"hooked NavigationBarController$Impl#onImeSwitchButtonClick(View)")
     }
 
     private fun findCaptionBarHeightMethod(targetClass: Class<*>): Method? {
@@ -190,7 +191,7 @@ class NavigationBarControllerHook(
             preferenceListeners += listener
             prefs.registerOnSharedPreferenceChangeListener(listener)
         }.onFailure { error ->
-            HookLog.w(module, "failed to read remote preferences for IME picker mode", error)
+            log.w("failed to read remote preferences for IME picker mode", error)
         }
     }
 
@@ -210,7 +211,7 @@ class NavigationBarControllerHook(
 
         imePickerShortClickEnabled.set(enabled)
 
-        HookLog.i(module, "ime picker short click enabled=$enabled")
+        log.i("ime picker short click enabled=$enabled")
     }
 
     private companion object {

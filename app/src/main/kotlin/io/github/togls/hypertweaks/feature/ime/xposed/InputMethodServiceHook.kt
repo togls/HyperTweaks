@@ -4,20 +4,22 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.inputmethodservice.InputMethodService
 import io.github.libxposed.api.XposedInterface
-import io.github.libxposed.api.XposedModule
-import io.github.togls.hypertweaks.core.xposed.util.HookLog
+import io.github.togls.hypertweaks.core.xposed.HookContext
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 
 class InputMethodServiceHook(
-    private val module: XposedModule,
+    context: HookContext
 ) {
+
+    private val module = context.module
+    private val log = context.log
 
     fun install(classLoader: ClassLoader) {
         val inputMethodServiceClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
         }.onFailure { error ->
-            HookLog.w(module, "skip InputMethodServiceHook: class not found", error)
+            log.w("skip InputMethodServiceHook: class not found", error)
         }.getOrNull() ?: return
 
         val internationalBuildField = runCatching {
@@ -25,8 +27,7 @@ class InputMethodServiceHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(
-                module,
+            log.w(
                 "skip InputMethodServiceHook: IS_INTERNATIONAL_BUILD not found",
                 error
             )
@@ -40,8 +41,7 @@ class InputMethodServiceHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(
-                module,
+            log.w(
                 "skip InputMethodServiceHook: hideImeRenderGesturalNavButtons(String) not found",
                 error,
             )
@@ -68,13 +68,13 @@ class InputMethodServiceHook(
                         internationalBuildField.setBoolean(thisObject, true)
                     }
                 }.onFailure { error ->
-                    HookLog.e(module, "hook hideImeRenderGesturalNavButtons failed", error)
+                    log.e("hook hideImeRenderGesturalNavButtons failed", error)
                 }
 
                 chain.proceed()
             }
 
-        HookLog.i(module, "hooked InputMethodService#hideImeRenderGesturalNavButtons(String)")
+        log.i("hooked InputMethodService#hideImeRenderGesturalNavButtons(String)")
     }
 
     @SuppressLint("PrivateApi")

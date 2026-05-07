@@ -4,20 +4,22 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.view.inputmethod.InputMethodManager
 import io.github.libxposed.api.XposedInterface
-import io.github.libxposed.api.XposedModule
-import io.github.togls.hypertweaks.core.xposed.util.HookLog
+import io.github.togls.hypertweaks.core.xposed.HookContext
 import java.lang.reflect.Method
 
 class InputMethodManagerServiceImplHook(
-    private val module: XposedModule,
+    context: HookContext
 ) {
+
+    private val module = context.module
+    private val log = context.log
 
     @SuppressLint("PrivateApi")
     fun install(classLoader: ClassLoader) {
         val targetClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
         }.onFailure { error ->
-            HookLog.w(module, "skip InputMethodManagerServiceImplHook: class not found", error)
+            log.w("skip InputMethodManagerServiceImplHook: class not found", error)
         }.getOrNull() ?: return
 
         val method = runCatching {
@@ -30,8 +32,7 @@ class InputMethodManagerServiceImplHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(
-                module,
+            log.w(
                 "skip InputMethodManagerServiceImplHook: isCallingBetweenCustomIME not found",
                 error,
             )
@@ -50,7 +51,7 @@ class InputMethodManagerServiceImplHook(
                 result
             }
 
-        HookLog.i(module, "hooked InputMethodManagerServiceImpl#isCallingBetweenCustomIME")
+        log.i("hooked InputMethodManagerServiceImpl#isCallingBetweenCustomIME")
     }
 
     private fun shouldTreatAsCallingBetweenCustomIme(args: List<Any?>): Boolean {
@@ -82,7 +83,7 @@ class InputMethodManagerServiceImplHook(
                 packageName == currentPackageName
             }
         }.onFailure { error ->
-            HookLog.e(module, "check isCallingBetweenCustomIME failed", error)
+            log.e("check isCallingBetweenCustomIME failed", error)
         }.getOrDefault(false)
     }
 

@@ -1,6 +1,5 @@
 package io.github.togls.hypertweaks.core.xposed
 
-import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 
 interface SystemServerHookSpec {
@@ -8,7 +7,7 @@ interface SystemServerHookSpec {
     val feature: HookFeature
 
     fun install(
-        module: XposedModule,
+        context: HookContext,
         classLoader: ClassLoader,
     )
 }
@@ -20,7 +19,7 @@ interface PackageHookSpec {
     fun isSupported(param: PackageReadyParam): Boolean
 
     fun install(
-        module: XposedModule,
+        context: HookContext,
         param: PackageReadyParam,
     )
 }

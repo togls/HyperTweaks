@@ -6,11 +6,15 @@ import android.util.Log
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
+import io.github.togls.hypertweaks.core.xposed.HookContext
 import java.util.concurrent.atomic.AtomicReference
 
 class NavigationBarInflaterHook(
-    private val module: XposedModule,
+    context: HookContext
 ) {
+
+    private val module = context.module
+    private val log = context.log
 
     private val navBarLayoutHandle = AtomicReference("")
 
@@ -30,7 +34,7 @@ class NavigationBarInflaterHook(
 
                 if (configuredLayout.isNotBlank() && originalLayout != null) {
                     if (configuredLayout != originalLayout) {
-                        logInfo("replace nav bar layout: $originalLayout -> $configuredLayout")
+                        log.i("replace nav bar layout: $originalLayout -> $configuredLayout")
                     }
 
                     return@intercept chain.proceed(
@@ -41,7 +45,7 @@ class NavigationBarInflaterHook(
                 chain.proceed()
             }
 
-        logInfo("hooked $TARGET_CLASS_NAME#inflateLayout(String)")
+        log.i("hooked $TARGET_CLASS_NAME#inflateLayout(String)")
     }
 
     @SuppressLint("PrivateApi")
@@ -56,7 +60,7 @@ class NavigationBarInflaterHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            logWarn("skip NavigationBarInflaterHook: ${error.message}", error)
+            log.w("skip NavigationBarInflaterHook: ${error.message}", error)
         }.getOrNull()
 
     private fun loadRemotePreferences() {
@@ -83,34 +87,17 @@ class NavigationBarInflaterHook(
 
                     navBarLayoutHandle.set(nextLayout)
 
-                    logInfo("remote preference changed: $key=$nextLayout")
+                    log.i("remote preference changed: $key=$nextLayout")
                 }
 
             preferenceListeners += listener
             prefs.registerOnSharedPreferenceChangeListener(listener)
         }.onFailure { error ->
-            logWarn("failed to read remote preferences: ${error.message}", error)
+            log.w("failed to read remote preferences: ${error.message}", error)
         }
-    }
-
-    private fun logInfo(message: String) {
-        module.log(Log.INFO, TAG, message)
-    }
-
-    private fun logWarn(
-        message: String,
-        error: Throwable? = null,
-    ) {
-        if (error == null) {
-            module.log(Log.WARN, TAG, message)
-            return
-        }
-
-        module.log(Log.WARN, TAG, message, error)
     }
 
     private companion object {
-        private const val TAG = "HyperTweaks"
         private const val TARGET_CLASS_NAME =
             "android.inputmethodservice.navigationbar.NavigationBarInflaterView"
     }

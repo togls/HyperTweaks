@@ -4,22 +4,24 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.provider.Settings
 import io.github.libxposed.api.XposedInterface
-import io.github.libxposed.api.XposedModule
-import io.github.togls.hypertweaks.core.xposed.util.HookLog
+import io.github.togls.hypertweaks.core.xposed.HookContext
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.concurrent.atomic.AtomicBoolean
 
 class InputMethodManagerServiceHook(
-    private val module: XposedModule,
+    private val context: HookContext,
 ) {
+
+    private val module = context.module
+    private val log = context.log
 
     @SuppressLint("PrivateApi")
     fun install(classLoader: ClassLoader) {
         val serviceClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
         }.onFailure { error ->
-            HookLog.w(module, "skip InputMethodManagerServiceHook: class not found", error)
+            log.w("skip InputMethodManagerServiceHook: class not found", error)
         }.getOrNull() ?: return
 
         val method = runCatching {
@@ -27,8 +29,7 @@ class InputMethodManagerServiceHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(
-                module,
+            log.w(
                 "skip InputMethodManagerServiceHook: getInputMethodNavButtonFlagsLocked not found",
                 error,
             )
@@ -39,8 +40,7 @@ class InputMethodManagerServiceHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(
-                module,
+            log.w(
                 "skip InputMethodManagerServiceHook: mImeDrawsImeNavBarRes not found",
                 error
             )
@@ -51,7 +51,7 @@ class InputMethodManagerServiceHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(module, "skip InputMethodManagerServiceHook: mSettings not found", error)
+            log.w("skip InputMethodManagerServiceHook: mSettings not found", error)
         }.getOrNull() ?: return
 
         val contextField = runCatching {
@@ -59,14 +59,13 @@ class InputMethodManagerServiceHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(module, "skip InputMethodManagerServiceHook: mContext not found", error)
+            log.w("skip InputMethodManagerServiceHook: mContext not found", error)
         }.getOrNull() ?: return
 
         val wrapperClass = runCatching {
             classLoader.loadClass("com.android.server.inputmethod.OverlayableSystemBooleanResourceWrapper")
         }.onFailure { error ->
-            HookLog.w(
-                module,
+            log.w(
                 "skip InputMethodManagerServiceHook: OverlayableSystemBooleanResourceWrapper not found",
                 error,
             )
@@ -77,7 +76,7 @@ class InputMethodManagerServiceHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(module, "skip InputMethodManagerServiceHook: mValueRef not found", error)
+            log.w("skip InputMethodManagerServiceHook: mValueRef not found", error)
         }.getOrNull() ?: return
 
         val serviceStubGetInstanceMethod = runCatching {
@@ -88,8 +87,7 @@ class InputMethodManagerServiceHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(
-                module,
+            log.w(
                 "skip InputMethodManagerServiceHook: InputMethodManagerServiceStub.getInstance not found",
                 error,
             )
@@ -141,13 +139,13 @@ class InputMethodManagerServiceHook(
 
                     valueRef.set(canImeDrawImeNavBar)
                 }.onFailure { error ->
-                    HookLog.e(module, "hook getInputMethodNavButtonFlagsLocked failed", error)
+                    log.e("hook getInputMethodNavButtonFlagsLocked failed", error)
                 }
 
                 chain.proceed()
             }
 
-        HookLog.i(module, "hooked InputMethodManagerService#getInputMethodNavButtonFlagsLocked")
+        log.i("hooked InputMethodManagerService#getInputMethodNavButtonFlagsLocked")
     }
 
     private fun getSelectedInputMethod(settings: Any): String? {
@@ -221,12 +219,9 @@ class InputMethodManagerServiceHook(
                 userHandleCurrent,
             )
 
-            HookLog.i(
-                module,
-                "gestural overlay changed: $NAV_BAR_MODE_GESTURAL_OVERLAY=$enabled",
-            )
+            log.i("gestural overlay changed: $NAV_BAR_MODE_GESTURAL_OVERLAY=$enabled")
         }.onFailure { error ->
-            HookLog.e(module, "failed to toggle gestural overlay", error)
+            log.e("failed to toggle gestural overlay", error)
         }
     }
 

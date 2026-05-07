@@ -4,20 +4,20 @@ import io.github.libxposed.api.XposedModule
 import io.github.togls.hypertweaks.core.xposed.util.HookLog
 
 class HookInstallLogger(
-    private val module: XposedModule,
+    private val log: HookLog,
 ) {
 
-    fun startSystemServer() {
-        HookLog.i(
-            module,
-            "hook install start: process=system_server",
+    fun startSystemServer(target: String) {
+        log.i(
+            message = "install_start",
+            "target" to target
         )
     }
 
     fun startPackage(packageName: String) {
-        HookLog.i(
-            module,
-            "hook install start: package=$packageName",
+        log.i(
+            message = "install_start",
+            "target" to packageName,
         )
     }
 
@@ -26,9 +26,11 @@ class HookInstallLogger(
         target: String,
         feature: HookFeature,
     ) {
-        HookLog.i(
-            module,
-            "hook installed: name=$name target=$target feature=$feature",
+        log.i(
+            message = "hook_installed",
+            "name" to name,
+            "target" to target,
+            "feature" to feature.name,
         )
     }
 
@@ -37,9 +39,12 @@ class HookInstallLogger(
         target: String,
         feature: HookFeature,
     ) {
-        HookLog.i(
-            module,
-            "hook skipped: name=$name target=$target feature=$feature reason=feature_disabled",
+        log.i(
+            message = "hook_skipped",
+            "name" to name,
+            "target" to target,
+            "feature" to feature.name,
+            "reason" to "feature_disabled",
         )
     }
 
@@ -48,9 +53,12 @@ class HookInstallLogger(
         target: String,
         feature: HookFeature,
     ) {
-        HookLog.i(
-            module,
-            "hook skipped: name=$name target=$target feature=$feature reason=unsupported_target",
+        log.i(
+            message = "hook_skipped",
+            "name" to name,
+            "target" to target,
+            "feature" to feature.name,
+            "reason" to "unsupported_target",
         )
     }
 
@@ -60,10 +68,12 @@ class HookInstallLogger(
         feature: HookFeature,
         error: Throwable,
     ) {
-        HookLog.e(
-            module,
-            "hook failed: name=$name target=$target feature=$feature",
-            error,
+        log.i(
+            message = "hook_failed",
+            "name" to name,
+            "target" to target,
+            "feature" to feature.name,
+            "error" to error.message,
         )
     }
 }

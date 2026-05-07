@@ -3,16 +3,17 @@ package io.github.togls.hypertweaks.feature.ime.xposed
 import android.annotation.SuppressLint
 import android.view.inputmethod.InputMethodManager
 import io.github.libxposed.api.XposedInterface
-import io.github.libxposed.api.XposedModule
-import io.github.togls.hypertweaks.core.xposed.util.HookLog
+import io.github.togls.hypertweaks.core.xposed.HookContext
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.Collections
 import java.util.IdentityHashMap
 
 class InputMethodBottomManagerHook(
-    private val module: XposedModule,
+    private val context: HookContext,
 ) {
+    private val module = context.module
+    private val log = context.log
 
     private val hookedClassLoaders = Collections.newSetFromMap(
         IdentityHashMap<ClassLoader, Boolean>(),
@@ -23,8 +24,7 @@ class InputMethodBottomManagerHook(
         val moduleManagerClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
         }.onFailure { error ->
-            HookLog.w(
-                module,
+            log.w(
                 "skip InputMethodBottomManagerHook: InputMethodModuleManager not found",
                 error
             )
@@ -39,8 +39,7 @@ class InputMethodBottomManagerHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(
-                module,
+            log.w(
                 "skip InputMethodBottomManagerHook: loadDex(ClassLoader, String) not found",
                 error,
             )
@@ -58,13 +57,13 @@ class InputMethodBottomManagerHook(
 
                     installBottomManagerHookOnce(imeModuleClassLoader)
                 }.onFailure { error ->
-                    HookLog.e(module, "hook InputMethodModuleManager.loadDex failed", error)
+                    log.e("hook InputMethodModuleManager.loadDex failed", error)
                 }
 
                 result
             }
 
-        HookLog.i(module, "hooked InputMethodModuleManager#loadDex(ClassLoader, String)")
+        log.i("hooked InputMethodModuleManager#loadDex(ClassLoader, String)")
     }
 
     private fun installBottomManagerHookOnce(imeModuleClassLoader: ClassLoader) {
@@ -77,7 +76,7 @@ class InputMethodBottomManagerHook(
         val bottomManagerClass = runCatching {
             imeModuleClassLoader.loadClass(BOTTOM_MANAGER_CLASS_NAME)
         }.onFailure { error ->
-            HookLog.w(module, "skip BottomManager hook: InputMethodBottomManager not found", error)
+            log.w("skip BottomManager hook: InputMethodBottomManager not found", error)
         }.getOrNull() ?: return
 
         val getSupportImeMethod = runCatching {
@@ -85,13 +84,13 @@ class InputMethodBottomManagerHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(module, "skip BottomManager hook: getSupportIme not found", error)
+            log.w("skip BottomManager hook: getSupportIme not found", error)
         }.getOrNull() ?: return
 
         val bottomViewHelperClass = runCatching {
             imeModuleClassLoader.loadClass(BOTTOM_VIEW_HELPER_CLASS_NAME)
         }.onFailure { error ->
-            HookLog.w(module, "skip BottomManager hook: BottomViewHelper not found", error)
+            log.w("skip BottomManager hook: BottomViewHelper not found", error)
         }.getOrNull() ?: return
 
         val immField = runCatching {
@@ -99,7 +98,7 @@ class InputMethodBottomManagerHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(module, "skip BottomManager hook: BottomViewHelper.mImm not found", error)
+            log.w("skip BottomManager hook: BottomViewHelper.mImm not found", error)
         }.getOrNull() ?: return
 
         val bottomViewHelperField = runCatching {
@@ -107,7 +106,7 @@ class InputMethodBottomManagerHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(module, "skip BottomManager hook: sBottomViewHelper not found", error)
+            log.w("skip BottomManager hook: sBottomViewHelper not found", error)
         }.getOrNull() ?: return
 
         hookGetSupportIme(
@@ -116,7 +115,7 @@ class InputMethodBottomManagerHook(
             immField = immField,
         )
 
-        HookLog.i(module, "hooked InputMethodBottomManager#getSupportIme")
+        log.i("hooked InputMethodBottomManager#getSupportIme")
     }
 
     private fun hookGetSupportIme(
@@ -139,7 +138,7 @@ class InputMethodBottomManagerHook(
 
                     inputMethodManager.enabledInputMethodList
                 }.onFailure { error ->
-                    HookLog.e(module, "hook InputMethodBottomManager.getSupportIme failed", error)
+                    log.e("hook InputMethodBottomManager.getSupportIme failed", error)
                 }.getOrNull()
                     ?: chain.proceed()
             }

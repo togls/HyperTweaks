@@ -4,9 +4,8 @@ import android.annotation.SuppressLint
 import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
 import io.github.libxposed.api.XposedInterface
-import io.github.libxposed.api.XposedModule
 import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
-import io.github.togls.hypertweaks.core.xposed.util.HookLog
+import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAlivePackages
 import java.lang.Byte
@@ -47,8 +46,11 @@ private val CONSERVATIVE_BLOCK_GROUPS = setOf(
 )
 
 class KeepAliveHook(
-    private val module: XposedModule,
+    context: HookContext
 ) {
+
+    private val module = context.module
+    private val log = context.log
 
     private val keepAlivePackages = AtomicReference<Set<String>>(emptySet())
 
@@ -101,7 +103,7 @@ class KeepAliveHook(
         hookProcessRecord(classLoader)
 
         // if (!RomUtils.isXiaomiLikeRom()) {
-        //    HookLog.i(module, "skip MIUI/HyperOS keep-alive hooks on non-Xiaomi ROM")
+        //    log.i( "skip MIUI/HyperOS keep-alive hooks on non-Xiaomi ROM")
         //    return
         // }
         hookMiuiProcessManagerService(classLoader)
@@ -146,7 +148,7 @@ class KeepAliveHook(
                 hookMethodWithPackageArgs(method, GROUP_AMS_AGGRESSIVE)
             }
 
-        HookLog.i(module, "KeepAliveHook installed for ActivityManagerService")
+        log.i("KeepAliveHook installed for ActivityManagerService")
     }
 
     private fun hookProcessRecord(classLoader: ClassLoader) {
@@ -164,7 +166,7 @@ class KeepAliveHook(
                 hookProcessRecordKillMethod(method)
             }
 
-        HookLog.i(module, "KeepAliveHook installed for ProcessRecord")
+        log.i("KeepAliveHook installed for ProcessRecord")
     }
 
     private fun hookProcessList(classLoader: ClassLoader) {
@@ -245,8 +247,7 @@ class KeepAliveHook(
                         protectedPackage != null &&
                         shouldBlockKeepAliveCall(group)
                     ) {
-                        HookLog.i(
-                            module,
+                        log.i(
                             "blocked keep-alive: group=$group" +
                                 " method=${method.describeSignature()}" +
                                 " package=$protectedPackage" +
@@ -259,13 +260,11 @@ class KeepAliveHook(
                     chain.proceed()
                 }
 
-            HookLog.i(
-                module,
+            log.i(
                 "hooked keep-alive method: ${method.describeSignature()}",
             )
         }.onFailure { error ->
-            HookLog.w(
-                module,
+            log.w(
                 "failed to hook keep-alive method: ${method.describeSignature()}",
                 error,
             )
@@ -291,8 +290,7 @@ class KeepAliveHook(
                         protectedPackage != null &&
                         shouldBlockKeepAliveCall(GROUP_PROCESS_RECORD_KILL)
                     ) {
-                        HookLog.i(
-                            module,
+                        log.i(
                             "blocked process kill: group=$GROUP_PROCESS_RECORD_KILL " +
                                 "${method.describeSignature()} package=$protectedPackage " +
                                 "mode=${keepAliveMode.get()}",
@@ -303,13 +301,11 @@ class KeepAliveHook(
                     chain.proceed()
                 }
 
-            HookLog.i(
-                module,
+            log.i(
                 "hooked process kill method: ${method.describeSignature()}",
             )
         }.onFailure { error ->
-            HookLog.w(
-                module,
+            log.w(
                 "failed to hook process kill method: ${method.describeSignature()}",
                 error,
             )
@@ -557,7 +553,7 @@ class KeepAliveHook(
         return runCatching {
             classLoader.loadClass(className)
         }.onFailure {
-            HookLog.i(module, "skip optional KeepAliveHook target: $className not found")
+            log.i("skip optional KeepAliveHook target: $className not found")
         }.getOrNull()
     }
 
@@ -594,7 +590,7 @@ class KeepAliveHook(
             preferenceListeners += listener
             prefs.registerOnSharedPreferenceChangeListener(listener)
         }.onFailure { error ->
-            HookLog.w(module, "failed to read keep-alive remote preferences", error)
+            log.w("failed to read keep-alive remote preferences", error)
         }
     }
 
@@ -613,8 +609,7 @@ class KeepAliveHook(
 
         keepAliveMode.set(mode)
 
-        HookLog.i(
-            module,
+        log.i(
             "keep-alive mode updated: $mode",
         )
     }
@@ -629,8 +624,7 @@ class KeepAliveHook(
 
         keepAlivePackages.set(packages)
 
-        HookLog.i(
-            module,
+        log.i(
             "keep-alive packages updated: ${packages.joinToString()}",
         )
     }

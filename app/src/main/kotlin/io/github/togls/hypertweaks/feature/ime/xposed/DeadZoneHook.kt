@@ -2,19 +2,20 @@ package io.github.togls.hypertweaks.feature.ime.xposed
 
 import android.annotation.SuppressLint
 import io.github.libxposed.api.XposedInterface
-import io.github.libxposed.api.XposedModule
-import io.github.togls.hypertweaks.core.xposed.util.HookLog
+import io.github.togls.hypertweaks.core.xposed.HookContext
 
 class DeadZoneHook(
-    private val module: XposedModule,
+    context: HookContext,
 ) {
+    private val module = context.module
+    private val log = context.log
 
     @SuppressLint("PrivateApi")
     fun install(classLoader: ClassLoader) {
         val targetClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
         }.onFailure { error ->
-            HookLog.w(module, "skip DeadZoneHook: class not found", error)
+            log.w("skip DeadZoneHook: class not found", error)
         }.getOrNull() ?: return
 
         val sizeMinField = runCatching {
@@ -22,7 +23,7 @@ class DeadZoneHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(module, "skip DeadZoneHook: mSizeMin not found", error)
+            log.w("skip DeadZoneHook: mSizeMin not found", error)
         }.getOrNull() ?: return
 
         val onConfigurationChangedMethod = runCatching {
@@ -33,8 +34,7 @@ class DeadZoneHook(
                 isAccessible = true
             }
         }.onFailure { error ->
-            HookLog.w(
-                module,
+            log.w(
                 "skip DeadZoneHook: onConfigurationChanged(int) not found",
                 error,
             )
@@ -49,13 +49,13 @@ class DeadZoneHook(
                 runCatching {
                     sizeMinField.setInt(thisObject, 0)
                 }.onFailure { error ->
-                    HookLog.e(module, "hook DeadZone.onConfigurationChanged failed", error)
+                    log.e("hook DeadZone.onConfigurationChanged failed", error)
                 }
 
                 result
             }
 
-        HookLog.i(module, "hooked DeadZone#onConfigurationChanged(int)")
+        log.i("hooked DeadZone#onConfigurationChanged(int)")
     }
 
     private companion object {
