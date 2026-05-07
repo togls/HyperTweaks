@@ -59,11 +59,6 @@ class OomAdjProtectHook(
             }
             .forEach { method ->
                 hookProcessRecordSetPid(method)
-
-                HookLog.i(
-                    module,
-                    "OomAdjProtectHook installed for ProcessRecord: ${method.describeSignature()}"
-                )
             }
     }
 
@@ -126,7 +121,11 @@ class OomAdjProtectHook(
 
                     HookLog.i(
                         module,
-                        "tracked protected process: group=PROCESS_RECORD_KILL pid=$newPid package=$protectedPackage process=${protectedProcess.processName.orEmpty()}",
+                        "tracked protected process:"
+                            + " group=PROCESS_RECORD_KILL"
+                            + " method=${method.describeSignature()}"
+                            + " pid=$newPid package=$protectedPackage"
+                            + " process=${protectedProcess.processName.orEmpty()}",
                     )
 
                     result
@@ -227,7 +226,10 @@ class OomAdjProtectHook(
 
                     HookLog.i(
                         module,
-                        "clamp oom adj: group=OOM_ADJ pid=$pid package=${protectedProcess.packageName} $adj->$PROTECTED_OOM_ADJ",
+                        "clamp oom adj: group=OOM_ADJ pid=$pid"
+                            + " package=${protectedProcess.packageName}"
+                            + " method=${method.describeSignature()}"
+                            + " $adj->$PROTECTED_OOM_ADJ",
                     )
 
                     chain.proceed(newArgs)
@@ -235,7 +237,7 @@ class OomAdjProtectHook(
 
             HookLog.i(
                 module,
-                "hooked ProcessList#setOomAdj: ${method.parameterTypes.joinToString()}",
+                "hooked ProcessList#setOomAdj: ${method.describeSignature()}",
             )
         }.onFailure { error ->
             HookLog.w(module, "failed to hook ProcessList#setOomAdj", error)

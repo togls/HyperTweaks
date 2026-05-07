@@ -8,7 +8,6 @@ import io.github.libxposed.api.XposedModule
 import io.github.togls.hypertweaks.data.KeepAlivePackages
 import io.github.togls.hypertweaks.data.RemotePreferenceKeys
 import io.github.togls.hypertweaks.xposed.util.HookLog
-import io.github.togls.hypertweaks.xposed.util.RomUtils
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.Collections
@@ -33,6 +32,7 @@ class KeepAliveHook(
 
         private val PROCESS_LIST_CLEANUP_KEYWORDS = setOf(
             "kill",
+            "remove",
         )
 
         private val MIUI_SMART_POWER_CLEANUP_KEYWORDS = setOf(
@@ -65,20 +65,37 @@ class KeepAliveHook(
     fun installSystemServer(classLoader: ClassLoader) {
         loadRemotePreferences()
 
-        HookLog.i(module, "test only hookActivityManagerService")
-
         hookActivityManagerService(classLoader)
 
-        // TODO: aggressive mode
         hookProcessList(classLoader)
         hookProcessRecord(classLoader)
 
-        if (!RomUtils.isXiaomiLikeRom()) {
-            HookLog.i(module, "skip MIUI/HyperOS keep-alive hooks on non-Xiaomi ROM")
-            return
-        }
+        // if (!RomUtils.isXiaomiLikeRom()) {
+        //    HookLog.i(module, "skip MIUI/HyperOS keep-alive hooks on non-Xiaomi ROM")
+        //    return
+        // }
+        hookMiuiProcessManagerService(classLoader)
 
         hookMiuiSmartPowerService(classLoader)
+    }
+
+    private fun hookMiuiProcessManagerService(classLoader: ClassLoader) {
+        val targetClass = loadClassOrNull(
+            classLoader = classLoader,
+            className = "com.miui.server.process.ProcessManagerService",
+        ) ?: return
+
+        hookMiuiCleanerClass(
+            targetClass = targetClass,
+            keywords = listOf(
+                "kill",
+                "clean",
+                "trim",
+                "forceStop",
+                "remove",
+            ),
+            "MIUI_PROCESS_MANAGER_SERVICE"
+        )
     }
 
     private fun hookActivityManagerService(classLoader: ClassLoader) {
@@ -102,7 +119,8 @@ class KeepAliveHook(
 
         targetClass.declaredMethods
             .filter { method ->
-                method.isSupportedProcessRecordKillSignature()
+                method.name == "kill" || method.name == "killLocked"
+                // method.isSupportedProcessRecordKillSignature()
             }
             .forEach { method ->
                 hookProcessRecordKillMethod(method)
@@ -131,19 +149,12 @@ class KeepAliveHook(
     ) {
         val candidateMethods = targetClass.declaredMethods
             .filter { method ->
-                method.matchesAnyKeyword(keywords) &&
-                    method.hasSupportedPackageParameter()
+                method.matchesAnyKeyword(keywords)
+                // && method.hasSupportedPackageParameter()
             }
 
         candidateMethods.forEach { method ->
             hookMethodWithPackageArgs(method, "PROCESS_LIST_CLEANUP")
-        }
-
-        candidateMethods.forEach { method ->
-            HookLog.i(
-                module,
-                "KeepAliveHook installed for method: ${method.describeSignature()}",
-            )
         }
     }
 
@@ -156,14 +167,14 @@ class KeepAliveHook(
         hookMiuiCleanerClass(
             targetClass = targetClass,
             keywords = MIUI_SMART_POWER_CLEANUP_KEYWORDS.toList(),
+            "MIUI_SMART_POWER",
         )
-
-        HookLog.i(module, "KeepAliveHook installed for SmartPowerService")
     }
 
     private fun hookMiuiCleanerClass(
         targetClass: Class<*>,
         keywords: List<String>,
+        group: String,
     ) {
         targetClass.declaredMethods
             .filter { method ->
@@ -172,7 +183,7 @@ class KeepAliveHook(
                 }
             }
             .forEach { method ->
-                hookMethodWithPackageArgs(method, "MIUI_SMART_POWER")
+                hookMethodWithPackageArgs(method, group)
             }
     }
 
@@ -192,7 +203,9 @@ class KeepAliveHook(
                     if (protectedPackage != null) {
                         HookLog.i(
                             module,
-                            "blocked keep-alive: group=$group method=${method.describeSignature()} package=$protectedPackage",
+                            "blocked keep-alive: group=${group}"
+                                + " method=${method.describeSignature()}"
+                                + " package=${protectedPackage}",
                         )
 
                         return@intercept defaultReturnValue(method.returnType)
