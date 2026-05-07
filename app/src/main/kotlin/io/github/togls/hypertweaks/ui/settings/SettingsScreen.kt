@@ -23,7 +23,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,6 +41,8 @@ import io.github.togls.hypertweaks.R
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 import io.github.togls.hypertweaks.feature.ime.data.NavBarLayoutConfig
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
+import io.github.togls.hypertweaks.ui.component.FeatureSwitchRow
+import io.github.togls.hypertweaks.ui.component.SettingsSectionCard
 
 @Composable
 fun SettingsScreen(
@@ -199,97 +200,51 @@ private fun ImeTweaksCard(
     onImeEnabledChange: (Boolean) -> Unit,
     onStartButtonChange: (NavBarButton) -> Unit,
     onEndButtonChange: (NavBarButton) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val controlsEnabled = serviceConnected && imeEnabled
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
+    SettingsSectionCard(
+        modifier = modifier,
     ) {
+        FeatureSwitchRow(
+            title = stringResource(R.string.feature_ime_title),
+            description = stringResource(R.string.feature_ime_description),
+            checked = imeEnabled,
+            enabled = serviceConnected,
+            onCheckedChange = onImeEnabledChange,
+        )
+
+        HorizontalDivider()
+
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.alpha(if (imeEnabled) 1f else 0.5f),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            FeatureSwitchRow(
-                title = stringResource(R.string.feature_ime_title),
-                description = stringResource(R.string.feature_ime_description),
-                checked = imeEnabled,
-                enabled = serviceConnected,
-                onCheckedChange = onImeEnabledChange,
+            NavBarButtonSelectorContent(
+                title = stringResource(R.string.start_button_title),
+                description = stringResource(R.string.start_button_description),
+                selected = config.start,
+                enabled = controlsEnabled,
+                onSelectedChange = onStartButtonChange,
             )
 
-            HorizontalDivider()
+            NavBarButtonSelectorContent(
+                title = stringResource(R.string.end_button_title),
+                description = stringResource(R.string.end_button_description),
+                selected = config.end,
+                enabled = controlsEnabled,
+                onSelectedChange = onEndButtonChange,
+            )
 
-            Column(
-                modifier = Modifier.alpha(if (imeEnabled) 1f else 0.5f),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                NavBarButtonSelectorContent(
-                    title = stringResource(R.string.start_button_title),
-                    description = stringResource(R.string.start_button_description),
-                    selected = config.start,
-                    enabled = controlsEnabled,
-                    onSelectedChange = onStartButtonChange,
+            if (showDebugInfo) {
+                HorizontalDivider()
+
+                HandlePreviewContent(
+                    handleLayout = config.toHandleLayout(),
                 )
-
-                NavBarButtonSelectorContent(
-                    title = stringResource(R.string.end_button_title),
-                    description = stringResource(R.string.end_button_description),
-                    selected = config.end,
-                    enabled = controlsEnabled,
-                    onSelectedChange = onEndButtonChange,
-                )
-
-                if (showDebugInfo) {
-                    HorizontalDivider()
-
-                    HandlePreviewContent(
-                        handleLayout = config.toHandleLayout(),
-                    )
-                }
             }
         }
-    }
-}
-
-@Composable
-private fun FeatureSwitchRow(
-    title: String,
-    description: String,
-    checked: Boolean,
-    enabled: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-            )
-
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        Switch(
-            checked = checked,
-            enabled = enabled,
-            onCheckedChange = onCheckedChange,
-        )
     }
 }
 
@@ -388,43 +343,34 @@ private fun KeepAliveTweaksCard(
     invalidPackages: List<String>,
     onPackagesTextChange: (String) -> Unit,
     onSaveClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
+    SettingsSectionCard(
+        modifier = modifier,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            FeatureSwitchRow(
-                title = stringResource(R.string.feature_keep_alive_title),
-                description = stringResource(R.string.feature_keep_alive_description),
-                checked = enabled,
-                enabled = connected,
-                onCheckedChange = onKeepAliveEnabledChange,
-            )
+        FeatureSwitchRow(
+            title = stringResource(R.string.feature_keep_alive_title),
+            description = stringResource(R.string.feature_keep_alive_description),
+            checked = enabled,
+            enabled = connected,
+            onCheckedChange = onKeepAliveEnabledChange,
+        )
 
-            HorizontalDivider()
+        HorizontalDivider()
 
-            KeepAliveModeSelector(
-                selectedMode = mode,
-                enabled = connected && enabled,
-                onModeChange = onKeepAliveModeChange,
-            )
+        KeepAliveModeSelector(
+            selectedMode = mode,
+            enabled = connected && enabled,
+            onModeChange = onKeepAliveModeChange,
+        )
 
-            KeepAlivePackagesContent(
-                packagesText = packagesText,
-                invalidPackages = invalidPackages,
-                enabled = connected,
-                onPackagesTextChange = onPackagesTextChange,
-                onSaveClick = onSaveClick,
-            )
-        }
+        KeepAlivePackagesContent(
+            packagesText = packagesText,
+            invalidPackages = invalidPackages,
+            enabled = connected,
+            onPackagesTextChange = onPackagesTextChange,
+            onSaveClick = onSaveClick,
+        )
     }
 }
 
