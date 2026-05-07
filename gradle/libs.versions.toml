@@ -8,6 +8,7 @@ targetSdk = "37"
 
 composeBom = "2026.04.01"
 activityCompose = "1.13.0"
+lifecycle = "2.10.0"
 
 libxposedApi = "101.0.1"
 libxposedService = "101.0.0"
@@ -18,13 +19,13 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
-
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 
 libxposed-api = { module = "io.github.libxposed:api", version.ref = "libxposedApi" }
 libxposed-service = { module = "io.github.libxposed:service", version.ref = "libxposedService" }
@@ -35,5 +36,6 @@ compose = [
     "androidx-compose-ui-tooling-preview",
     "androidx-compose-foundation",
     "androidx-compose-material3",
-    "androidx-activity-compose"
+    "androidx-activity-compose",
+    "androidx-lifecycle-viewmodel-compose",
 ]
