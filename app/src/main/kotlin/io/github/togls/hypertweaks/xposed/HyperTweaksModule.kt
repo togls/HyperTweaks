@@ -52,6 +52,9 @@ class HyperTweaksModule : XposedModule() {
         if (!param.isFirstPackage) {
             return
         }
+        if (!isFeatureEnabled(RemotePreferenceKeys.ImeEnabled)) {
+            return
+        }
 
         val packageName = param.packageName
         val classLoader = param.classLoader
