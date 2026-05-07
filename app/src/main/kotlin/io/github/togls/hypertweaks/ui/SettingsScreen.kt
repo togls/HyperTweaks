@@ -15,11 +15,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,16 +30,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.togls.hypertweaks.BuildConfig
 import io.github.togls.hypertweaks.R
 import io.github.togls.hypertweaks.data.NavBarButton
+import io.github.togls.hypertweaks.data.NavBarLayoutConfig
 
 @Composable
 fun SettingsScreen(
     uiState: SettingsUiState,
+    onImeEnabledChange: (Boolean) -> Unit,
+    onKeepAliveEnabledChange: (Boolean) -> Unit,
     onStartButtonChange: (NavBarButton) -> Unit,
     onEndButtonChange: (NavBarButton) -> Unit,
     onKeepAlivePackagesTextChange: (String) -> Unit,
@@ -53,6 +59,8 @@ fun SettingsScreen(
         Scaffold { innerPadding ->
             SettingsContent(
                 uiState = uiState,
+                onImeEnabledChange = onImeEnabledChange,
+                onKeepAliveEnabledChange = onKeepAliveEnabledChange,
                 onStartButtonChange = onStartButtonChange,
                 onEndButtonChange = onEndButtonChange,
                 onKeepAlivePackagesTextChange = onKeepAlivePackagesTextChange,
@@ -68,6 +76,8 @@ fun SettingsScreen(
 @Composable
 private fun SettingsContent(
     uiState: SettingsUiState,
+    onImeEnabledChange: (Boolean) -> Unit,
+    onKeepAliveEnabledChange: (Boolean) -> Unit,
     onStartButtonChange: (NavBarButton) -> Unit,
     onEndButtonChange: (NavBarButton) -> Unit,
     onKeepAlivePackagesTextChange: (String) -> Unit,
@@ -102,32 +112,22 @@ private fun SettingsContent(
             showDebugInfo = showDebugInfo,
         )
 
-        NavBarButtonSelector(
-            title = stringResource(R.string.start_button_title),
-            description = stringResource(R.string.start_button_description),
-            selected = uiState.config.start,
-            enabled = uiState.serviceConnected,
-            onSelectedChange = onStartButtonChange,
+        ImeTweaksCard(
+            imeEnabled = uiState.imeEnabled,
+            serviceConnected = uiState.serviceConnected,
+            config = uiState.config,
+            showDebugInfo = showDebugInfo,
+            onImeEnabledChange = onImeEnabledChange,
+            onStartButtonChange = onStartButtonChange,
+            onEndButtonChange = onEndButtonChange,
         )
 
-        NavBarButtonSelector(
-            title = stringResource(R.string.end_button_title),
-            description = stringResource(R.string.end_button_description),
-            selected = uiState.config.end,
-            enabled = uiState.serviceConnected,
-            onSelectedChange = onEndButtonChange,
-        )
-
-        if (showDebugInfo) {
-            HandlePreviewCard(
-                handleLayout = uiState.config.toHandleLayout(),
-            )
-        }
-
-        KeepAlivePackagesCard(
+        KeepAliveTweaksCard(
+            connected = uiState.serviceConnected,
+            enabled = uiState.keepAliveEnabled,
+            onKeepAliveEnabledChange = onKeepAliveEnabledChange,
             packagesText = uiState.keepAlivePackagesText,
             invalidPackages = uiState.invalidKeepAlivePackages,
-            enabled = uiState.serviceConnected,
             onPackagesTextChange = onKeepAlivePackagesTextChange,
             onSaveClick = onSaveKeepAlivePackagesClick,
         )
@@ -182,7 +182,110 @@ private fun ServiceStateCard(
 }
 
 @Composable
-private fun NavBarButtonSelector(
+private fun ImeTweaksCard(
+    imeEnabled: Boolean,
+    serviceConnected: Boolean,
+    config: NavBarLayoutConfig,
+    showDebugInfo: Boolean,
+    onImeEnabledChange: (Boolean) -> Unit,
+    onStartButtonChange: (NavBarButton) -> Unit,
+    onEndButtonChange: (NavBarButton) -> Unit,
+) {
+    val controlsEnabled = serviceConnected && imeEnabled
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            FeatureSwitchRow(
+                title = stringResource(R.string.feature_ime_title),
+                description = stringResource(R.string.feature_ime_description),
+                checked = imeEnabled,
+                enabled = serviceConnected,
+                onCheckedChange = onImeEnabledChange,
+            )
+
+            HorizontalDivider()
+
+            Column(
+                modifier = Modifier.alpha(if (imeEnabled) 1f else 0.5f),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                NavBarButtonSelectorContent(
+                    title = stringResource(R.string.start_button_title),
+                    description = stringResource(R.string.start_button_description),
+                    selected = config.start,
+                    enabled = controlsEnabled,
+                    onSelectedChange = onStartButtonChange,
+                )
+
+                NavBarButtonSelectorContent(
+                    title = stringResource(R.string.end_button_title),
+                    description = stringResource(R.string.end_button_description),
+                    selected = config.end,
+                    enabled = controlsEnabled,
+                    onSelectedChange = onEndButtonChange,
+                )
+
+                if (showDebugInfo) {
+                    HorizontalDivider()
+
+                    HandlePreviewContent(
+                        handleLayout = config.toHandleLayout(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeatureSwitchRow(
+    title: String,
+    description: String,
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+            )
+
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Switch(
+            checked = checked,
+            enabled = enabled,
+            onCheckedChange = onCheckedChange,
+        )
+    }
+}
+
+@Composable
+private fun NavBarButtonSelectorContent(
     title: String,
     description: String,
     selected: NavBarButton,
@@ -191,61 +294,53 @@ private fun NavBarButtonSelector(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                    )
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                )
 
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Spacer(modifier = Modifier.padding(horizontal = 6.dp))
+
+            Column {
+                OutlinedButton(
+                    enabled = enabled,
+                    onClick = { expanded = true },
+                ) {
+                    Text(text = stringResource(selected.displayNameRes))
                 }
 
-                Spacer(modifier = Modifier.padding(horizontal = 6.dp))
-
-                Column {
-                    OutlinedButton(
-                        enabled = enabled,
-                        onClick = { expanded = true },
-                    ) {
-                        Text(text = stringResource(selected.displayNameRes))
-                    }
-
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false },
-                    ) {
-                        NavBarButton.entries.forEach { option ->
-                            DropdownMenuItem(
-                                text = {
-                                    Text(text = stringResource(option.displayNameRes))
-                                },
-                                onClick = {
-                                    expanded = false
-                                    onSelectedChange(option)
-                                },
-                            )
-                        }
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                ) {
+                    NavBarButton.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(text = stringResource(option.displayNameRes))
+                            },
+                            onClick = {
+                                expanded = false
+                                onSelectedChange(option)
+                            },
+                        )
                     }
                 }
             }
@@ -254,35 +349,70 @@ private fun NavBarButtonSelector(
 }
 
 @Composable
-private fun HandlePreviewCard(
+private fun HandlePreviewContent(
     handleLayout: String,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.handle_preview_title),
+            style = MaterialTheme.typography.titleSmall,
+        )
+
+        Text(
+            text = handleLayout,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun KeepAliveTweaksCard(
+    connected: Boolean,
+    enabled: Boolean,
+    onKeepAliveEnabledChange: (Boolean) -> Unit,
+    packagesText: String,
+    invalidPackages: List<String>,
+    onPackagesTextChange: (String) -> Unit,
+    onSaveClick: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                text = stringResource(R.string.handle_preview_title),
-                style = MaterialTheme.typography.titleMedium,
+            FeatureSwitchRow(
+                title = stringResource(R.string.feature_keep_alive_title),
+                description = stringResource(R.string.feature_keep_alive_description),
+                checked = enabled,
+                enabled = connected,
+                onCheckedChange = onKeepAliveEnabledChange,
             )
 
-            Text(
-                text = handleLayout,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            HorizontalDivider()
+
+            KeepAlivePackagesContent(
+                packagesText = packagesText,
+                invalidPackages = invalidPackages,
+                enabled = connected,
+                onPackagesTextChange = onPackagesTextChange,
+                onSaveClick = onSaveClick,
             )
         }
     }
 }
 
 @Composable
-private fun KeepAlivePackagesCard(
+private fun KeepAlivePackagesContent(
     packagesText: String,
     invalidPackages: List<String>,
     enabled: Boolean,
@@ -291,64 +421,56 @@ private fun KeepAlivePackagesCard(
 ) {
     val focusManager = LocalFocusManager.current
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.keep_alive_title),
-                style = MaterialTheme.typography.titleMedium,
-            )
+        Text(
+            text = stringResource(R.string.keep_alive_title),
+            style = MaterialTheme.typography.titleMedium,
+        )
 
-            Text(
-                text = stringResource(R.string.keep_alive_description),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Text(
+            text = stringResource(R.string.keep_alive_description),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
-            OutlinedTextField(
-                value = packagesText,
-                enabled = enabled,
-                onValueChange = onPackagesTextChange,
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 4,
-                maxLines = 8,
-                isError = invalidPackages.isNotEmpty(),
-                label = {
-                    Text(text = stringResource(R.string.keep_alive_packages_label))
-                },
-                placeholder = {
+        OutlinedTextField(
+            value = packagesText,
+            enabled = enabled,
+            onValueChange = onPackagesTextChange,
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 4,
+            maxLines = 8,
+            isError = invalidPackages.isNotEmpty(),
+            label = {
+                Text(text = stringResource(R.string.keep_alive_packages_label))
+            },
+            placeholder = {
+                Text(
+                    text = "org.mozilla.firefox\norg.mozilla.firefox_beta\norg.mozilla.fenix",
+                )
+            },
+            supportingText = {
+                if (invalidPackages.isNotEmpty()) {
                     Text(
-                        text = "org.mozilla.firefox\norg.mozilla.firefox_beta\norg.mozilla.fenix",
+                        text = stringResource(
+                            R.string.keep_alive_invalid_packages_hint,
+                            invalidPackages.joinToString(),
+                        ),
                     )
-                },
-                supportingText = {
-                    if (invalidPackages.isNotEmpty()) {
-                        Text(
-                            text = stringResource(
-                                R.string.keep_alive_invalid_packages_hint,
-                                invalidPackages.joinToString(),
-                            ),
-                        )
-                    }
-                },
-            )
+                }
+            },
+        )
 
-            Button(
-                enabled = enabled,
-                onClick = {
-                    focusManager.clearFocus()
-                    onSaveClick()
-                },
-            ) {
-                Text(text = stringResource(R.string.action_save_keep_alive_packages))
-            }
+        Button(
+            enabled = enabled,
+            onClick = {
+                focusManager.clearFocus()
+                onSaveClick()
+            },
+        ) {
+            Text(text = stringResource(R.string.action_save_keep_alive_packages))
         }
     }
 }

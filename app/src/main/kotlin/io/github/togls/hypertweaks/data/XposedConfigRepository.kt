@@ -52,6 +52,37 @@ class XposedConfigRepository {
         }
     }
 
+    fun loadFeatureToggles(service: XposedService): Result<FeatureToggles> {
+        return runCatching {
+            checkRemotePreferencesSupport(service)
+
+            val prefs = service.getRemotePreferences(RemotePreferenceKeys.GroupName)
+
+            FeatureToggles(
+                imeEnabled = prefs.getBoolean(RemotePreferenceKeys.ImeEnabled, false),
+                keepAliveEnabled = prefs.getBoolean(RemotePreferenceKeys.KeepAliveEnabled, false),
+            )
+        }
+    }
+
+    fun saveFeatureToggles(
+        service: XposedService,
+        toggles: FeatureToggles,
+    ): Result<FeatureToggles> {
+        return runCatching {
+            checkRemotePreferencesSupport(service)
+
+            val prefs = service.getRemotePreferences(RemotePreferenceKeys.GroupName)
+
+            prefs.edit {
+                putBoolean(RemotePreferenceKeys.ImeEnabled, toggles.imeEnabled)
+                putBoolean(RemotePreferenceKeys.KeepAliveEnabled, toggles.keepAliveEnabled)
+            }
+
+            toggles
+        }
+    }
+
     fun loadKeepAlivePackages(service: XposedService): Result<Set<String>> {
         return runCatching {
             checkRemotePreferencesSupport(service)

@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.libxposed.service.XposedService
 import io.github.togls.hypertweaks.R
+import io.github.togls.hypertweaks.data.FeatureToggles
 import io.github.togls.hypertweaks.data.KeepAlivePackages
 import io.github.togls.hypertweaks.data.NavBarButton
 import io.github.togls.hypertweaks.data.NavBarLayoutConfig
@@ -38,6 +39,8 @@ class SettingsActivity : ComponentActivity() {
             HyperTweaksTheme {
                 SettingsScreen(
                     uiState = uiState,
+                    onImeEnabledChange = ::updateImeEnabled,
+                    onKeepAliveEnabledChange = ::updateKeepAliveEnabled,
                     onStartButtonChange = ::updateStartButton,
                     onEndButtonChange = ::updateEndButton,
                     onKeepAlivePackagesTextChange = ::updateKeepAlivePackagesText,
@@ -63,11 +66,15 @@ class SettingsActivity : ComponentActivity() {
         val navConfigResult = configRepository.loadConfig(service)
         val keepAlivePackages = configRepository.loadKeepAlivePackages(service)
             .getOrDefault(emptySet())
+        val featureToggles = configRepository.loadFeatureToggles(service)
+            .getOrDefault(FeatureToggles())
 
         navConfigResult
             .onSuccess { config ->
                 uiState = uiState.copy(
                     serviceConnected = true,
+                    imeEnabled = featureToggles.imeEnabled,
+                    keepAliveEnabled = featureToggles.keepAliveEnabled,
                     config = config,
                     keepAlivePackagesText = KeepAlivePackages.format(keepAlivePackages),
                     invalidKeepAlivePackages = emptyList(),
@@ -77,6 +84,8 @@ class SettingsActivity : ComponentActivity() {
             .onFailure { error ->
                 uiState = uiState.copy(
                     serviceConnected = true,
+                    imeEnabled = featureToggles.imeEnabled,
+                    keepAliveEnabled = featureToggles.keepAliveEnabled,
                     config = uiState.config,
                     keepAlivePackagesText = KeepAlivePackages.format(keepAlivePackages),
                     invalidKeepAlivePackages = emptyList(),
@@ -172,5 +181,50 @@ class SettingsActivity : ComponentActivity() {
                     message = error.message ?: getString(R.string.status_save_config_failed)
                 )
             }
+    }
+
+    private fun saveFeatureToggles(nextState: SettingsUiState) {
+        val service = XposedServiceStore.service.value
+
+        if (service == null) {
+            uiState = uiState.copy(
+                serviceConnected = false,
+                message = getString(R.string.status_save_without_service),
+            )
+            return
+        }
+
+        val toggles = FeatureToggles(
+            imeEnabled = nextState.imeEnabled,
+            keepAliveEnabled = nextState.keepAliveEnabled,
+        )
+
+        configRepository.saveFeatureToggles(service, toggles)
+            .onSuccess { savedToggles ->
+                uiState = uiState.copy(
+                    serviceConnected = true,
+                    imeEnabled = savedToggles.imeEnabled,
+                    keepAliveEnabled = savedToggles.keepAliveEnabled,
+                    message = getString(R.string.status_feature_toggle_saved),
+                )
+            }
+            .onFailure { error ->
+                uiState = uiState.copy(
+                    serviceConnected = true,
+                    message = error.message ?: getString(R.string.status_save_config_failed),
+                )
+            }
+    }
+
+    private fun updateImeEnabled(enabled: Boolean) {
+        saveFeatureToggles(
+            uiState.copy(imeEnabled = enabled),
+        )
+    }
+
+    private fun updateKeepAliveEnabled(enabled: Boolean) {
+        saveFeatureToggles(
+            uiState.copy(keepAliveEnabled = enabled),
+        )
     }
 }

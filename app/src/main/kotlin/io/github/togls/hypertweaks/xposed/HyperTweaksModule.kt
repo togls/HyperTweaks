@@ -5,6 +5,7 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
+import io.github.togls.hypertweaks.data.RemotePreferenceKeys
 import io.github.togls.hypertweaks.xposed.hook.DeadZoneHook
 import io.github.togls.hypertweaks.xposed.hook.InputMethodBottomManagerHook
 import io.github.togls.hypertweaks.xposed.hook.InputMethodManagerServiceHook
@@ -28,15 +29,23 @@ class HyperTweaksModule : XposedModule() {
 
         HookLog.i(this, "========== HyperTweaks system_server loaded ==========")
 
-        installSystemServerHook("KeepAliveHook") {
-            KeepAliveHook(this).installSystemServer(classLoader)
+        if (isFeatureEnabled(RemotePreferenceKeys.KeepAliveEnabled)) {
+            installSystemServerHook("KeepAliveHook") {
+                KeepAliveHook(this).installSystemServer(classLoader)
+            }
+
+            installSystemServerHook("OomAdjProtectHook") {
+                OomAdjProtectHook(this).installSystemServer(classLoader)
+            }
+        } else {
+            HookLog.i(this, "skip keep-alive hooks: feature disabled")
         }
 
-        installSystemServerHook("OomAdjProtectHook") {
-            OomAdjProtectHook(this).installSystemServer(classLoader)
+        if (isFeatureEnabled(RemotePreferenceKeys.ImeEnabled)) {
+            installImeSystemServerHooks(classLoader)
+        } else {
+            HookLog.i(this, "skip IME system_server hooks: feature disabled")
         }
-
-        installImeSystemServerHooks(classLoader)
     }
 
     override fun onPackageReady(param: PackageReadyParam) {
@@ -77,6 +86,15 @@ class HyperTweaksModule : XposedModule() {
         installPackageHook("InputMethodBottomManager", packageName) {
             InputMethodBottomManagerHook(this).install(classLoader)
         }
+    }
+
+    private fun isFeatureEnabled(key: String): Boolean {
+        return runCatching {
+            getRemotePreferences(RemotePreferenceKeys.GroupName)
+                .getBoolean(key, false)
+        }.onFailure { error ->
+            HookLog.w(this, "failed to read feature toggle: key=$key", error)
+        }.getOrDefault(false)
     }
 
     private fun installImeSystemServerHooks(classLoader: ClassLoader) {
