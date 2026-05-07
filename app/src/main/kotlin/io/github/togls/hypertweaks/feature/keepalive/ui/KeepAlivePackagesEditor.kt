@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import io.github.togls.hypertweaks.R
 
 @Composable
-fun KeepAlivePackagesContent(
+fun KeepAlivePackagesEditor(
     packagesText: String,
     invalidPackages: List<String>,
     enabled: Boolean,

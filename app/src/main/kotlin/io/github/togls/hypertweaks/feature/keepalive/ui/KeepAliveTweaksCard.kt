@@ -38,7 +38,7 @@ fun KeepAliveTweaksCard(
             onModeChange = onKeepAliveModeChange,
         )
 
-        KeepAlivePackagesContent(
+        KeepAlivePackagesEditor(
             packagesText = uiState.packagesText,
             invalidPackages = uiState.invalidPackages,
             enabled = serviceConnected,

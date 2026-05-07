@@ -42,7 +42,7 @@ fun ImeTweaksCard(
             modifier = Modifier.alpha(if (uiState.enabled) 1f else 0.5f),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            NavBarButtonSelectorContent(
+            NavBarButtonSelector(
                 title = stringResource(R.string.start_button_title),
                 description = stringResource(R.string.start_button_description),
                 selected = uiState.navBarLayout.start,
@@ -50,7 +50,7 @@ fun ImeTweaksCard(
                 onSelectedChange = onStartButtonChange,
             )
 
-            NavBarButtonSelectorContent(
+            NavBarButtonSelector(
                 title = stringResource(R.string.end_button_title),
                 description = stringResource(R.string.end_button_description),
                 selected = uiState.navBarLayout.end,
@@ -61,7 +61,7 @@ fun ImeTweaksCard(
             if (showDebugInfo) {
                 HorizontalDivider()
 
-                HandlePreviewContent(
+                HandlePreviewCard(
                     handleLayout = uiState.navBarLayout.toHandleLayout(),
                 )
             }

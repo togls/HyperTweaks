@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 
 @Composable
-fun NavBarButtonSelectorContent(
+fun NavBarButtonSelector(
     title: String,
     description: String,
     selected: NavBarButton,

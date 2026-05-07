@@ -10,7 +10,7 @@ import androidx.compose.ui.unit.dp
 import io.github.togls.hypertweaks.R
 
 @Composable
-fun HandlePreviewContent(
+fun HandlePreviewCard(
     handleLayout: String,
 ) {
     Column(
