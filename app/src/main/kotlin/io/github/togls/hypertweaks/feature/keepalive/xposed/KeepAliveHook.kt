@@ -8,27 +8,11 @@ import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
 import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAlivePackages
-import java.lang.Byte
-import java.lang.Double
-import java.lang.Float
-import java.lang.Long
-import java.lang.Short
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.Any
-import kotlin.Array
-import kotlin.Boolean
-import kotlin.Int
-import kotlin.String
-import kotlin.apply
-import kotlin.arrayOf
-import kotlin.let
-import kotlin.onFailure
-import kotlin.runCatching
-import kotlin.synchronized
 
 private const val GROUP_AMS_BACKGROUND = "AMS_BACKGROUND"
 private const val GROUP_AMS_AGGRESSIVE = "AMS_AGGRESSIVE"
@@ -559,15 +543,15 @@ class KeepAliveHook(
 
     private fun defaultReturnValue(returnType: Class<*>): Any? {
         return when (returnType) {
-            java.lang.Boolean.TYPE -> false
-            Byte.TYPE -> 0.toByte()
-            Short.TYPE -> 0.toShort()
-            Integer.TYPE -> 0
-            Long.TYPE -> 0L
-            Float.TYPE -> 0f
-            Double.TYPE -> 0.0
-            Character.TYPE -> 0.toChar()
             Void.TYPE -> null
+            Boolean::class.javaPrimitiveType -> false
+            Byte::class.javaPrimitiveType -> 0.toByte()
+            Short::class.javaPrimitiveType -> 0.toShort()
+            Int::class.javaPrimitiveType -> 0
+            Long::class.javaPrimitiveType -> 0L
+            Float::class.javaPrimitiveType -> 0f
+            Double::class.javaPrimitiveType -> 0.0
+            Char::class.javaPrimitiveType -> '\u0000'
             else -> null
         }
     }
