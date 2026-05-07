@@ -93,11 +93,6 @@ class HookRegistry(
             }
 
             if (!spec.isSupported(param)) {
-                installLogger.skippedUnsupported(
-                    name = spec.name,
-                    target = packageName,
-                    feature = spec.feature,
-                )
                 return@forEach
             }
 
