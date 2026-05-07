@@ -5,18 +5,18 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
-import io.github.togls.hypertweaks.data.RemotePreferenceKeys
-import io.github.togls.hypertweaks.xposed.hook.DeadZoneHook
-import io.github.togls.hypertweaks.xposed.hook.InputMethodBottomManagerHook
-import io.github.togls.hypertweaks.xposed.hook.InputMethodManagerServiceHook
-import io.github.togls.hypertweaks.xposed.hook.InputMethodManagerServiceImplHook
-import io.github.togls.hypertweaks.xposed.hook.InputMethodServiceHook
-import io.github.togls.hypertweaks.xposed.hook.KeepAliveHook
-import io.github.togls.hypertweaks.xposed.hook.NavigationBarControllerHook
-import io.github.togls.hypertweaks.xposed.hook.NavigationBarInflaterHook
-import io.github.togls.hypertweaks.xposed.hook.NavigationBarViewHook
-import io.github.togls.hypertweaks.xposed.hook.OomAdjProtectHook
-import io.github.togls.hypertweaks.xposed.util.HookLog
+import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
+import io.github.togls.hypertweaks.feature.ime.xposed.DeadZoneHook
+import io.github.togls.hypertweaks.feature.ime.xposed.InputMethodBottomManagerHook
+import io.github.togls.hypertweaks.feature.ime.xposed.InputMethodManagerServiceHook
+import io.github.togls.hypertweaks.feature.ime.xposed.InputMethodManagerServiceImplHook
+import io.github.togls.hypertweaks.feature.ime.xposed.InputMethodServiceHook
+import io.github.togls.hypertweaks.feature.keepalive.xposed.KeepAliveHook
+import io.github.togls.hypertweaks.feature.ime.xposed.NavigationBarControllerHook
+import io.github.togls.hypertweaks.feature.ime.xposed.NavigationBarInflaterHook
+import io.github.togls.hypertweaks.feature.ime.xposed.NavigationBarViewHook
+import io.github.togls.hypertweaks.feature.keepalive.xposed.OomAdjProtectHook
+import io.github.togls.hypertweaks.core.xposed.util.HookLog
 
 class HyperTweaksModule : XposedModule() {
 

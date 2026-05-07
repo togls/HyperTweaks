@@ -10,7 +10,7 @@
         android:theme="@style/Theme.HyperTweaks">
 
         <activity
-            android:name=".ui.SettingsActivity"
+            android:name=".ui.settings.SettingsActivity"
             android:exported="true"
             android:theme="@style/Theme.HyperTweaks">
 
