@@ -17,8 +17,9 @@ import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
 
 class SettingsViewModel(
     application: Application,
-    private val configRepository: ConfigRepository = XposedConfigRepository()
 ) : AndroidViewModel(application) {
+
+    private val configRepository: ConfigRepository = XposedConfigRepository()
 
     var uiState by mutableStateOf(SettingsUiState())
         private set
