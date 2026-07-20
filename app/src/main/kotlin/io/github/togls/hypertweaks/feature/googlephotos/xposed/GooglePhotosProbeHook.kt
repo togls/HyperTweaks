@@ -2,10 +2,11 @@ package io.github.togls.hypertweaks.feature.googlephotos.xposed
 
 import android.app.Activity
 import android.app.Application
+import android.content.Intent
+import android.os.Bundle
 import io.github.libxposed.api.XposedInterface
 import io.github.togls.hypertweaks.core.xposed.HookContext
-import io.github.togls.hypertweaks.feature.googlephotos.data.GooglePhotosPackageMatcher
-import java.util.concurrent.ConcurrentHashMap
+import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicBoolean
 
 class GooglePhotosProbeHook(
@@ -14,7 +15,16 @@ class GooglePhotosProbeHook(
     private val module = context.module
     private val log = context.log
     private val installed = AtomicBoolean(false)
-    private val resumedActivityClassNames = ConcurrentHashMap.newKeySet<String>()
+    private val logger = GooglePhotosProbeLogger(log)
+    private val pageTracker = GooglePhotosPageTracker(logger)
+    private val viewProbe = GooglePhotosViewProbe(logger, pageTracker)
+    private val fragmentProbe = GooglePhotosFragmentProbe(logger, viewProbe, pageTracker)
+    private val activityProbe = GooglePhotosActivityProbe(
+        logger,
+        fragmentProbe,
+        viewProbe,
+        pageTracker,
+    )
 
     fun install(classLoader: ClassLoader) {
         if (!installed.compareAndSet(false, true)) {
@@ -22,50 +32,128 @@ class GooglePhotosProbeHook(
             return
         }
 
-        try {
-            val onResumeMethod = classLoader
-                .loadClass(ACTIVITY_CLASS_NAME)
-                .getDeclaredMethod(ON_RESUME_METHOD_NAME)
-                .apply { isAccessible = true }
-
-            module.hook(onResumeMethod)
-                .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
-                .intercept { chain ->
-                    val result = chain.proceed()
-                    logActivityResume(chain.thisObject)
-                    result
-                }
-
+        runCatching {
+            val activityClass = classLoader.loadClass(ActivityClassName)
+            installActivityLifecycleHooks(activityClass)
+            installFragmentVisibilityHooks(classLoader)
+        }.onSuccess {
             log.i(
                 message = "GooglePhotosProbe: hook installed",
-                "package" to GooglePhotosPackageMatcher.GooglePhotosPackage,
+                "package" to GooglePhotosClassNames.PackageName,
                 "process" to Application.getProcessName(),
             )
-        } catch (error: Throwable) {
+        }.onFailure { error ->
             installed.set(false)
             log.e("GooglePhotosProbe: failed to install hook", error)
             throw error
         }
     }
 
-    private fun logActivityResume(instance: Any?) {
-        val activity = instance as? Activity ?: return
-        val activityClassName = activity.javaClass.name
-
-        if (!resumedActivityClassNames.add(activityClassName)) {
-            return
+    private fun installActivityLifecycleHooks(activityClass: Class<*>) {
+        hookActivityMethod(activityClass, "onCreate", arrayOf(Bundle::class.java)) { activity, _ ->
+            activityProbe.onCreated(activity)
         }
-
-        log.i(
-            message = "GooglePhotosProbe: activity resumed",
-            "package" to GooglePhotosPackageMatcher.GooglePhotosPackage,
-            "process" to Application.getProcessName(),
-            "activity" to activityClassName,
-        )
+        hookActivityMethod(activityClass, "onResume", emptyArray()) { activity, _ ->
+            activityProbe.onResumed(activity)
+        }
+        hookActivityMethod(activityClass, "onPause", emptyArray()) { activity, _ ->
+            activityProbe.onPaused(activity)
+        }
+        hookActivityMethod(activityClass, "onDestroy", emptyArray()) { activity, _ ->
+            activityProbe.onDestroyed(activity)
+        }
+        hookActivityMethod(activityClass, "onNewIntent", arrayOf(Intent::class.java)) { activity, _ ->
+            activityProbe.onNewIntent(activity)
+        }
+        hookActivityMethod(
+            activityClass,
+            "onWindowFocusChanged",
+            arrayOf(Boolean::class.javaPrimitiveType!!),
+        ) { activity, arguments ->
+            if (arguments.firstOrNull() == true) {
+                activityProbe.onWindowFocused(activity)
+            }
+        }
     }
 
+    private fun installFragmentVisibilityHooks(classLoader: ClassLoader) {
+        val fragmentClass = runCatching {
+            classLoader.loadClass(GooglePhotosClassNames.Fragment)
+        }.onFailure { error ->
+            logger.warning("GooglePhotosProbe: Fragment class is unavailable", error)
+        }.getOrNull() ?: return
+
+        FragmentVisibilityHooks.forEach { spec ->
+            runCatching {
+                val method = fragmentClass.getDeclaredMethod(
+                    spec.methodName,
+                    Boolean::class.javaPrimitiveType,
+                ).apply {
+                    isAccessible = true
+                }
+                hookAfter(method) { chain ->
+                    val value = chain.args.firstOrNull() as? Boolean
+                    if (value != null) {
+                        fragmentProbe.onVisibilityChanged(
+                            chain.thisObject,
+                            spec.event,
+                            spec.propertyName,
+                            value,
+                        )
+                    }
+                }
+            }.onFailure { error ->
+                logger.warning(
+                    "GooglePhotosProbe: failed to hook Fragment." + spec.methodName,
+                    error,
+                )
+            }
+        }
+    }
+
+    private fun hookActivityMethod(
+        activityClass: Class<*>,
+        methodName: String,
+        parameterTypes: Array<Class<*>>,
+        callback: (Activity, List<Any?>) -> Unit,
+    ) {
+        val method = activityClass.getDeclaredMethod(methodName, *parameterTypes).apply {
+            isAccessible = true
+        }
+        hookAfter(method) { chain ->
+            val activity = chain.thisObject as? Activity
+            if (activity != null) {
+                callback(activity, chain.args)
+            }
+        }
+    }
+
+    private fun hookAfter(
+        method: Method,
+        callback: (XposedInterface.Chain) -> Unit,
+    ) {
+        module.hook(method)
+            .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+            .intercept { chain ->
+                val result = chain.proceed()
+                callback(chain)
+                result
+            }
+    }
+
+    private data class FragmentVisibilityHook(
+        val methodName: String,
+        val event: String,
+        val propertyName: String,
+    )
+
     private companion object {
-        private const val ACTIVITY_CLASS_NAME = "android.app.Activity"
-        private const val ON_RESUME_METHOD_NAME = "onResume"
+        private const val ActivityClassName = "android.app.Activity"
+
+        private val FragmentVisibilityHooks = listOf(
+            FragmentVisibilityHook("onHiddenChanged", "hidden_changed", "hidden"),
+            FragmentVisibilityHook("setMenuVisibility", "menu_visibility", "menuVisible"),
+            FragmentVisibilityHook("setUserVisibleHint", "user_visible_hint", "userVisible"),
+        )
     }
 }
