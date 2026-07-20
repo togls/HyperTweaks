@@ -12,11 +12,11 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 @Composable
 fun AppClickablePreference(
     title: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     summary: String? = null,
     value: String? = null,
     enabled: Boolean = true,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     ArrowPreference(
         title = title,

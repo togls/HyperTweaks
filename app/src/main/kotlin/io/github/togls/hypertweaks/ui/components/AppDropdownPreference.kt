@@ -7,13 +7,13 @@ import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 @Composable
 fun <Option> AppDropdownPreference(
     title: String,
-    summary: String? = null,
     options: List<Option>,
     selected: Option,
     optionLabel: @Composable (Option) -> String,
-    enabled: Boolean = true,
     onSelectedChange: (Option) -> Unit,
     modifier: Modifier = Modifier,
+    summary: String? = null,
+    enabled: Boolean = true,
 ) {
     val selectedIndex = options.indexOf(selected).coerceAtLeast(0)
     val labels = options.map { optionLabel(it) }

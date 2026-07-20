@@ -8,11 +8,11 @@ import top.yukonga.miuix.kmp.preference.RadioButtonPreference
 @Composable
 fun AppRadioPreference(
     title: String,
-    summary: String? = null,
     selected: Boolean,
-    enabled: Boolean = true,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    summary: String? = null,
+    enabled: Boolean = true,
 ) {
     RadioButtonPreference(
         title = title,

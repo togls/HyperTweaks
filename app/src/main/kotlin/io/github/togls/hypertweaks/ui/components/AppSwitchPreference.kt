@@ -7,11 +7,11 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 @Composable
 fun AppSwitchPreference(
     title: String,
-    summary: String? = null,
     checked: Boolean,
-    enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    summary: String? = null,
+    enabled: Boolean = true,
 ) {
     SwitchPreference(
         checked = checked,

@@ -7,8 +7,8 @@ import top.yukonga.miuix.kmp.basic.BasicComponent
 @Composable
 fun AppInfoPreference(
     title: String,
-    summary: String? = null,
     modifier: Modifier = Modifier,
+    summary: String? = null,
 ) {
     BasicComponent(
         title = title,

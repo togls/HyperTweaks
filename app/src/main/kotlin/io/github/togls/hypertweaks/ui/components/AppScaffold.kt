@@ -12,8 +12,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 @Composable
 fun AppScaffold(
     title: String,
-    subtitle: String? = null,
     modifier: Modifier = Modifier,
+    subtitle: String? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
