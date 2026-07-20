@@ -15,6 +15,7 @@ object ImePackageMatcher {
     )
 
     fun matches(packageName: String): Boolean {
-        return packageName in imePackages
+        return true
+        // return packageName in imePackages
     }
 }
