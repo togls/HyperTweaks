@@ -30,7 +30,7 @@ internal class GooglePhotosMapRenderHook(
         renderBinding = GooglePhotosMapRenderMethodMatcher(coordinateClass).find(activityClass)
             ?: error("Marker render method is ambiguous or unavailable")
         installRenderInterceptor()
-        logger.renderHookInstalled()
+        logger.renderHookInstalled(MarkerStrategy)
     }
 
     fun onActivityDestroyed(activity: Activity) {
@@ -86,12 +86,17 @@ internal class GooglePhotosMapRenderHook(
             nextCount
         }
         if (convertedCount == 1) {
-            logger.conversionApplied(convertedCount)
+            logger.conversionApplied(
+                target = MarkerTarget,
+                convertedCount = convertedCount,
+            )
         }
     }
 
     private companion object {
         private const val LatLngClassName = "com.google.android.gms.maps.model.LatLng"
+        private const val MarkerStrategy = "marker_api"
+        private const val MarkerTarget = "marker"
     }
 }
 

@@ -73,6 +73,10 @@ internal class GooglePhotosMapScopeTracker(
             ?.takeUnless(Activity::isDestroyed)
     }
 
+    fun hasCollectionsMapSession(): Boolean {
+        return stateMachine.hasCollectionsScope()
+    }
+
     private fun deactivate(activity: Activity) {
         if (stateMachine.deactivate(activity)) {
             logger.scopeDeactivated()
@@ -128,6 +132,13 @@ internal class GooglePhotosMapScopeStateMachine<ActivityKey : Any> {
         val activity = activeActivity.get() ?: return null
         return activity.takeIf {
             activityScopes[it]?.source == MapEntrySource.COLLECTIONS
+        }
+    }
+
+    @Synchronized
+    fun hasCollectionsScope(): Boolean {
+        return activityScopes.values.any { scope ->
+            scope.source == MapEntrySource.COLLECTIONS
         }
     }
 }

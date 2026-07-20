@@ -35,6 +35,27 @@ class GooglePhotosMapScopeStateMachineTest {
     }
 
     @Test
+    fun boundCollectionsScopeRemainsAvailableForBackgroundIndexBuild() {
+        val stateMachine = GooglePhotosMapScopeStateMachine<ScopeKey>()
+        val activity = ScopeKey()
+
+        stateMachine.bind(activity, scope(MapEntrySource.COLLECTIONS))
+
+        assertTrue(stateMachine.hasCollectionsScope())
+        stateMachine.remove(activity)
+        assertFalse(stateMachine.hasCollectionsScope())
+    }
+
+    @Test
+    fun otherScopeDoesNotEnableBackgroundIndexBuild() {
+        val stateMachine = GooglePhotosMapScopeStateMachine<ScopeKey>()
+
+        stateMachine.bind(ScopeKey(), scope(MapEntrySource.OTHER))
+
+        assertFalse(stateMachine.hasCollectionsScope())
+    }
+
+    @Test
     fun destroyRemovesScopeAndPreventsReactivation() {
         val stateMachine = GooglePhotosMapScopeStateMachine<ScopeKey>()
         val activity = ScopeKey()

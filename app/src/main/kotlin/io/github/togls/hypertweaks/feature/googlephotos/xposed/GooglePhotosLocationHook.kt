@@ -16,6 +16,7 @@ internal class GooglePhotosLocationHook(
     private val installed = AtomicBoolean(false)
     private val scopeTracker = GooglePhotosMapScopeTracker(logger)
     private val renderHook = GooglePhotosMapRenderHook(context, logger, scopeTracker)
+    private val heatmapIndexHook = GooglePhotosHeatmapIndexHook(context, logger, scopeTracker)
 
     fun install(classLoader: ClassLoader) {
         if (Application.getProcessName() != GooglePhotosClassNames.PackageName) {
@@ -26,6 +27,7 @@ internal class GooglePhotosLocationHook(
         }
 
         renderHook.install(classLoader)
+        heatmapIndexHook.install(classLoader)
         val activityClass = classLoader.loadClass(ActivityClassName)
         installActivityLifecycleHooks(activityClass)
         logger.hookInstalled()

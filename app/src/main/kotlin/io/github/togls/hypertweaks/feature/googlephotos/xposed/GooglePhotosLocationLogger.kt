@@ -13,10 +13,10 @@ internal class GooglePhotosLocationLogger(
         log.i("GooglePhotosLocation: hook installed")
     }
 
-    fun renderHookInstalled() {
+    fun renderHookInstalled(strategy: String) {
         log.i(
             message = "GooglePhotosLocation: render hook installed",
-            "strategy" to "marker_api",
+            "strategy" to strategy,
         )
     }
 
@@ -35,9 +35,13 @@ internal class GooglePhotosLocationLogger(
         log.i("GooglePhotosMapScope: deactivated")
     }
 
-    fun conversionApplied(convertedCount: Int) {
+    fun conversionApplied(
+        target: String,
+        convertedCount: Int,
+    ) {
         log.i(
             message = "GooglePhotosLocation: conversion applied",
+            "target" to target,
             "count" to convertedCount,
         )
     }
