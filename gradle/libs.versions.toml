@@ -1,19 +1,19 @@
 [versions]
-agp = "9.2.1"
-kotlin = "2.3.21"
+agp = "9.3.0"
+kotlin = "2.4.10"
 
 compileSdk = "37"
 minSdk = "34"
 targetSdk = "37"
 
-composeBom = "2026.05.00"
+composeBom = "2026.06.01"
 activityCompose = "1.13.0"
-lifecycle = "2.10.0"
+lifecycle = "2.11.0"
 
 junit = "4.13.2"
 
-libxposedApi = "101.0.1"
-libxposedService = "101.0.0"
+libxposedApi = "102.0.0"
+libxposedService = "102.0.0"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
