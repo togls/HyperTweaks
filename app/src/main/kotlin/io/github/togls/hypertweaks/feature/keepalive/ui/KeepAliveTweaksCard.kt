@@ -1,13 +1,12 @@
 package io.github.togls.hypertweaks.feature.keepalive.ui
 
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import io.github.togls.hypertweaks.R
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
-import io.github.togls.hypertweaks.ui.component.FeatureSwitchRow
-import io.github.togls.hypertweaks.ui.component.SettingsSectionCard
+import io.github.togls.hypertweaks.ui.components.AppPreferenceGroup
+import io.github.togls.hypertweaks.ui.components.AppSwitchPreference
 
 @Composable
 fun KeepAliveTweaksCard(
@@ -21,18 +20,16 @@ fun KeepAliveTweaksCard(
 ) {
     val controlsEnabled = true  // serviceConnected && uiState.enabled
 
-    SettingsSectionCard(
+    AppPreferenceGroup(
         modifier = modifier,
     ) {
-        FeatureSwitchRow(
+        AppSwitchPreference(
             title = stringResource(R.string.feature_keep_alive_title),
-            description = stringResource(R.string.feature_keep_alive_description),
+            summary = stringResource(R.string.feature_keep_alive_description),
             checked = uiState.enabled,
             enabled = controlsEnabled,
             onCheckedChange = onKeepAliveEnabledChange,
         )
-
-        HorizontalDivider()
 
         KeepAliveModeSelector(
             selectedMode = uiState.mode,
