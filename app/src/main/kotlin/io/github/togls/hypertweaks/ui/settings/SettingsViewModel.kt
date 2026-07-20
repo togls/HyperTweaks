@@ -34,6 +34,12 @@ class SettingsViewModel(
                 )
             }
 
+            is SettingsAction.SetGooglePhotosLocationEnabled -> {
+                updateGooglePhotosLocationEnabled(
+                    enabled = action.enabled,
+                )
+            }
+
             is SettingsAction.SetKeepAliveEnabled -> {
                 updateKeepAliveEnabled(
                     enabled = action.enabled,
@@ -192,10 +198,15 @@ class SettingsViewModel(
         enabled: Boolean,
     ) {
         saveFeatureToggles(
-            toggles = FeatureToggles(
-                imeEnabled = enabled,
-                keepAliveEnabled = uiState.keepAlive.enabled,
-            ),
+            toggles = currentFeatureToggles().copy(imeEnabled = enabled),
+        )
+    }
+
+    private fun updateGooglePhotosLocationEnabled(
+        enabled: Boolean,
+    ) {
+        saveFeatureToggles(
+            toggles = currentFeatureToggles().copy(googlePhotosLocationEnabled = enabled),
         )
     }
 
@@ -203,10 +214,7 @@ class SettingsViewModel(
         enabled: Boolean,
     ) {
         saveFeatureToggles(
-            toggles = FeatureToggles(
-                imeEnabled = uiState.ime.enabled,
-                keepAliveEnabled = enabled,
-            ),
+            toggles = currentFeatureToggles().copy(keepAliveEnabled = enabled),
         )
     }
 
@@ -224,6 +232,9 @@ class SettingsViewModel(
                     ime = uiState.ime.copy(
                         enabled = savedToggles.imeEnabled,
                     ),
+                    googlePhotos = uiState.googlePhotos.copy(
+                        enabled = savedToggles.googlePhotosLocationEnabled,
+                    ),
                     keepAlive = uiState.keepAlive.copy(
                         enabled = savedToggles.keepAliveEnabled,
                     ),
@@ -237,6 +248,14 @@ class SettingsViewModel(
                     )
                 )
             }
+    }
+
+    private fun currentFeatureToggles(): FeatureToggles {
+        return FeatureToggles(
+            imeEnabled = uiState.ime.enabled,
+            googlePhotosLocationEnabled = uiState.googlePhotos.enabled,
+            keepAliveEnabled = uiState.keepAlive.enabled,
+        )
     }
 
     private fun updateKeepAliveMode(mode: KeepAliveMode) {

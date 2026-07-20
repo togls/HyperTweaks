@@ -3,6 +3,8 @@ package io.github.togls.hypertweaks.core.xposed
 import android.os.Build
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
+import io.github.togls.hypertweaks.feature.googlephotos.data.GooglePhotosPackageMatcher
+import io.github.togls.hypertweaks.feature.googlephotos.xposed.GooglePhotosProbeHook
 import io.github.togls.hypertweaks.feature.ime.xposed.DeadZoneHook
 import io.github.togls.hypertweaks.feature.ime.xposed.InputMethodBottomManagerHook
 import io.github.togls.hypertweaks.feature.ime.xposed.InputMethodManagerServiceHook
@@ -30,6 +32,7 @@ class HookRegistry(
     )
 
     private val packageHooks: List<PackageHookSpec> = listOf(
+        GooglePhotosProbePackageHookSpec,
         InputMethodServicePackageHookSpec,
         NavigationBarControllerPackageHookSpec,
         NavigationBarInflaterPackageHookSpec,
@@ -172,6 +175,22 @@ class HookRegistry(
             } else {
                 InputMethodManagerServiceHook(context).install(classLoader)
             }
+        }
+    }
+
+    private object GooglePhotosProbePackageHookSpec : PackageHookSpec {
+        override val name: String = "GooglePhotosProbeHook"
+        override val feature: HookFeature = HookFeature.GooglePhotosLocation
+
+        override fun isSupported(param: PackageReadyParam): Boolean {
+            return GooglePhotosPackageMatcher.matches(param.packageName)
+        }
+
+        override fun install(
+            context: HookContext,
+            param: PackageReadyParam,
+        ) {
+            GooglePhotosProbeHook(context).install(param.classLoader)
         }
     }
 

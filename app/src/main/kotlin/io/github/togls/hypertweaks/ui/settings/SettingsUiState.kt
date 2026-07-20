@@ -1,6 +1,7 @@
 package io.github.togls.hypertweaks.ui.settings
 
 import io.github.togls.hypertweaks.core.config.HyperTweaksConfig
+import io.github.togls.hypertweaks.feature.googlephotos.ui.GooglePhotosSettingsUiState
 import io.github.togls.hypertweaks.feature.ime.ui.ImeSettingsUiState
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAlivePackages
 import io.github.togls.hypertweaks.feature.keepalive.ui.KeepAliveSettingsUiState
@@ -8,6 +9,7 @@ import io.github.togls.hypertweaks.feature.keepalive.ui.KeepAliveSettingsUiState
 data class SettingsUiState(
     val service: SettingsServiceUiState = SettingsServiceUiState(),
     val ime: ImeSettingsUiState = ImeSettingsUiState(),
+    val googlePhotos: GooglePhotosSettingsUiState = GooglePhotosSettingsUiState(),
     val keepAlive: KeepAliveSettingsUiState = KeepAliveSettingsUiState(),
 )
 
@@ -28,6 +30,9 @@ fun HyperTweaksConfig.toSettingsUiState(
         ime = ImeSettingsUiState(
             enabled = features.imeEnabled,
             navBarLayout = ime.navBarLayout,
+        ),
+        googlePhotos = GooglePhotosSettingsUiState(
+            enabled = features.googlePhotosLocationEnabled,
         ),
         keepAlive = KeepAliveSettingsUiState(
             enabled = features.keepAliveEnabled,

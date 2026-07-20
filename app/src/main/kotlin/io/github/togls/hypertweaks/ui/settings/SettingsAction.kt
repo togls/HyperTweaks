@@ -9,6 +9,10 @@ sealed interface SettingsAction {
         val enabled: Boolean,
     ) : SettingsAction
 
+    data class SetGooglePhotosLocationEnabled(
+        val enabled: Boolean,
+    ) : SettingsAction
+
     data class SetKeepAliveEnabled(
         val enabled: Boolean,
     ) : SettingsAction

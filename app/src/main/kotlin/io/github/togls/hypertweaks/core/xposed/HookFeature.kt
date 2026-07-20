@@ -6,5 +6,6 @@ enum class HookFeature(
     val preferenceKey: String,
 ) {
     Ime(RemotePreferenceKeys.ImeEnabled),
+    GooglePhotosLocation(RemotePreferenceKeys.GooglePhotosLocationEnabled),
     KeepAlive(RemotePreferenceKeys.KeepAliveEnabled),
 }

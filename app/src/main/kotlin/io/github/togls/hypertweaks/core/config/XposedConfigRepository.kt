@@ -69,6 +69,10 @@ class XposedConfigRepository(
         return withRemotePreferences { prefs ->
             prefs.edit {
                 putBoolean(RemotePreferenceKeys.ImeEnabled, toggles.imeEnabled)
+                    .putBoolean(
+                        RemotePreferenceKeys.GooglePhotosLocationEnabled,
+                        toggles.googlePhotosLocationEnabled,
+                    )
                     .putBoolean(RemotePreferenceKeys.KeepAliveEnabled, toggles.keepAliveEnabled)
             }
 
@@ -141,6 +145,10 @@ class XposedConfigRepository(
     ): FeatureToggles {
         return FeatureToggles(
             imeEnabled = prefs.getBoolean(RemotePreferenceKeys.ImeEnabled, false),
+            googlePhotosLocationEnabled = prefs.getBoolean(
+                RemotePreferenceKeys.GooglePhotosLocationEnabled,
+                false,
+            ),
             keepAliveEnabled = prefs.getBoolean(RemotePreferenceKeys.KeepAliveEnabled, false),
         )
     }

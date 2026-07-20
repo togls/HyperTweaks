@@ -17,6 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.togls.hypertweaks.BuildConfig
 import io.github.togls.hypertweaks.R
+import io.github.togls.hypertweaks.feature.googlephotos.ui.GooglePhotosTweaksCard
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 import io.github.togls.hypertweaks.feature.ime.ui.ImeTweaksCard
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
@@ -26,6 +27,7 @@ import io.github.togls.hypertweaks.feature.keepalive.ui.KeepAliveTweaksCard
 fun SettingsScreen(
     uiState: SettingsUiState,
     onImeEnabledChange: (Boolean) -> Unit,
+    onGooglePhotosLocationEnabledChange: (Boolean) -> Unit,
     onKeepAliveEnabledChange: (Boolean) -> Unit,
     onStartButtonChange: (NavBarButton) -> Unit,
     onEndButtonChange: (NavBarButton) -> Unit,
@@ -44,6 +46,7 @@ fun SettingsScreen(
             SettingsContent(
                 uiState = uiState,
                 onImeEnabledChange = onImeEnabledChange,
+                onGooglePhotosLocationEnabledChange = onGooglePhotosLocationEnabledChange,
                 onKeepAliveEnabledChange = onKeepAliveEnabledChange,
                 onStartButtonChange = onStartButtonChange,
                 onEndButtonChange = onEndButtonChange,
@@ -62,6 +65,7 @@ fun SettingsScreen(
 private fun SettingsContent(
     uiState: SettingsUiState,
     onImeEnabledChange: (Boolean) -> Unit,
+    onGooglePhotosLocationEnabledChange: (Boolean) -> Unit,
     onKeepAliveEnabledChange: (Boolean) -> Unit,
     onStartButtonChange: (NavBarButton) -> Unit,
     onEndButtonChange: (NavBarButton) -> Unit,
@@ -105,6 +109,11 @@ private fun SettingsContent(
             onImeEnabledChange = onImeEnabledChange,
             onStartButtonChange = onStartButtonChange,
             onEndButtonChange = onEndButtonChange,
+        )
+
+        GooglePhotosTweaksCard(
+            uiState = uiState.googlePhotos,
+            onLocationEnabledChange = onGooglePhotosLocationEnabledChange,
         )
 
         KeepAliveTweaksCard(

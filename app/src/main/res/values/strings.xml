@@ -23,6 +23,9 @@
     <string name="feature_ime_title">IME tweaks</string>
     <string name="feature_ime_description">Enable input method navigation bar and picker hooks.</string>
 
+    <string name="feature_google_photos_location_title">Google Photos location coordinate correction</string>
+    <string name="feature_google_photos_location_description">Experimental. This version only verifies that the Google Photos Hook works and does not modify coordinates.</string>
+
     <string name="start_button_title">Start Button</string>
     <string name="start_button_description">Button on the left side of the IME navigation bar</string>
     <string name="end_button_title">End Button</string>

@@ -30,6 +30,9 @@ class SettingsActivity : ComponentActivity() {
                     onImeEnabledChange = { enabled ->
                         viewModel.onAction(SettingsAction.SetImeEnabled(enabled))
                     },
+                    onGooglePhotosLocationEnabledChange = { enabled ->
+                        viewModel.onAction(SettingsAction.SetGooglePhotosLocationEnabled(enabled))
+                    },
                     onKeepAliveEnabledChange = { enabled ->
                         viewModel.onAction(SettingsAction.SetKeepAliveEnabled(enabled))
                     },
