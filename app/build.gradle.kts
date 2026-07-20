@@ -111,7 +111,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     compileOnly(libs.libxposed.api)
-    compileOnly(libs.androidx.fragment)
     implementation(libs.libxposed.service)
 
     testImplementation(libs.junit)

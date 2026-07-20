@@ -11,7 +11,7 @@ class GooglePhotosMapEntryResolverTest {
 
         resolver.recordNavigation(GooglePhotosClassNames.CollectionsActivity, now = 100L)
 
-        assertEquals(MapEntrySource.COLLECTIONS, resolver.consumeMapEntrySource(now = 3_100L))
+        assertEquals(MapEntrySource.COLLECTIONS, resolver.consumeMapEntrySource(now = 5_100L))
     }
 
     @Test
@@ -24,21 +24,41 @@ class GooglePhotosMapEntryResolverTest {
     }
 
     @Test
-    fun expiredEntryResolvesToUnknownAndIsConsumed() {
+    fun expiredEntryFailsClosedAndIsConsumed() {
         val resolver = GooglePhotosMapEntryResolver()
 
         resolver.recordNavigation(GooglePhotosClassNames.CollectionsActivity, now = 100L)
 
-        assertEquals(MapEntrySource.UNKNOWN, resolver.consumeMapEntrySource(now = 3_101L))
-        assertEquals(MapEntrySource.UNKNOWN, resolver.consumeMapEntrySource(now = 3_101L))
+        assertEquals(MapEntrySource.OTHER, resolver.consumeMapEntrySource(now = 5_101L))
+        assertEquals(MapEntrySource.OTHER, resolver.consumeMapEntrySource(now = 5_101L))
     }
 
     @Test
-    fun backwardElapsedTimeResolvesToUnknown() {
+    fun backwardElapsedTimeFailsClosed() {
         val resolver = GooglePhotosMapEntryResolver()
 
         resolver.recordNavigation(GooglePhotosClassNames.CollectionsActivity, now = 100L)
 
-        assertEquals(MapEntrySource.UNKNOWN, resolver.consumeMapEntrySource(now = 99L))
+        assertEquals(MapEntrySource.OTHER, resolver.consumeMapEntrySource(now = 99L))
+    }
+
+    @Test
+    fun markerCanOnlyBeConsumedOnce() {
+        val resolver = GooglePhotosMapEntryResolver()
+
+        resolver.recordNavigation(GooglePhotosClassNames.CollectionsActivity, now = 100L)
+
+        assertEquals(MapEntrySource.COLLECTIONS, resolver.consumeMapEntrySource(now = 101L))
+        assertEquals(MapEntrySource.OTHER, resolver.consumeMapEntrySource(now = 102L))
+    }
+
+    @Test
+    fun latestNavigationReplacesStaleCollectionsMarker() {
+        val resolver = GooglePhotosMapEntryResolver()
+
+        resolver.recordNavigation(GooglePhotosClassNames.CollectionsActivity, now = 100L)
+        resolver.recordNavigation(GooglePhotosClassNames.HomeActivity, now = 101L)
+
+        assertEquals(MapEntrySource.OTHER, resolver.consumeMapEntrySource(now = 102L))
     }
 }

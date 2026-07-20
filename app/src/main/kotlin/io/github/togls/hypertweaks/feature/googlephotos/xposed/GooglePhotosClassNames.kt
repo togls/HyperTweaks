@@ -9,7 +9,4 @@ object GooglePhotosClassNames {
         "com.google.android.apps.photos.collectionstab.collectionsgridpage.CollectionsGridPageActivity"
     const val MapExploreActivity =
         "com.google.android.apps.photos.mapexplore.ui.MapExploreActivity"
-
-    const val FragmentActivity = "androidx.fragment.app.FragmentActivity"
-    const val Fragment = "androidx.fragment.app.Fragment"
 }

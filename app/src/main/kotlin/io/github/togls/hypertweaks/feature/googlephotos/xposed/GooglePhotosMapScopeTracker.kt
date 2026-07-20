@@ -3,103 +3,131 @@ package io.github.togls.hypertweaks.feature.googlephotos.xposed
 import android.app.Activity
 import android.os.SystemClock
 import java.lang.ref.WeakReference
-import java.util.Collections
 import java.util.WeakHashMap
-import java.util.concurrent.atomic.AtomicReference
 
 internal enum class MapEntrySource {
     COLLECTIONS,
     OTHER,
-    UNKNOWN,
 }
 
 internal data class NavigationMarker(
+    val source: MapEntrySource,
     val sourceActivityClassName: String,
     val createdAtElapsedRealtime: Long,
 )
 
-class GooglePhotosMapScopeTracker(
-    private val logger: GooglePhotosProbeLogger,
+internal data class MapActivityScope(
+    val source: MapEntrySource,
+    val createdAtElapsedRealtime: Long,
+)
+
+internal class GooglePhotosMapScopeTracker(
+    private val logger: GooglePhotosLocationLogger,
     private val elapsedRealtime: () -> Long = SystemClock::elapsedRealtime,
 ) {
-    private val markerResolver = GooglePhotosMapEntryResolver()
-    private val mapEntrySources = Collections.synchronizedMap(WeakHashMap<Activity, MapEntrySource>())
-    private val activeMapActivity = AtomicReference(WeakReference<Activity>(null))
+    private val entryResolver = GooglePhotosMapEntryResolver()
+    private val stateMachine = GooglePhotosMapScopeStateMachine<Activity>()
 
     fun onActivityCreated(activity: Activity) {
-        bindMapEntrySource(activity)
+        if (!activity.isMapExploreActivity()) {
+            return
+        }
+
+        val now = elapsedRealtime()
+        val scope = MapActivityScope(
+            source = entryResolver.consumeMapEntrySource(now),
+            createdAtElapsedRealtime = now,
+        )
+        stateMachine.bind(activity, scope)
+        logger.scopeBound(scope.source)
     }
 
     fun onActivityResumed(activity: Activity) {
-        bindMapEntrySource(activity)
+        if (!stateMachine.activate(activity)) {
+            return
+        }
+
+        logger.scopeActivated()
     }
 
     fun onActivityPaused(activity: Activity) {
-        if (activity.javaClass.name == GooglePhotosClassNames.MapExploreActivity) {
-            clearActiveMapActivity(activity)
+        if (activity.isMapExploreActivity()) {
+            deactivate(activity)
             return
         }
 
-        val marker = markerResolver.recordNavigation(
+        entryResolver.recordNavigation(
             sourceActivityClassName = activity.javaClass.name,
             now = elapsedRealtime(),
         )
-        logger.navigationMarkerRecorded(marker)
     }
 
     fun onActivityDestroyed(activity: Activity) {
-        synchronized(mapEntrySources) {
-            mapEntrySources.remove(activity)
+        if (stateMachine.remove(activity)) {
+            logger.scopeDeactivated()
         }
-        clearActiveMapActivity(activity)
     }
 
     fun currentCollectionsMapActivity(): Activity? {
-        val activity = activeMapActivity.get().get() ?: return null
-        return activity.takeIf(::shouldProbeMapCoordinates)
+        return stateMachine.currentCollectionsActivity()
+            ?.takeUnless(Activity::isDestroyed)
     }
 
-    fun shouldProbeMapCoordinates(activity: Activity): Boolean {
-        if (activity.isDestroyed) {
+    private fun deactivate(activity: Activity) {
+        if (stateMachine.deactivate(activity)) {
+            logger.scopeDeactivated()
+        }
+    }
+
+    private fun Activity.isMapExploreActivity(): Boolean {
+        return javaClass.name == GooglePhotosClassNames.MapExploreActivity
+    }
+}
+
+internal class GooglePhotosMapScopeStateMachine<ActivityKey : Any> {
+    private val activityScopes = WeakHashMap<ActivityKey, MapActivityScope>()
+    private var activeActivity = WeakReference<ActivityKey>(null)
+
+    @Synchronized
+    fun bind(
+        activity: ActivityKey,
+        scope: MapActivityScope,
+    ) {
+        activityScopes[activity] = scope
+    }
+
+    @Synchronized
+    fun activate(activity: ActivityKey): Boolean {
+        if (activityScopes[activity]?.source != MapEntrySource.COLLECTIONS) {
+            activeActivity = WeakReference(null)
             return false
         }
 
-        return synchronized(mapEntrySources) {
-            mapEntrySources[activity] == MapEntrySource.COLLECTIONS
-        }
+        activeActivity = WeakReference(activity)
+        return true
     }
 
-    private fun bindMapEntrySource(activity: Activity) {
-        if (activity.javaClass.name != GooglePhotosClassNames.MapExploreActivity) {
-            return
+    @Synchronized
+    fun deactivate(activity: ActivityKey): Boolean {
+        if (activeActivity.get() !== activity) {
+            return false
         }
 
-        var newlyBound = false
-        val boundSource = synchronized(mapEntrySources) {
-            val currentSource = mapEntrySources[activity]
-            if (currentSource == null) {
-                val source = markerResolver.consumeMapEntrySource(elapsedRealtime())
-                mapEntrySources[activity] = source
-                newlyBound = true
-                source
-            } else {
-                currentSource
-            }
-        }
-
-        activeMapActivity.set(WeakReference(activity))
-        if (newlyBound) {
-            logger.mapEntrySourceBound(activity, boundSource)
-        }
-        if (newlyBound && boundSource != MapEntrySource.COLLECTIONS) {
-            logger.coordinateProbeSkipped(activity, boundSource)
-        }
+        activeActivity = WeakReference(null)
+        return true
     }
 
-    private fun clearActiveMapActivity(activity: Activity) {
-        val currentActivity = activeMapActivity.get().get()
-        if (currentActivity === activity) {
-            activeMapActivity.set(WeakReference(null))
+    @Synchronized
+    fun remove(activity: ActivityKey): Boolean {
+        activityScopes.remove(activity)
+        return deactivate(activity)
+    }
+
+    @Synchronized
+    fun currentCollectionsActivity(): ActivityKey? {
+        val activity = activeActivity.get() ?: return null
+        return activity.takeIf {
+            activityScopes[it]?.source == MapEntrySource.COLLECTIONS
         }
     }
 }
@@ -109,35 +137,32 @@ internal class GooglePhotosMapEntryResolver(
 ) {
     private var pendingMarker: NavigationMarker? = null
 
+    @Synchronized
     fun recordNavigation(
         sourceActivityClassName: String,
         now: Long,
     ): NavigationMarker {
-        val marker = NavigationMarker(
-            sourceActivityClassName = sourceActivityClassName,
-            createdAtElapsedRealtime = now,
-        )
-        pendingMarker = marker
-        return marker
-    }
-
-    fun consumeMapEntrySource(now: Long): MapEntrySource {
-        val marker = pendingMarker ?: return MapEntrySource.UNKNOWN
-        pendingMarker = null
-
-        val elapsedMillis = now - marker.createdAtElapsedRealtime
-        if (elapsedMillis !in 0..entryWindowMillis) {
-            return MapEntrySource.UNKNOWN
-        }
-
-        return if (marker.sourceActivityClassName == GooglePhotosClassNames.CollectionsActivity) {
+        val source = if (sourceActivityClassName == GooglePhotosClassNames.CollectionsActivity) {
             MapEntrySource.COLLECTIONS
         } else {
             MapEntrySource.OTHER
         }
+        return NavigationMarker(source, sourceActivityClassName, now).also {
+            pendingMarker = it
+        }
+    }
+
+    @Synchronized
+    fun consumeMapEntrySource(now: Long): MapEntrySource {
+        val marker = pendingMarker ?: return MapEntrySource.OTHER
+        pendingMarker = null
+
+        val elapsedMillis = now - marker.createdAtElapsedRealtime
+        return marker.source.takeIf { elapsedMillis in 0..entryWindowMillis }
+            ?: MapEntrySource.OTHER
     }
 
     private companion object {
-        private const val DefaultEntryWindowMillis = 3_000L
+        private const val DefaultEntryWindowMillis = 5_000L
     }
 }
