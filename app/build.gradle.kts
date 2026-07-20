@@ -107,6 +107,8 @@ android {
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.compose)
+    implementation(libs.miuix.ui)
+    implementation(libs.miuix.preference)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 

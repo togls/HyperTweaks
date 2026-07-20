@@ -1,18 +1,16 @@
 package io.github.togls.hypertweaks.feature.keepalive.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import io.github.togls.hypertweaks.R
+import io.github.togls.hypertweaks.ui.components.AppButton
+import io.github.togls.hypertweaks.ui.components.AppInfoPreference
+import io.github.togls.hypertweaks.ui.components.AppSpacing
+import io.github.togls.hypertweaks.ui.components.AppTextField
 
 @Composable
 fun KeepAlivePackagesEditor(
@@ -21,59 +19,54 @@ fun KeepAlivePackagesEditor(
     enabled: Boolean,
     onPackagesTextChange: (String) -> Unit,
     onSaveClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val focusManager = LocalFocusManager.current
+    val validationMessage = invalidPackagesMessage(invalidPackages)
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(
-            text = stringResource(R.string.keep_alive_title),
-            style = MaterialTheme.typography.titleMedium,
+    Column(modifier = modifier) {
+        AppInfoPreference(
+            title = stringResource(R.string.keep_alive_title),
+            summary = stringResource(R.string.keep_alive_description),
         )
 
-        Text(
-            text = stringResource(R.string.keep_alive_description),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        OutlinedTextField(
+        AppTextField(
             value = packagesText,
-            enabled = enabled,
             onValueChange = onPackagesTextChange,
-            modifier = Modifier.fillMaxWidth(),
+            label = stringResource(R.string.keep_alive_packages_label),
+            enabled = enabled,
             minLines = 4,
             maxLines = 8,
             isError = invalidPackages.isNotEmpty(),
-            label = {
-                Text(text = stringResource(R.string.keep_alive_packages_label))
-            },
-            placeholder = {
-                Text(
-                    text = "org.mozilla.firefox\norg.mozilla.firefox_beta\norg.mozilla.fenix",
-                )
-            },
-            supportingText = {
-                if (invalidPackages.isNotEmpty()) {
-                    Text(
-                        text = stringResource(
-                            R.string.keep_alive_invalid_packages_hint,
-                            invalidPackages.joinToString(),
-                        ),
-                    )
-                }
-            },
+            supportingText = validationMessage,
+            modifier = Modifier.padding(horizontal = AppSpacing.large),
         )
 
-        Button(
+        AppButton(
+            text = stringResource(R.string.action_save_keep_alive_packages),
             enabled = enabled,
             onClick = {
                 focusManager.clearFocus()
                 onSaveClick()
             },
-        ) {
-            Text(text = stringResource(R.string.action_save_keep_alive_packages))
-        }
+            modifier = Modifier.padding(
+                start = AppSpacing.large,
+                top = AppSpacing.medium,
+                end = AppSpacing.large,
+                bottom = AppSpacing.large,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun invalidPackagesMessage(
+    invalidPackages: List<String>,
+): String? {
+    return invalidPackages.takeIf { it.isNotEmpty() }?.let {
+        stringResource(
+            R.string.keep_alive_invalid_packages_hint,
+            it.joinToString(),
+        )
     }
 }

@@ -1,17 +1,14 @@
 package io.github.togls.hypertweaks.feature.ime.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import io.github.togls.hypertweaks.R
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
-import io.github.togls.hypertweaks.ui.component.FeatureSwitchRow
-import io.github.togls.hypertweaks.ui.component.SettingsSectionCard
+import io.github.togls.hypertweaks.ui.components.AppPreferenceGroup
+import io.github.togls.hypertweaks.ui.components.AppSwitchPreference
 
 @Composable
 fun ImeTweaksCard(
@@ -25,22 +22,19 @@ fun ImeTweaksCard(
 ) {
     val controlsEnabled = true  // serviceConnected && uiState.enabled
 
-    SettingsSectionCard(
+    AppPreferenceGroup(
         modifier = modifier,
     ) {
-        FeatureSwitchRow(
+        AppSwitchPreference(
             title = stringResource(R.string.feature_ime_title),
-            description = stringResource(R.string.feature_ime_description),
+            summary = stringResource(R.string.feature_ime_description),
             checked = uiState.enabled,
             enabled = controlsEnabled,
             onCheckedChange = onImeEnabledChange,
         )
 
-        HorizontalDivider()
-
         Column(
             modifier = Modifier.alpha(if (uiState.enabled) 1f else 0.5f),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             NavBarButtonSelector(
                 title = stringResource(R.string.start_button_title),
@@ -59,8 +53,6 @@ fun ImeTweaksCard(
             )
 
             if (showDebugInfo) {
-                HorizontalDivider()
-
                 HandlePreviewCard(
                     handleLayout = uiState.navBarLayout.toHandleLayout(),
                 )

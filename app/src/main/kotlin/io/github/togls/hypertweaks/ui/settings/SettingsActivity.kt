@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.togls.hypertweaks.service.XposedServiceStore
+import io.github.togls.hypertweaks.ui.theme.HyperTweaksMiuixTheme
 import io.github.togls.hypertweaks.ui.theme.HyperTweaksTheme
 
 class SettingsActivity : ComponentActivity() {
@@ -24,37 +25,39 @@ class SettingsActivity : ComponentActivity() {
                 viewModel.loadConfig()
             }
 
-            HyperTweaksTheme {
-                SettingsScreen(
-                    uiState = viewModel.uiState,
-                    onImeEnabledChange = { enabled ->
-                        viewModel.onAction(SettingsAction.SetImeEnabled(enabled))
-                    },
-                    onGooglePhotosLocationEnabledChange = { enabled ->
-                        viewModel.onAction(SettingsAction.SetGooglePhotosLocationEnabled(enabled))
-                    },
-                    onKeepAliveEnabledChange = { enabled ->
-                        viewModel.onAction(SettingsAction.SetKeepAliveEnabled(enabled))
-                    },
-                    onStartButtonChange = { button ->
-                        viewModel.onAction(SettingsAction.SetStartButton(button))
-                    },
-                    onEndButtonChange = { button ->
-                        viewModel.onAction(SettingsAction.SetEndButton(button))
-                    },
-                    onKeepAliveModeChange = { mode ->
-                        viewModel.onAction(SettingsAction.SetKeepAliveMode(mode))
-                    },
-                    onKeepAlivePackagesTextChange = { text ->
-                        viewModel.onAction(SettingsAction.UpdateKeepAlivePackagesText(text))
-                    },
-                    onSaveKeepAlivePackagesClick = {
-                        viewModel.onAction(SettingsAction.SaveKeepAlivePackages)
-                    },
-                    onReloadClick = {
-                        viewModel.onAction(SettingsAction.ReloadConfig)
-                    },
-                )
+            HyperTweaksMiuixTheme {
+                HyperTweaksTheme {
+                    SettingsScreen(
+                        uiState = viewModel.uiState,
+                        onImeEnabledChange = { enabled ->
+                            viewModel.onAction(SettingsAction.SetImeEnabled(enabled))
+                        },
+                        onGooglePhotosLocationEnabledChange = { enabled ->
+                            viewModel.onAction(SettingsAction.SetGooglePhotosLocationEnabled(enabled))
+                        },
+                        onKeepAliveEnabledChange = { enabled ->
+                            viewModel.onAction(SettingsAction.SetKeepAliveEnabled(enabled))
+                        },
+                        onStartButtonChange = { button ->
+                            viewModel.onAction(SettingsAction.SetStartButton(button))
+                        },
+                        onEndButtonChange = { button ->
+                            viewModel.onAction(SettingsAction.SetEndButton(button))
+                        },
+                        onKeepAliveModeChange = { mode ->
+                            viewModel.onAction(SettingsAction.SetKeepAliveMode(mode))
+                        },
+                        onKeepAlivePackagesTextChange = { text ->
+                            viewModel.onAction(SettingsAction.UpdateKeepAlivePackagesText(text))
+                        },
+                        onSaveKeepAlivePackagesClick = {
+                            viewModel.onAction(SettingsAction.SaveKeepAlivePackages)
+                        },
+                        onReloadClick = {
+                            viewModel.onAction(SettingsAction.ReloadConfig)
+                        },
+                    )
+                }
             }
         }
     }
