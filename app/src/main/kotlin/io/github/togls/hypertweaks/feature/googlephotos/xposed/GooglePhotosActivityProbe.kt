@@ -9,11 +9,14 @@ class GooglePhotosActivityProbe(
     private val fragmentProbe: GooglePhotosFragmentProbe,
     private val viewProbe: GooglePhotosViewProbe,
     private val pageTracker: GooglePhotosPageTracker,
+    private val mapScopeTracker: GooglePhotosMapScopeTracker,
+    private val coordinateProbe: GooglePhotosCoordinateProbeHook,
 ) {
     private val resumedActivities = Collections.newSetFromMap(WeakHashMap<Activity, Boolean>())
 
     fun onCreated(activity: Activity) {
         logger.activityEvent("create", activity)
+        mapScopeTracker.onActivityCreated(activity)
         fragmentProbe.register(activity)
         pageTracker.onActivityObserved(activity, "create")
     }
@@ -24,16 +27,20 @@ class GooglePhotosActivityProbe(
         }
 
         pageTracker.onActivityObserved(activity, "resume")
+        mapScopeTracker.onActivityResumed(activity)
         viewProbe.schedule(activity, "activity_resume")
     }
 
     fun onPaused(activity: Activity) {
         logger.activityEvent("pause", activity)
+        mapScopeTracker.onActivityPaused(activity)
     }
 
     fun onDestroyed(activity: Activity) {
         logger.activityEvent("destroy", activity)
         resumedActivities.remove(activity)
+        mapScopeTracker.onActivityDestroyed(activity)
+        coordinateProbe.onActivityDestroyed(activity)
         fragmentProbe.unregister(activity)
         viewProbe.onActivityDestroyed(activity)
         pageTracker.onActivityDestroyed(activity)

@@ -128,9 +128,88 @@ class GooglePhotosProbeLogger(
         )
     }
 
+    internal fun navigationMarkerRecorded(marker: NavigationMarker) {
+        log.i(
+            message = "GooglePhotosMapScope: navigation marker recorded",
+            "sourceActivity" to marker.sourceActivityClassName,
+            "createdAtElapsedRealtime" to marker.createdAtElapsedRealtime,
+        )
+    }
+
+    internal fun mapEntrySourceBound(
+        activity: Activity,
+        source: MapEntrySource,
+    ) {
+        log.i(
+            message = "GooglePhotosMapScope: map entry source bound",
+            "activity" to activity.javaClass.name,
+            "source" to source,
+        )
+    }
+
+    internal fun coordinateCandidateInstalled(candidate: CoordinateCandidate) {
+        log.i(
+            message = "GooglePhotosCoordinateProbe: candidate installed",
+            "signature" to candidate.signature,
+            "latitudeArg" to candidate.latitudeArgumentIndex,
+            "longitudeArg" to candidate.longitudeArgumentIndex,
+        )
+    }
+
+    internal fun coordinateCandidateUnavailable(
+        candidate: CoordinateCandidate,
+        error: Throwable? = null,
+    ) {
+        log.w(
+            message = "GooglePhotosCoordinateProbe: candidate unavailable",
+            error = error,
+            "signature" to candidate.signature,
+        )
+    }
+
+    internal fun coordinateProbeSkipped(
+        activity: Activity,
+        source: MapEntrySource,
+    ) {
+        log.i(
+            message = "GooglePhotosCoordinateProbe: skipped outside Collections scope",
+            "activity" to activity.javaClass.name,
+            "source" to source,
+        )
+    }
+
+    internal fun coordinateObserved(
+        activity: Activity,
+        candidate: CoordinateCandidate,
+        latitude: Double,
+        longitude: Double,
+        stack: List<String>,
+    ) {
+        log.i(
+            message = "GooglePhotosCoordinateProbe: coordinate observed",
+            "activity" to activity.javaClass.name,
+            "source" to MapEntrySource.COLLECTIONS,
+            "signature" to candidate.signature,
+            "latitude" to latitude,
+            "longitude" to longitude,
+            "stack" to stack,
+        )
+    }
+
+    internal fun coordinateProbeSuppressed(
+        activity: Activity,
+        candidate: CoordinateCandidate,
+    ) {
+        log.i(
+            message = "GooglePhotosCoordinateProbe: candidate sample limit reached",
+            "activity" to activity.javaClass.name,
+            "signature" to candidate.signature,
+        )
+    }
+
     fun warning(
         message: String,
-        error: Throwable,
+        error: Throwable? = null,
     ) {
         log.w(message, error)
     }

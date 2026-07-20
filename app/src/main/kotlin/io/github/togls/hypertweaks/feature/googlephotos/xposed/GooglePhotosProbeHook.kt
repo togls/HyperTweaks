@@ -17,6 +17,12 @@ class GooglePhotosProbeHook(
     private val installed = AtomicBoolean(false)
     private val logger = GooglePhotosProbeLogger(log)
     private val pageTracker = GooglePhotosPageTracker(logger)
+    private val mapScopeTracker = GooglePhotosMapScopeTracker(logger)
+    private val coordinateProbe = GooglePhotosCoordinateProbeHook(
+        context,
+        logger,
+        mapScopeTracker,
+    )
     private val viewProbe = GooglePhotosViewProbe(logger, pageTracker)
     private val fragmentProbe = GooglePhotosFragmentProbe(logger, viewProbe, pageTracker)
     private val activityProbe = GooglePhotosActivityProbe(
@@ -24,6 +30,8 @@ class GooglePhotosProbeHook(
         fragmentProbe,
         viewProbe,
         pageTracker,
+        mapScopeTracker,
+        coordinateProbe,
     )
 
     fun install(classLoader: ClassLoader) {
@@ -36,6 +44,7 @@ class GooglePhotosProbeHook(
             val activityClass = classLoader.loadClass(ActivityClassName)
             installActivityLifecycleHooks(activityClass)
             installFragmentVisibilityHooks(classLoader)
+            coordinateProbe.install(classLoader)
         }.onSuccess {
             log.i(
                 message = "GooglePhotosProbe: hook installed",
@@ -79,8 +88,8 @@ class GooglePhotosProbeHook(
     private fun installFragmentVisibilityHooks(classLoader: ClassLoader) {
         val fragmentClass = runCatching {
             classLoader.loadClass(GooglePhotosClassNames.Fragment)
-        }.onFailure { error ->
-            logger.warning("GooglePhotosProbe: Fragment class is unavailable", error)
+        }.onFailure {
+            logger.warning("GooglePhotosProbe: Fragment class is unavailable")
         }.getOrNull() ?: return
 
         FragmentVisibilityHooks.forEach { spec ->
