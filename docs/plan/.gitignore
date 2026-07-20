@@ -1,1 +1,5 @@
+# 忽略当前目录下的所有内容
 *
+
+# 保留当前 .gitignore
+!.gitignore
