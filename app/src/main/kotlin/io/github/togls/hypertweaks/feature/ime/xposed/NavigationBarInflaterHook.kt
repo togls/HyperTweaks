@@ -2,7 +2,6 @@ package io.github.togls.hypertweaks.feature.ime.xposed
 
 import android.annotation.SuppressLint
 import android.content.SharedPreferences
-import android.util.Log
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys

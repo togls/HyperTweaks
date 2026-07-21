@@ -1,33 +1,23 @@
 package io.github.togls.hypertweaks.core.xposed.util
 
-import android.util.Log
-import io.github.libxposed.api.XposedModule
+import io.github.togls.hypertweaks.logging.api.LogLevel
+import io.github.togls.hypertweaks.logging.api.Logger
 
 class HookLog private constructor(
-    private val module: XposedModule,
-    private val component: String?,
+    private val delegate: Logger,
 ) {
 
     fun child(component: String): HookLog {
-        val nextComponent = this.component
-            ?.let { parent -> "$parent/$component" }
-            ?: component
-
-        return HookLog(
-            module = module,
-            component = nextComponent,
-        )
+        return HookLog(delegate.child(component))
     }
+
+    fun d(message: String, vararg fields: Pair<String, Any?>) = delegate.d(message, *fields)
 
     fun i(
         message: String,
         vararg fields: Pair<String, Any?>,
     ) {
-        log(
-            priority = Log.INFO,
-            message = message,
-            fields = fields,
-        )
+        delegate.i(message, *fields)
     }
 
     fun w(
@@ -35,12 +25,7 @@ class HookLog private constructor(
         error: Throwable? = null,
         vararg fields: Pair<String, Any?>,
     ) {
-        log(
-            priority = Log.WARN,
-            message = message,
-            error = error,
-            fields = fields,
-        )
+        delegate.w(message, error, *fields)
     }
 
     fun e(
@@ -48,61 +33,25 @@ class HookLog private constructor(
         error: Throwable? = null,
         vararg fields: Pair<String, Any?>,
     ) {
-        log(
-            priority = Log.ERROR,
-            message = message,
-            error = error,
-            fields = fields,
-        )
+        delegate.e(message, error, *fields)
     }
 
-    private fun log(
-        priority: Int,
+    fun event(
+        level: LogLevel,
+        event: String,
         message: String,
         error: Throwable? = null,
-        fields: Array<out Pair<String, Any?>>,
+        fields: Map<String, String> = emptyMap(),
     ) {
-        val formattedMessage = buildString {
-            if (!component.isNullOrBlank()) {
-                append('[')
-                append(component)
-                append("] ")
-            }
-
-            append(message)
-
-            fields.forEach { (key, value) ->
-                append(' ')
-                append(key)
-                append('=')
-                append(formatValue(value))
-            }
-        }
-
-        if (error == null) {
-            module.log(priority, TAG, formattedMessage)
-        } else {
-            module.log(priority, TAG, formattedMessage, error)
-        }
-    }
-
-    private fun formatValue(value: Any?): String {
-        return when (value) {
-            null -> "null"
-            is String -> value
-            is Enum<*> -> value.name
-            else -> value.toString()
+        when (level) {
+            LogLevel.DEBUG -> delegate.debug(event, message, error, fields)
+            LogLevel.INFO -> delegate.info(event, message, error, fields)
+            LogLevel.WARN -> delegate.warn(event, message, error, fields)
+            LogLevel.ERROR -> delegate.error(event, message, error, fields)
         }
     }
 
     companion object {
-        private const val TAG = "HyperTweaks"
-
-        fun create(module: XposedModule): HookLog {
-            return HookLog(
-                module = module,
-                component = null,
-            )
-        }
+        fun create(logger: Logger): HookLog = HookLog(logger)
     }
 }

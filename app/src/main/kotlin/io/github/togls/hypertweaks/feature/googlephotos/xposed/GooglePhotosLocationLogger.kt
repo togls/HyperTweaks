@@ -1,6 +1,6 @@
 package io.github.togls.hypertweaks.feature.googlephotos.xposed
 
-import io.github.togls.hypertweaks.core.xposed.util.HookLog
+import io.github.togls.hypertweaks.logging.api.Logger
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.Coordinate
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -72,7 +72,7 @@ internal data class HeatmapArrayLogSnapshot(
 )
 
 internal class GooglePhotosLocationLogger(
-    private val log: HookLog,
+    private val log: Logger,
 ) {
     private val errorCounts = ConcurrentHashMap<String, AtomicInteger>()
     private val eventCounts = ConcurrentHashMap<String, AtomicInteger>()
@@ -81,12 +81,19 @@ internal class GooglePhotosLocationLogger(
     private val heatmapCallCount = AtomicInteger()
 
     fun installBegin() {
-        log.i("GooglePhotosLocation: install begin")
+        log.info(
+            event = "hook.install.started",
+            message = "GooglePhotosLocation: install begin",
+        )
     }
 
     fun installTargetBegin(target: GooglePhotosInstallTarget) {
         if (target.isStrategy) {
-            log.i("GooglePhotosLocation: strategy install begin", "strategy" to target.logName)
+            log.debug(
+                event = "adapter.probe.started",
+                message = "GooglePhotosLocation: strategy install begin",
+                fields = mapOf("strategy" to target.logName),
+            )
         }
     }
 
@@ -96,7 +103,11 @@ internal class GooglePhotosLocationLogger(
         } else {
             "GooglePhotosLocation: ${target.logName} hook installed"
         }
-        log.i(message, targetField(target))
+        log.info(
+            event = "hook.install.succeeded",
+            message = message,
+            fields = arrayOf(targetField(target)).toLogFields(),
+        )
     }
 
     fun installTargetFailure(target: GooglePhotosInstallTarget, error: Throwable) {
@@ -105,85 +116,107 @@ internal class GooglePhotosLocationLogger(
         } else {
             "GooglePhotosLocation: ${target.logName} hook failed"
         }
-        log.w(
+        log.warn(
+            event = "hook.install.failed",
             message = message,
-            error = error,
-            targetField(target),
-            "errorType" to error.javaClass.name,
+            throwable = error,
+            fields = arrayOf(
+                targetField(target),
+                "errorType" to error.javaClass.name,
+            ).toLogFields(),
         )
     }
 
     fun installCompleted(result: GooglePhotosHookInstallResult) {
-        log.i(
+        log.info(
+            event = "hook.install.completed",
             message = "GooglePhotosLocation: install completed",
-            "marker" to result.installed(GooglePhotosInstallTarget.MARKER_API),
-            "s2" to result.installed(GooglePhotosInstallTarget.S2_INDEX),
-            "mapView" to result.installed(GooglePhotosInstallTarget.MAP_VIEW),
-            "lifecycle" to result.installed(GooglePhotosInstallTarget.LIFECYCLE),
+            fields = arrayOf(
+                "marker" to result.installed(GooglePhotosInstallTarget.MARKER_API),
+                "s2" to result.installed(GooglePhotosInstallTarget.S2_INDEX),
+                "mapView" to result.installed(GooglePhotosInstallTarget.MAP_VIEW),
+                "lifecycle" to result.installed(GooglePhotosInstallTarget.LIFECYCLE),
+            ).toLogFields(),
         )
     }
 
     fun activityEvent(event: String, snapshot: ActivityLogSnapshot) {
         if (!shouldLogEvent("activity_$event")) return
-        log.i(
+        log.debug(
+            event = "hook.callback.completed",
             message = "GooglePhotosMapSession: activity $event",
-            "activityClass" to snapshot.activityClass,
-            "activityIdentity" to snapshot.activityIdentity,
-            "isChangingConfigurations" to snapshot.isChangingConfigurations,
-            "isFinishing" to snapshot.isFinishing,
-            "isDestroyed" to snapshot.isDestroyed,
-            "currentResumedActivity" to snapshot.currentResumedActivity,
+            fields = arrayOf(
+                "activityClass" to snapshot.activityClass,
+                "activityIdentity" to snapshot.activityIdentity,
+                "isChangingConfigurations" to snapshot.isChangingConfigurations,
+                "isFinishing" to snapshot.isFinishing,
+                "isDestroyed" to snapshot.isDestroyed,
+                "currentResumedActivity" to snapshot.currentResumedActivity,
+            ).toLogFields(),
         )
     }
 
     fun mapViewEvent(event: String, snapshot: MapViewLogSnapshot) {
         if (!shouldLogEvent("map_view_$event")) return
-        log.i(
+        log.debug(
+            event = "hook.callback.completed",
             message = "GooglePhotosMapView: $event",
-            "viewClass" to snapshot.viewClass,
-            "viewIdentity" to snapshot.viewIdentity,
-            "hostActivity" to snapshot.hostActivity,
-            "hostIdentity" to snapshot.hostIdentity,
-            "parentClass" to snapshot.parentClass,
-            "rootViewClass" to snapshot.rootViewClass,
-            "windowVisibility" to snapshot.windowVisibility,
-            "width" to snapshot.width,
-            "height" to snapshot.height,
-            "isShown" to snapshot.isShown,
-            "thread" to snapshot.thread,
-            "parentPath" to snapshot.parentPath,
+            fields = arrayOf(
+                "viewClass" to snapshot.viewClass,
+                "viewIdentity" to snapshot.viewIdentity,
+                "hostActivity" to snapshot.hostActivity,
+                "hostIdentity" to snapshot.hostIdentity,
+                "parentClass" to snapshot.parentClass,
+                "rootViewClass" to snapshot.rootViewClass,
+                "windowVisibility" to snapshot.windowVisibility,
+                "width" to snapshot.width,
+                "height" to snapshot.height,
+                "isShown" to snapshot.isShown,
+                "thread" to snapshot.thread,
+                "parentPath" to snapshot.parentPath,
+            ).toLogFields(),
         )
     }
 
     fun sessionTransition(event: String, snapshot: MapSessionLogSnapshot) {
         if (!shouldLogEvent("session_evaluation")) return
-        log.i(
+        log.debug(
+            event = "adapter.probe.started",
             message = "GooglePhotosMapSession: evaluation",
-            "event" to event,
-            "sessionId" to snapshot.sessionId,
-            "hostActivity" to snapshot.hostActivity,
-            "hostIdentity" to snapshot.hostIdentity,
-            "attachedViewCount" to snapshot.attachedViewCount,
-            "currentResumedActivity" to snapshot.currentResumedActivity,
-            "reason" to snapshot.reason,
+            fields = arrayOf(
+                "event" to event,
+                "sessionId" to snapshot.sessionId,
+                "hostActivity" to snapshot.hostActivity,
+                "hostIdentity" to snapshot.hostIdentity,
+                "attachedViewCount" to snapshot.attachedViewCount,
+                "currentResumedActivity" to snapshot.currentResumedActivity,
+                "reason" to snapshot.reason,
+            ).toLogFields(),
         )
         logSessionOutcome(snapshot)
     }
 
     fun markerMatcherStart(activityClass: String) {
-        log.i("GooglePhotosMarker: matcher start", "activityClass" to activityClass)
+        log.debug(
+            event = "adapter.probe.started",
+            message = "GooglePhotosMarker: matcher start",
+            fields = mapOf("activityClass" to activityClass),
+        )
     }
 
     fun markerMatcherCompleted(report: MapRenderMatchReport) {
-        log.i("GooglePhotosMarker: controller candidate", "count" to report.controllerCandidateCount)
-        log.i("GooglePhotosMarker: facade candidate", "count" to report.facadeCandidateCount)
-        log.i("GooglePhotosMarker: method candidate", "count" to report.bindings.size)
-        log.i(
+        log.debug("adapter.probe.started", "GooglePhotosMarker: controller candidate", fields = mapOf("count" to report.controllerCandidateCount.toString()))
+        log.debug("adapter.probe.started", "GooglePhotosMarker: facade candidate", fields = mapOf("count" to report.facadeCandidateCount.toString()))
+        log.debug("adapter.probe.started", "GooglePhotosMarker: method candidate", fields = mapOf("count" to report.bindings.size.toString()))
+        log.info(
+            event = if (report.binding == null) "adapter.probe.rejected" else "adapter.probe.selected",
             message = "GooglePhotosMarker: matcher completed",
-            "controllerCount" to report.controllerCandidateCount,
-            "facadeCount" to report.facadeCandidateCount,
-            "methodCount" to report.bindings.size,
-            "matched" to (report.binding != null),
+            fields = arrayOf(
+                "controllerCount" to report.controllerCandidateCount,
+                "facadeCount" to report.facadeCandidateCount,
+                "methodCount" to report.bindings.size,
+                "matched" to (report.binding != null),
+            ).toLogFields(),
         )
     }
 
@@ -196,17 +229,20 @@ internal class GooglePhotosLocationLogger(
         val sessionKey = session?.sessionId ?: InactiveSessionKey
         val callCount = markerCallCounts.computeIfAbsent(sessionKey) { AtomicInteger() }.incrementAndGet()
         if (shouldLogProbe(callCount, MarkerDetailedCallLimit)) {
-            log.i(
+            log.debug(
+                event = "hook.callback.started",
                 message = "GooglePhotosMarker: invoked",
-                "callCount" to callCount,
-                "method" to method,
-                "receiverClass" to receiverClass,
-                "sessionId" to session?.sessionId,
-                "sessionActive" to (session != null),
-                "hostActivity" to session?.hostActivity,
-                "latitude" to formatCoordinate(coordinate?.latitude),
-                "longitude" to formatCoordinate(coordinate?.longitude),
-                "thread" to Thread.currentThread().name,
+                fields = arrayOf(
+                    "callCount" to callCount,
+                    "method" to method,
+                    "receiverClass" to receiverClass,
+                    "sessionId" to session?.sessionId,
+                    "sessionActive" to (session != null),
+                    "hostActivity" to session?.hostActivity,
+                    "latitude" to formatCoordinate(coordinate?.latitude),
+                    "longitude" to formatCoordinate(coordinate?.longitude),
+                    "thread" to Thread.currentThread().name,
+                ).toLogFields(),
             )
         }
         return callCount
@@ -229,46 +265,52 @@ internal class GooglePhotosLocationLogger(
             markerSummaryFields(callCount, session, result.reason, stats)
         }
         if (result.outcome == MarkerConversionOutcome.FAILED) {
-            log.w(message, result.failure, *fields)
+            log.warn("hook.callback.failed", message, result.failure, fields.toLogFields())
         } else {
-            log.i(message, *fields)
+            log.debug("hook.callback.completed", message, fields = fields.toLogFields())
         }
     }
 
     fun heatmapInvoked(snapshot: HeatmapInvocationLogSnapshot): Int {
         val callCount = heatmapCallCount.incrementAndGet()
         if (!shouldLogProbe(callCount, HeatmapDetailedCallLimit)) return callCount
-        log.i(
+        log.debug(
+            event = "hook.callback.started",
             message = "GooglePhotosHeatmap: invoked",
-            "callCount" to callCount,
-            "method" to snapshot.method,
-            "receiverClass" to snapshot.receiverClass,
-            "argumentTypes" to snapshot.argumentTypes,
-            "latitudeArraySize" to snapshot.latitudeArraySize,
-            "longitudeArraySize" to snapshot.longitudeArraySize,
-            "sessionId" to snapshot.session?.sessionId,
-            "sessionActive" to (snapshot.session != null),
-            "hostActivity" to snapshot.session?.hostActivity,
-            "thread" to snapshot.thread,
-            "elapsedRealtime" to snapshot.elapsedRealtime,
-            "stack" to snapshot.filteredStack,
+            fields = arrayOf(
+                "callCount" to callCount,
+                "method" to snapshot.method,
+                "receiverClass" to snapshot.receiverClass,
+                "argumentTypes" to snapshot.argumentTypes,
+                "latitudeArraySize" to snapshot.latitudeArraySize,
+                "longitudeArraySize" to snapshot.longitudeArraySize,
+                "sessionId" to snapshot.session?.sessionId,
+                "sessionActive" to (snapshot.session != null),
+                "hostActivity" to snapshot.session?.hostActivity,
+                "thread" to snapshot.thread,
+                "elapsedRealtime" to snapshot.elapsedRealtime,
+                "stack" to snapshot.filteredStack,
+            ).toLogFields(),
         )
         return callCount
     }
 
     fun heatmapArray(callCount: Int, snapshot: HeatmapArrayLogSnapshot) {
         if (!shouldLogProbe(callCount, HeatmapDetailedCallLimit)) return
-        log.i(
+        log.debug(
+            event = "hook.callback.completed",
             message = "GooglePhotosHeatmap: array",
-            "latSize" to snapshot.latSize,
-            "lngSize" to snapshot.lngSize,
-            "sizeMatched" to snapshot.sizeMatched,
-            "validCount" to snapshot.validCount,
-            "chinaCount" to snapshot.chinaCount,
-            "convertedCount" to snapshot.convertedCount,
-            "sample[0]" to snapshot.firstSample,
-            "sample[mid]" to snapshot.middleSample,
-            "sample[last]" to snapshot.lastSample,
+            fields = arrayOf(
+                "latSize" to snapshot.latSize,
+                "lngSize" to snapshot.lngSize,
+                "sizeMatched" to snapshot.sizeMatched,
+                "validCount" to snapshot.validCount,
+                "chinaCount" to snapshot.chinaCount,
+                "convertedCount" to snapshot.convertedCount,
+                "sample[0]" to snapshot.firstSample,
+                "sample[mid]" to snapshot.middleSample,
+                "sample[last]" to snapshot.lastSample,
+            ).toLogFields(),
         )
     }
 
@@ -289,9 +331,9 @@ internal class GooglePhotosLocationLogger(
         )
         val message = "GooglePhotosHeatmap: $event"
         if (result.outcome == HeatmapConversionOutcome.FAILED) {
-            log.w(message, result.failure, *fields)
+            log.warn("hook.callback.failed", message, result.failure, fields.toLogFields())
         } else {
-            log.i(message, *fields)
+            log.debug("hook.callback.completed", message, fields = fields.toLogFields())
         }
     }
 
@@ -300,11 +342,14 @@ internal class GooglePhotosLocationLogger(
         val key = "$operation:$errorType"
         val count = errorCounts.computeIfAbsent(key) { AtomicInteger() }.incrementAndGet()
         if (count > MaximumLogsPerErrorType) return
-        log.w(
+        log.warn(
+            event = "hook.callback.failed",
             message = "GooglePhotosLocation: operation failed",
-            error = error,
-            "operation" to operation,
-            "errorType" to errorType,
+            throwable = error,
+            fields = mapOf(
+                "operation" to operation,
+                "errorType" to errorType,
+            ),
         )
     }
 
@@ -315,12 +360,15 @@ internal class GooglePhotosLocationLogger(
             snapshot.reason != null -> "rejected"
             else -> return
         }
-        log.i(
+        log.info(
+            event = if (snapshot.reason == null) "adapter.probe.selected" else "adapter.probe.rejected",
             message = "GooglePhotosMapSession: $event",
-            "sessionId" to snapshot.sessionId,
-            "hostActivity" to snapshot.hostActivity,
-            "hostIdentity" to snapshot.hostIdentity,
-            "reason" to snapshot.reason,
+            fields = arrayOf(
+                "sessionId" to snapshot.sessionId,
+                "hostActivity" to snapshot.hostActivity,
+                "hostIdentity" to snapshot.hostIdentity,
+                "reason" to snapshot.reason,
+            ).toLogFields(),
         )
     }
 
@@ -376,6 +424,16 @@ internal class GooglePhotosLocationLogger(
 
     private fun formatCoordinate(value: Double?): String? {
         return value?.let { String.format(Locale.US, "%.6f", it) }
+    }
+
+    private fun Array<out Pair<String, Any?>>.toLogFields(): Map<String, String> {
+        return associate { (key, value) ->
+            key to when (value) {
+                null -> "null"
+                is Enum<*> -> value.name
+                else -> value.toString()
+            }
+        }
     }
 
     private companion object {

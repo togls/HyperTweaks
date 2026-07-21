@@ -1,5 +1,6 @@
 package io.github.togls.hypertweaks.core.xposed
 
+import android.app.Application
 import android.os.Build
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
@@ -15,6 +16,7 @@ import io.github.togls.hypertweaks.feature.ime.xposed.NavigationBarInflaterHook
 import io.github.togls.hypertweaks.feature.ime.xposed.NavigationBarViewHook
 import io.github.togls.hypertweaks.feature.keepalive.xposed.KeepAliveHook
 import io.github.togls.hypertweaks.feature.keepalive.xposed.OomAdjProtectHook
+import java.util.UUID
 
 class HookRegistry(
     private val context: HookContext,
@@ -22,8 +24,6 @@ class HookRegistry(
 
     private val module = context.module
     private val log = context.log
-
-    private val installLogger = HookInstallLogger(log)
 
     private val systemServerHooks: List<SystemServerHookSpec> = listOf(
         KeepAliveSystemServerHookSpec,
@@ -43,6 +43,8 @@ class HookRegistry(
 
     fun installSystemServerHooks(classLoader: ClassLoader) {
         val target = "system_server"
+        val targetContext = context.withTarget(target, target, UUID.randomUUID().toString())
+        val installLogger = HookInstallLogger(targetContext.log)
 
         installLogger.startSystemServer(target)
 
@@ -59,7 +61,7 @@ class HookRegistry(
 
             runCatching {
                 spec.install(
-                    context = context.child(spec.name),
+                    context = targetContext.child(spec.name),
                     classLoader = classLoader,
                 )
             }.onSuccess {
@@ -85,6 +87,12 @@ class HookRegistry(
         }
 
         val packageName = param.packageName
+        val targetContext = context.withTarget(
+            packageName = packageName,
+            processName = Application.getProcessName(),
+            sessionId = UUID.randomUUID().toString(),
+        )
+        val installLogger = HookInstallLogger(targetContext.log)
 
         installLogger.startPackage(packageName)
 
@@ -104,7 +112,7 @@ class HookRegistry(
 
             runCatching {
                 spec.install(
-                    context = context.child(spec.name),
+                    context = targetContext.child(spec.name),
                     param = param,
                 )
             }.onSuccess {
@@ -129,11 +137,14 @@ class HookRegistry(
             module.getRemotePreferences(RemotePreferenceKeys.GroupName)
                 .getBoolean(feature.preferenceKey, false)
         }.onFailure { error ->
-            log.w(
+            log.warn(
+                event = "config.load.failed",
                 message = "failed to read feature toggle",
-                error = error,
-                "feature" to feature.name,
-                "key" to feature.preferenceKey,
+                throwable = error,
+                fields = mapOf(
+                    "feature" to feature.name,
+                    "key" to feature.preferenceKey,
+                ),
             )
         }.getOrDefault(false)
     }

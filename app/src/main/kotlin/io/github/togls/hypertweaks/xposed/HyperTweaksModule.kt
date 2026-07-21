@@ -1,15 +1,21 @@
 package io.github.togls.hypertweaks.xposed
 
+import android.app.Application
+import android.os.Process
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import io.github.togls.hypertweaks.core.xposed.HookContext
+import io.github.togls.hypertweaks.core.xposed.HookLogBridgeTransport
 import io.github.togls.hypertweaks.core.xposed.HookFeature
 import io.github.togls.hypertweaks.core.xposed.HookRegistry
 import io.github.togls.hypertweaks.core.xposed.PackageHookSpec
 import io.github.togls.hypertweaks.core.xposed.SystemServerHookSpec
-import io.github.togls.hypertweaks.core.xposed.util.HookLog
+import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
+import io.github.togls.hypertweaks.logging.api.LogContext
+import io.github.togls.hypertweaks.logging.hook.HookLogRuntime
+import io.github.togls.hypertweaks.logging.hook.HookLogBootstrap
 
 /**
  * Main Xposed module entry point.
@@ -24,10 +30,21 @@ import io.github.togls.hypertweaks.core.xposed.util.HookLog
  */
 class HyperTweaksModule : XposedModule() {
 
+    private val logBootstrap: HookLogBootstrap by xposedLazy {
+        HookLogRuntime.createSafe(
+            module = this,
+            preferencesProvider = { getRemotePreferences(RemotePreferenceKeys.GroupName) },
+            modeKey = RemotePreferenceKeys.LogMode,
+            versionKey = RemotePreferenceKeys.LogConfigVersion,
+            transport = HookLogBridgeTransport(),
+            context = createLogContext(),
+        )
+    }
+
     private val rootContext: HookContext by xposedLazy {
         HookContext(
             module = this,
-            log = HookLog.create(this),
+            log = logBootstrap.rootLogger,
         )
     }
 
@@ -40,7 +57,10 @@ class HyperTweaksModule : XposedModule() {
     }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
-        log.i("onModuleLoaded")
+        log.info(
+            event = "module.load.succeeded",
+            message = "Xposed module loaded",
+        )
     }
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
@@ -52,6 +72,16 @@ class HyperTweaksModule : XposedModule() {
     }
 
     private companion object {
+        fun createLogContext(): LogContext {
+            return runCatching {
+                LogContext(
+                    processName = Application.getProcessName(),
+                    pid = Process.myPid(),
+                    tid = Process.myTid(),
+                )
+            }.getOrDefault(LogContext())
+        }
+
         fun <T> xposedLazy(
             initializer: () -> T,
         ): Lazy<T> {

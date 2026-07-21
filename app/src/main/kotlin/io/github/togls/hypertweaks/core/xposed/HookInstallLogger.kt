@@ -1,23 +1,22 @@
 package io.github.togls.hypertweaks.core.xposed
 
-import io.github.libxposed.api.XposedModule
-import io.github.togls.hypertweaks.core.xposed.util.HookLog
+import io.github.togls.hypertweaks.logging.api.Logger
 
 class HookInstallLogger(
-    private val log: HookLog,
+    private val log: Logger,
 ) {
 
     fun startSystemServer(target: String) {
-        log.i(
-            message = "install_start",
-            "target" to target
+        log.info(
+            event = "hook.registry.started",
+            fields = mapOf("target" to target),
         )
     }
 
     fun startPackage(packageName: String) {
-        log.i(
-            message = "install_start",
-            "target" to packageName,
+        log.info(
+            event = "hook.registry.started",
+            fields = mapOf("target" to packageName),
         )
     }
 
@@ -26,11 +25,9 @@ class HookInstallLogger(
         target: String,
         feature: HookFeature,
     ) {
-        log.i(
-            message = "hook_installed",
-            "name" to name,
-            "target" to target,
-            "feature" to feature.name,
+        log.info(
+            event = "hook.install.succeeded",
+            fields = fields(name, target, feature),
         )
     }
 
@@ -39,12 +36,9 @@ class HookInstallLogger(
         target: String,
         feature: HookFeature,
     ) {
-        log.i(
-            message = "hook_skipped",
-            "name" to name,
-            "target" to target,
-            "feature" to feature.name,
-            "reason" to "feature_disabled",
+        log.info(
+            event = "hook.install.skipped",
+            fields = fields(name, target, feature) + ("reason" to "feature_disabled"),
         )
     }
 
@@ -53,12 +47,9 @@ class HookInstallLogger(
         target: String,
         feature: HookFeature,
     ) {
-        log.i(
-            message = "hook_skipped",
-            "name" to name,
-            "target" to target,
-            "feature" to feature.name,
-            "reason" to "unsupported_target",
+        log.info(
+            event = "hook.install.skipped",
+            fields = fields(name, target, feature) + ("reason" to "unsupported_target"),
         )
     }
 
@@ -68,12 +59,22 @@ class HookInstallLogger(
         feature: HookFeature,
         error: Throwable,
     ) {
-        log.i(
-            message = "hook_failed",
+        log.error(
+            event = "hook.install.failed",
+            throwable = error,
+            fields = fields(name, target, feature),
+        )
+    }
+
+    private fun fields(
+        name: String,
+        target: String,
+        feature: HookFeature,
+    ): Map<String, String> {
+        return mapOf(
             "name" to name,
             "target" to target,
             "feature" to feature.name,
-            "error" to error.message,
         )
     }
 }
