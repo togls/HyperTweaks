@@ -1,24 +1,23 @@
 package io.github.togls.hypertweaks.feature.googlephotos.xposed
 
-import android.app.Activity
 import io.github.libxposed.api.XposedInterface
 import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.ChinaCoordinateConverter
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.Coordinate
+import io.github.togls.hypertweaks.feature.googlephotos.coordinate.CoordinateValidator
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
-import java.util.Collections
 import java.util.WeakHashMap
 
 internal class GooglePhotosMapRenderHook(
     context: HookContext,
     private val logger: GooglePhotosLocationLogger,
-    private val scopeTracker: GooglePhotosMapScopeTracker,
+    private val sessionTracker: GooglePhotosMapSessionTracker,
 ) {
     private val module = context.module
-    private val conversionCounts = Collections.synchronizedMap(WeakHashMap<Activity, Int>())
+    private val transformer = SessionScopedMarkerTransformer()
     private lateinit var coordinateAccessors: CoordinateAccessors
     private lateinit var renderBinding: MapRenderBinding
 
@@ -27,16 +26,12 @@ internal class GooglePhotosMapRenderHook(
         coordinateAccessors = CoordinateAccessorResolver.resolve(coordinateClass)
             ?: error("LatLng accessors are ambiguous")
         val activityClass = classLoader.loadClass(GooglePhotosClassNames.MapExploreActivity)
-        renderBinding = GooglePhotosMapRenderMethodMatcher(coordinateClass).find(activityClass)
+        logger.markerMatcherStart(activityClass.name)
+        val report = GooglePhotosMapRenderMethodMatcher(coordinateClass).inspect(activityClass)
+        logger.markerMatcherCompleted(report)
+        renderBinding = report.binding
             ?: error("Marker render method is ambiguous or unavailable")
         installRenderInterceptor()
-        logger.renderHookInstalled(MarkerStrategy)
-    }
-
-    fun onActivityDestroyed(activity: Activity) {
-        synchronized(conversionCounts) {
-            conversionCounts.remove(activity)
-        }
     }
 
     private fun installRenderInterceptor() {
@@ -44,95 +39,228 @@ internal class GooglePhotosMapRenderHook(
         module.hook(renderBinding.method)
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain ->
-                applyCoordinateConversion(chain.args.firstOrNull())
+                observeAndConvert(chain.thisObject, chain.args.firstOrNull())
                 chain.proceed()
             }
     }
 
-    private fun applyCoordinateConversion(markerOptions: Any?) {
-        val activity = scopeTracker.currentCollectionsMapActivity() ?: return
-        if (markerOptions == null) {
+    private fun observeAndConvert(receiver: Any?, markerOptions: Any?) {
+        val markerPosition = markerOptions?.let(::readMarkerPosition)
+        val session = sessionTracker.currentSession()
+        val logSession = session?.toProbeLogSnapshot()
+        val callCount = logger.markerInvoked(
+            method = renderBinding.method.toGenericString(),
+            receiverClass = receiver?.javaClass?.name,
+            session = logSession,
+            coordinate = markerPosition?.position?.coordinate,
+        )
+        if (session == null) {
+            logger.markerResult("skipped", callCount, null, MarkerConversionResult.noSession())
             return
         }
-
-        try {
-            val originalPosition = renderBinding.positionField.get(markerOptions) ?: return
-            val original = coordinateAccessors.read(originalPosition)
-            val conversionResult = ChinaCoordinateConverter.wgs84ToGcj02Result(
-                latitude = original.latitude,
-                longitude = original.longitude,
-            )
-            if (conversionResult.failure != null) {
-                logger.warning("convert_coordinate", conversionResult.failure)
-                return
-            }
-            val converted = conversionResult.coordinate
-            if (converted == original) {
-                return
-            }
-
-            // MarkerOptions is an ephemeral render input, so changing it cannot alter Photos media data.
-            renderBinding.positionField.set(markerOptions, coordinateAccessors.create(converted))
-            recordConversion(activity)
-        } catch (error: Exception) {
-            logger.warning("convert_marker_position", error)
+        val activeLogSession = session.toProbeLogSnapshot()
+        if (markerOptions == null) {
+            logger.markerResult("skipped", callCount, activeLogSession, MarkerConversionResult.noTarget())
+            return
         }
+        convertActiveMarker(
+            markerOptions,
+            markerPosition ?: MarkerPositionReadResult(),
+            session.sessionId,
+            callCount,
+            activeLogSession,
+        )
     }
 
-    private fun recordConversion(activity: Activity) {
-        val convertedCount = synchronized(conversionCounts) {
-            val nextCount = conversionCounts.getOrDefault(activity, 0) + 1
-            conversionCounts[activity] = nextCount
-            nextCount
+    private fun convertActiveMarker(
+        markerOptions: Any,
+        markerPosition: MarkerPositionReadResult,
+        sessionId: Long,
+        callCount: Int,
+        logSession: ProbeSessionLogSnapshot,
+    ) {
+        if (markerPosition.failure != null) {
+            logger.markerResult("failed", callCount, logSession, markerPosition.failure)
+            return
         }
-        if (convertedCount == 1) {
-            logger.conversionApplied(
-                target = MarkerTarget,
-                convertedCount = convertedCount,
+        val originalPosition = markerPosition.position ?: run {
+            logger.markerResult("skipped", callCount, logSession, MarkerConversionResult.noPosition())
+            return
+        }
+        val result = transformer.transform(sessionId, markerOptions, originalPosition.coordinate) {
+            renderBinding.positionField.set(markerOptions, coordinateAccessors.create(it))
+        }
+        logger.markerResult(result.outcome.logEvent, callCount, logSession, result)
+    }
+
+    private fun readMarkerPosition(markerOptions: Any): MarkerPositionReadResult {
+        return try {
+            val value = renderBinding.positionField.get(markerOptions)
+                ?: return MarkerPositionReadResult()
+            MarkerPositionReadResult(MarkerPosition(value, coordinateAccessors.read(value)))
+        } catch (error: Exception) {
+            MarkerPositionReadResult(
+                failure = MarkerConversionResult.failed("READ_POSITION_FAILED", error),
             )
         }
     }
 
     private companion object {
         private const val LatLngClassName = "com.google.android.gms.maps.model.LatLng"
-        private const val MarkerStrategy = "marker_api"
-        private const val MarkerTarget = "marker"
     }
 }
+
+internal enum class MarkerConversionOutcome(val logEvent: String) {
+    SKIPPED("skipped"),
+    CONVERTED("converted"),
+    UNCHANGED("unchanged"),
+    FAILED("failed"),
+}
+
+internal data class MarkerConversionResult(
+    val outcome: MarkerConversionOutcome,
+    val reason: String,
+    val original: Coordinate? = null,
+    val converted: Coordinate? = null,
+    val failure: Exception? = null,
+) {
+    companion object {
+        fun noSession() = MarkerConversionResult(MarkerConversionOutcome.SKIPPED, "NO_ACTIVE_SESSION")
+        fun noTarget() = MarkerConversionResult(MarkerConversionOutcome.SKIPPED, "NO_MARKER_OPTIONS")
+        fun noPosition() = MarkerConversionResult(MarkerConversionOutcome.SKIPPED, "NO_POSITION")
+        fun failed(reason: String, error: Exception) = MarkerConversionResult(
+            outcome = MarkerConversionOutcome.FAILED,
+            reason = reason,
+            failure = error,
+        )
+    }
+}
+
+internal class SessionScopedMarkerTransformer(
+    private val converter: (Double, Double) -> Coordinate = ChinaCoordinateConverter::wgs84ToGcj02,
+    private val conversionGuard: SessionObjectConversionGuard = SessionObjectConversionGuard(),
+) {
+    fun transform(
+        sessionId: Long?,
+        target: Any,
+        original: Coordinate,
+        applyConversion: (Coordinate) -> Unit,
+    ): MarkerConversionResult {
+        if (sessionId == null) return skipped("NO_ACTIVE_SESSION", original)
+        if (!CoordinateValidator.isValid(original.latitude, original.longitude)) {
+            return unchanged("INVALID_COORDINATE", original)
+        }
+        if (!CoordinateValidator.isInMainlandChina(original.latitude, original.longitude)) {
+            return unchanged("OUTSIDE_CHINA", original)
+        }
+        val converted = try {
+            converter(original.latitude, original.longitude)
+        } catch (error: Exception) {
+            return MarkerConversionResult.failed("CONVERSION_FAILED", error).copy(original = original)
+        }
+        if (converted == original) return unchanged("NO_OFFSET", original)
+        if (!conversionGuard.claim(target, sessionId)) return skipped("ALREADY_CONVERTED", original)
+        return applyConversion(target, original, converted, applyConversion)
+    }
+
+    private fun applyConversion(
+        target: Any,
+        original: Coordinate,
+        converted: Coordinate,
+        update: (Coordinate) -> Unit,
+    ): MarkerConversionResult {
+        return try {
+            update(converted)
+            MarkerConversionResult(
+                MarkerConversionOutcome.CONVERTED,
+                "WGS84_TO_GCJ02",
+                original,
+                converted,
+            )
+        } catch (error: Exception) {
+            conversionGuard.release(target)
+            MarkerConversionResult.failed("WRITE_POSITION_FAILED", error).copy(original = original)
+        }
+    }
+
+    private fun skipped(reason: String, original: Coordinate): MarkerConversionResult {
+        return MarkerConversionResult(MarkerConversionOutcome.SKIPPED, reason, original)
+    }
+
+    private fun unchanged(reason: String, original: Coordinate): MarkerConversionResult {
+        return MarkerConversionResult(MarkerConversionOutcome.UNCHANGED, reason, original, original)
+    }
+}
+
+internal class SessionObjectConversionGuard {
+    private val convertedSessions = WeakHashMap<Any, Long>()
+
+    @Synchronized
+    fun claim(target: Any, sessionId: Long): Boolean {
+        if (convertedSessions[target] == sessionId) return false
+        convertedSessions[target] = sessionId
+        return true
+    }
+
+    @Synchronized
+    fun release(target: Any) {
+        convertedSessions.remove(target)
+    }
+}
+
+internal data class MarkerPosition(
+    val value: Any,
+    val coordinate: Coordinate,
+)
+
+internal data class MarkerPositionReadResult(
+    val position: MarkerPosition? = null,
+    val failure: MarkerConversionResult? = null,
+)
 
 internal data class MapRenderBinding(
     val method: Method,
     val positionField: Field,
 )
 
+internal data class MapRenderMatchReport(
+    val controllerCandidateCount: Int,
+    val facadeCandidateCount: Int,
+    val bindings: List<MapRenderBinding>,
+) {
+    val binding: MapRenderBinding? = bindings.singleOrNull()
+}
+
 internal class GooglePhotosMapRenderMethodMatcher(
     private val coordinateClass: Class<*>,
 ) {
-    fun find(activityClass: Class<*>): MapRenderBinding? {
-        // Photos and its bundled Maps facade are obfuscated together; structural matching survives renames.
+    fun inspect(activityClass: Class<*>): MapRenderMatchReport {
         val controllerTypes = activityClass.declaredFields
             .asSequence()
             .filterNot { Modifier.isStatic(it.modifiers) }
             .map(Field::getType)
             .filter { it.classLoader === activityClass.classLoader }
             .distinct()
-        val candidates = controllerTypes
+            .toList()
+        val facadeTypes = controllerTypes
+            .asSequence()
             .flatMap { controllerType -> controllerType.declaredFields.asSequence() }
             .filterNot { Modifier.isStatic(it.modifiers) }
             .map(Field::getType)
             .filter { it.classLoader === activityClass.classLoader }
             .distinct()
-            .flatMap(::candidateBindings)
-            .distinctBy(MapRenderBinding::method)
             .toList()
-        return candidates.singleOrNull()
+        val bindings = facadeTypes.flatMap(::candidateBindings)
+            .distinctBy(MapRenderBinding::method)
+        return MapRenderMatchReport(controllerTypes.size, facadeTypes.size, bindings)
     }
 
-    private fun candidateBindings(facadeType: Class<*>): Sequence<MapRenderBinding> {
+    private fun candidateBindings(facadeType: Class<*>): List<MapRenderBinding> {
         return facadeType.declaredMethods
             .asSequence()
             .filter { method -> method.parameterCount == 1 && method.returnType != Void.TYPE }
             .mapNotNull(::bindingFor)
+            .toList()
     }
 
     private fun bindingFor(method: Method): MapRenderBinding? {
@@ -140,10 +268,7 @@ internal class GooglePhotosMapRenderMethodMatcher(
         val positionFields = optionsType.declaredFields.filter { field ->
             !Modifier.isStatic(field.modifiers) && field.type == coordinateClass
         }
-        if (positionFields.size != 1 || !returnTypeExposesCoordinate(method.returnType)) {
-            return null
-        }
-
+        if (positionFields.size != 1 || !returnTypeExposesCoordinate(method.returnType)) return null
         return MapRenderBinding(
             method = method,
             positionField = positionFields.single().apply { isAccessible = true },
@@ -183,22 +308,13 @@ internal object CoordinateAccessorResolver {
         val coordinateFields = coordinateClass.declaredFields.filter { field ->
             !Modifier.isStatic(field.modifiers) && field.type == Double::class.javaPrimitiveType
         }.onEach { field -> field.isAccessible = true }
-        if (coordinateFields.size != 2) {
-            return null
-        }
+        if (coordinateFields.size != 2) return null
 
-        // Field names are obfuscated, so constructor probe values identify latitude and longitude safely.
         val probe = constructor.newInstance(LatitudeProbe, LongitudeProbe)
         val latitudeField = coordinateFields.singleOrNull { it.getDouble(probe) == LatitudeProbe }
         val longitudeField = coordinateFields.singleOrNull { it.getDouble(probe) == LongitudeProbe }
-        if (latitudeField == null || longitudeField == null || latitudeField == longitudeField) {
-            return null
-        }
-        return CoordinateAccessors(
-            constructor = constructor,
-            latitudeField = latitudeField.apply { isAccessible = true },
-            longitudeField = longitudeField.apply { isAccessible = true },
-        )
+        if (latitudeField == null || longitudeField == null || latitudeField == longitudeField) return null
+        return CoordinateAccessors(constructor, latitudeField, longitudeField)
     }
 
     private const val LatitudeProbe = 12.3456789

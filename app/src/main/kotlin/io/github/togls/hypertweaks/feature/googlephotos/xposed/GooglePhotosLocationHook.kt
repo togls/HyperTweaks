@@ -14,9 +14,10 @@ internal class GooglePhotosLocationHook(
     private val module = context.module
     private val logger = GooglePhotosLocationLogger(context.log)
     private val installed = AtomicBoolean(false)
-    private val scopeTracker = GooglePhotosMapScopeTracker(logger)
-    private val renderHook = GooglePhotosMapRenderHook(context, logger, scopeTracker)
-    private val heatmapIndexHook = GooglePhotosHeatmapIndexHook(context, logger, scopeTracker)
+    private val sessionTracker = GooglePhotosMapSessionTracker(logger)
+    private val renderHook = GooglePhotosMapRenderHook(context, logger, sessionTracker)
+    private val heatmapIndexHook = GooglePhotosHeatmapIndexHook(context, logger, sessionTracker)
+    private val mapViewHook = GooglePhotosMapViewHook(context, logger, sessionTracker)
 
     fun install(classLoader: ClassLoader) {
         if (Application.getProcessName() != GooglePhotosClassNames.PackageName) {
@@ -26,26 +27,45 @@ internal class GooglePhotosLocationHook(
             return
         }
 
-        renderHook.install(classLoader)
-        heatmapIndexHook.install(classLoader)
-        val activityClass = classLoader.loadClass(ActivityClassName)
-        installActivityLifecycleHooks(activityClass)
-        logger.hookInstalled()
+        logger.installBegin()
+        val result = installHooks(classLoader)
+        logger.installCompleted(result)
+    }
+
+    private fun installHooks(classLoader: ClassLoader): GooglePhotosHookInstallResult {
+        val coordinator = GooglePhotosHookInstallCoordinator(
+            onBegin = logger::installTargetBegin,
+            onSuccess = logger::installTargetSuccess,
+            onFailure = logger::installTargetFailure,
+        )
+        return coordinator.install(
+            GooglePhotosHookInstallStep(GooglePhotosInstallTarget.LIFECYCLE) {
+                installActivityLifecycleHooks(classLoader.loadClass(ActivityClassName))
+            },
+            GooglePhotosHookInstallStep(GooglePhotosInstallTarget.MAP_VIEW) {
+                mapViewHook.install(classLoader)
+            },
+            GooglePhotosHookInstallStep(GooglePhotosInstallTarget.MARKER_API) {
+                renderHook.install(classLoader)
+            },
+            GooglePhotosHookInstallStep(GooglePhotosInstallTarget.S2_INDEX) {
+                heatmapIndexHook.install(classLoader)
+            },
+        )
     }
 
     private fun installActivityLifecycleHooks(activityClass: Class<*>) {
         hookAfter(activityClass, "onCreate", arrayOf(Bundle::class.java), "activity_create") {
-            scopeTracker.onActivityCreated(it)
+            sessionTracker.onActivityCreated(it)
         }
         hookAfter(activityClass, "onResume", emptyArray(), "activity_resume") {
-            scopeTracker.onActivityResumed(it)
+            sessionTracker.onActivityResumed(it)
         }
         hookBefore(activityClass, "onPause", emptyArray(), "activity_pause") {
-            scopeTracker.onActivityPaused(it)
+            sessionTracker.onActivityPaused(it)
         }
         hookBefore(activityClass, "onDestroy", emptyArray(), "activity_destroy") {
-            scopeTracker.onActivityDestroyed(it)
-            renderHook.onActivityDestroyed(it)
+            sessionTracker.onActivityDestroyed(it)
         }
     }
 
@@ -112,5 +132,51 @@ internal class GooglePhotosLocationHook(
 
     private companion object {
         private const val ActivityClassName = "android.app.Activity"
+    }
+}
+
+internal enum class GooglePhotosInstallTarget(
+    val logName: String,
+    val isStrategy: Boolean,
+) {
+    LIFECYCLE("lifecycle", false),
+    MAP_VIEW("map_view", false),
+    MARKER_API("marker_api", true),
+    S2_INDEX("s2_index", true),
+}
+
+internal data class GooglePhotosHookInstallStep(
+    val target: GooglePhotosInstallTarget,
+    val install: () -> Unit,
+)
+
+internal data class GooglePhotosHookInstallResult(
+    private val outcomes: Map<GooglePhotosInstallTarget, Boolean>,
+) {
+    fun installed(target: GooglePhotosInstallTarget): Boolean = outcomes[target] == true
+}
+
+internal class GooglePhotosHookInstallCoordinator(
+    private val onBegin: (GooglePhotosInstallTarget) -> Unit = {},
+    private val onSuccess: (GooglePhotosInstallTarget) -> Unit = {},
+    private val onFailure: (GooglePhotosInstallTarget, Throwable) -> Unit = { _, _ -> },
+) {
+    fun install(vararg steps: GooglePhotosHookInstallStep): GooglePhotosHookInstallResult {
+        val outcomes = linkedMapOf<GooglePhotosInstallTarget, Boolean>()
+        steps.forEach { step -> outcomes[step.target] = installStep(step) }
+        return GooglePhotosHookInstallResult(outcomes)
+    }
+
+    private fun installStep(step: GooglePhotosHookInstallStep): Boolean {
+        onBegin(step.target)
+        return try {
+            step.install()
+            onSuccess(step.target)
+            true
+        } catch (error: Throwable) {
+            if (error is VirtualMachineError || error is ThreadDeath) throw error
+            onFailure(step.target, error)
+            false
+        }
     }
 }

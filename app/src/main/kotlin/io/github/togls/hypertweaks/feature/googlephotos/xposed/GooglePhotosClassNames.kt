@@ -9,4 +9,5 @@ object GooglePhotosClassNames {
         "com.google.android.apps.photos.collectionstab.collectionsgridpage.CollectionsGridPageActivity"
     const val MapExploreActivity =
         "com.google.android.apps.photos.mapexplore.ui.MapExploreActivity"
+    const val MapView = "com.google.maps.api.android.lib6.impl.au"
 }

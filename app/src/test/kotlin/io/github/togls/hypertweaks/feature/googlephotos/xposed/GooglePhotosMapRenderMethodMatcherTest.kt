@@ -10,28 +10,68 @@ class GooglePhotosMapRenderMethodMatcherTest {
 
     @Test
     fun findsMarkerApiThroughActivityControllerStructure() {
-        val binding = GooglePhotosMapRenderMethodMatcher(FakeCoordinate::class.java)
-            .find(FakeMapActivity::class.java)
+        val report = GooglePhotosMapRenderMethodMatcher(FakeCoordinate::class.java)
+            .inspect(FakeMapActivity::class.java)
+        val binding = report.binding
 
         assertNotNull(binding)
+        assertEquals(1, report.controllerCandidateCount)
+        assertEquals(1, report.facadeCandidateCount)
+        assertEquals(1, report.bindings.size)
         assertEquals("addMarker", binding?.method?.name)
         assertEquals("position", binding?.positionField?.name)
     }
 
     @Test
     fun failsClosedWhenMoreThanOneRenderMethodMatches() {
-        val binding = GooglePhotosMapRenderMethodMatcher(FakeCoordinate::class.java)
-            .find(AmbiguousMapActivity::class.java)
+        val report = GooglePhotosMapRenderMethodMatcher(FakeCoordinate::class.java)
+            .inspect(AmbiguousMapActivity::class.java)
 
-        assertNull(binding)
+        assertEquals(2, report.bindings.size)
+        assertNull(report.binding)
     }
 
     @Test
     fun failsClosedWhenControllerDoesNotExposeMarkerApi() {
-        val binding = GooglePhotosMapRenderMethodMatcher(FakeCoordinate::class.java)
-            .find(ActivityWithoutMap::class.java)
+        val report = GooglePhotosMapRenderMethodMatcher(FakeCoordinate::class.java)
+            .inspect(ActivityWithoutMap::class.java)
 
-        assertNull(binding)
+        assertEquals(0, report.bindings.size)
+        assertNull(report.binding)
+    }
+
+    @Test
+    fun markerConversionRequiresSessionAndAvoidsDuplicateTarget() {
+        val transformer = SessionScopedMarkerTransformer(
+            converter = { latitude, longitude -> Coordinate(latitude + 1.0, longitude + 2.0) },
+        )
+        val target = Any()
+        var applied: Coordinate? = null
+
+        val inactive = transformer.transform(null, target, Shenzhen) { applied = it }
+        val converted = transformer.transform(1L, target, Shenzhen) { applied = it }
+        val duplicate = transformer.transform(1L, target, Shenzhen) { applied = it }
+
+        assertEquals(MarkerConversionOutcome.SKIPPED, inactive.outcome)
+        assertEquals("NO_ACTIVE_SESSION", inactive.reason)
+        assertEquals(MarkerConversionOutcome.CONVERTED, converted.outcome)
+        assertEquals(Coordinate(23.543096, 116.057865), applied)
+        assertEquals("ALREADY_CONVERTED", duplicate.reason)
+    }
+
+    @Test
+    fun markerConversionLeavesOutsideAndInvalidCoordinatesUnchanged() {
+        val transformer = SessionScopedMarkerTransformer()
+
+        val outside = transformer.transform(1L, Any(), Coordinate(35.6762, 139.6503)) {}
+        val invalid = transformer.transform(1L, Any(), Coordinate(Double.NaN, 114.0)) {}
+
+        assertEquals(MarkerConversionOutcome.UNCHANGED, outside.outcome)
+        assertEquals("OUTSIDE_CHINA", outside.reason)
+        assertEquals(MarkerConversionOutcome.UNCHANGED, invalid.outcome)
+        assertEquals("INVALID_COORDINATE", invalid.reason)
+        assertEquals(outside.original, outside.converted)
+        assertNull(invalid.failure)
     }
 
     @Test
@@ -102,5 +142,9 @@ class GooglePhotosMapRenderMethodMatcherTest {
     ) {
         private val longitudeStorage = longitude
         private val latitudeStorage = latitude
+    }
+
+    private companion object {
+        val Shenzhen = Coordinate(22.543096, 114.057865)
     }
 }

@@ -85,6 +85,72 @@ class GooglePhotosHeatmapIndexHookTest {
         assertArrayEquals(originalLongitudes, longitudes, 0.0f)
     }
 
+    @Test
+    fun inactiveSessionLeavesBatchUntouched() {
+        val originalLatitudes = floatArrayOf(22.543096f)
+        val originalLongitudes = floatArrayOf(114.057865f)
+        val latitudes = originalLatitudes.copyOf()
+        val longitudes = originalLongitudes.copyOf()
+        val transformer = SessionScopedHeatmapTransformer(
+            converter = { latitude, longitude -> Coordinate(latitude + 1.0, longitude + 2.0) },
+        )
+
+        val result = transformer.transform(null, Any(), latitudes, longitudes, 1)
+
+        assertEquals(HeatmapConversionOutcome.SKIPPED, result.outcome)
+        assertEquals("NO_ACTIVE_SESSION", result.reason)
+        assertArrayEquals(originalLatitudes, latitudes, 0.0f)
+        assertArrayEquals(originalLongitudes, longitudes, 0.0f)
+    }
+
+    @Test
+    fun sameBuilderIsConvertedOnlyOncePerSession() {
+        val transformer = SessionScopedHeatmapTransformer(
+            converter = { latitude, longitude -> Coordinate(latitude + 1.0, longitude + 2.0) },
+        )
+        val builder = Any()
+        val latitudes = floatArrayOf(22.543096f)
+        val longitudes = floatArrayOf(114.057865f)
+
+        val first = transformer.transform(7L, builder, latitudes, longitudes, 1)
+        val convertedLatitude = latitudes.single()
+        val duplicate = transformer.transform(7L, builder, latitudes, longitudes, 1)
+
+        assertEquals(HeatmapConversionOutcome.CONVERTED, first.outcome)
+        assertEquals("ALREADY_CONVERTED", duplicate.reason)
+        assertEquals(convertedLatitude, latitudes.single(), 0.0f)
+    }
+
+    @Test
+    fun mismatchedArraysAreSkippedWithoutMutation() {
+        val latitudes = floatArrayOf(22.5f, 31.2f)
+        val longitudes = floatArrayOf(114.0f)
+        val transformer = SessionScopedHeatmapTransformer()
+
+        val result = transformer.transform(1L, Any(), latitudes, longitudes, 1)
+
+        assertEquals(HeatmapConversionOutcome.SKIPPED, result.outcome)
+        assertEquals("ARRAY_SIZE_MISMATCH", result.reason)
+        assertArrayEquals(floatArrayOf(22.5f, 31.2f), latitudes, 0.0f)
+        assertArrayEquals(floatArrayOf(114.0f), longitudes, 0.0f)
+    }
+
+    @Test
+    fun outsideChinaBatchRemainsUnchanged() {
+        val latitudes = floatArrayOf(35.6762f)
+        val longitudes = floatArrayOf(139.6503f)
+        val transformer = SessionScopedHeatmapTransformer()
+
+        val result = transformer.transform(1L, Any(), latitudes, longitudes, 1)
+
+        assertEquals(HeatmapConversionOutcome.SKIPPED, result.outcome)
+        assertEquals("NO_CHINA_COORDINATES", result.reason)
+        assertEquals(0, result.batchResult.chinaCount)
+        assertEquals(0, result.batchResult.convertedCount)
+        assertNull(result.failure)
+        assertEquals(35.6762f, latitudes.single(), 0.0f)
+    }
+
     private class FakeS2IndexBuilder {
         @Synchronized
         @Suppress("UNUSED_PARAMETER")
