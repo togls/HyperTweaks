@@ -1,0 +1,300 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "139919326759d1e8f775c16c4de1dc81",
+    "entities": [
+      {
+        "tableName": "log_entries",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `event_id` TEXT NOT NULL, `timestamp_millis` INTEGER NOT NULL, `elapsed_realtime` INTEGER, `source` TEXT NOT NULL, `level` TEXT NOT NULL, `tag` TEXT NOT NULL, `event` TEXT NOT NULL, `message` TEXT, `package_name` TEXT, `process_name` TEXT, `pid` INTEGER, `tid` INTEGER, `session_id` TEXT, `fields_json` TEXT NOT NULL, `throwable_type` TEXT, `throwable_message` TEXT, `stack_trace` TEXT, `created_at` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventId",
+            "columnName": "event_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestampMillis",
+            "columnName": "timestamp_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "elapsedRealtime",
+            "columnName": "elapsed_realtime",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "level",
+            "columnName": "level",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tag",
+            "columnName": "tag",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "event",
+            "columnName": "event",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "message",
+            "columnName": "message",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "packageName",
+            "columnName": "package_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "processName",
+            "columnName": "process_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "pid",
+            "columnName": "pid",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "tid",
+            "columnName": "tid",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "session_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "fieldsJson",
+            "columnName": "fields_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "throwableType",
+            "columnName": "throwable_type",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "throwableMessage",
+            "columnName": "throwable_message",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "stackTrace",
+            "columnName": "stack_trace",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_log_entries_event_id",
+            "unique": true,
+            "columnNames": [
+              "event_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_log_entries_event_id` ON `${TABLE_NAME}` (`event_id`)"
+          },
+          {
+            "name": "index_log_entries_timestamp_millis",
+            "unique": false,
+            "columnNames": [
+              "timestamp_millis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_log_entries_timestamp_millis` ON `${TABLE_NAME}` (`timestamp_millis`)"
+          },
+          {
+            "name": "index_log_entries_source_timestamp_millis",
+            "unique": false,
+            "columnNames": [
+              "source",
+              "timestamp_millis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_log_entries_source_timestamp_millis` ON `${TABLE_NAME}` (`source`, `timestamp_millis`)"
+          },
+          {
+            "name": "index_log_entries_level_timestamp_millis",
+            "unique": false,
+            "columnNames": [
+              "level",
+              "timestamp_millis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_log_entries_level_timestamp_millis` ON `${TABLE_NAME}` (`level`, `timestamp_millis`)"
+          },
+          {
+            "name": "index_log_entries_package_name_timestamp_millis",
+            "unique": false,
+            "columnNames": [
+              "package_name",
+              "timestamp_millis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_log_entries_package_name_timestamp_millis` ON `${TABLE_NAME}` (`package_name`, `timestamp_millis`)"
+          },
+          {
+            "name": "index_log_entries_tag_timestamp_millis",
+            "unique": false,
+            "columnNames": [
+              "tag",
+              "timestamp_millis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_log_entries_tag_timestamp_millis` ON `${TABLE_NAME}` (`tag`, `timestamp_millis`)"
+          },
+          {
+            "name": "index_log_entries_event_timestamp_millis",
+            "unique": false,
+            "columnNames": [
+              "event",
+              "timestamp_millis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_log_entries_event_timestamp_millis` ON `${TABLE_NAME}` (`event`, `timestamp_millis`)"
+          },
+          {
+            "name": "index_log_entries_session_id_timestamp_millis",
+            "unique": false,
+            "columnNames": [
+              "session_id",
+              "timestamp_millis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_log_entries_session_id_timestamp_millis` ON `${TABLE_NAME}` (`session_id`, `timestamp_millis`)"
+          }
+        ]
+      },
+      {
+        "tableName": "log_sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`session_id` TEXT NOT NULL, `source` TEXT NOT NULL, `package_name` TEXT, `process_name` TEXT, `started_at` INTEGER NOT NULL, `ended_at` INTEGER, `module_version` TEXT, `target_version` TEXT, `log_mode` TEXT NOT NULL, `status` TEXT NOT NULL, `debug_count` INTEGER NOT NULL, `info_count` INTEGER NOT NULL, `warn_count` INTEGER NOT NULL, `error_count` INTEGER NOT NULL, PRIMARY KEY(`session_id`))",
+        "fields": [
+          {
+            "fieldPath": "sessionId",
+            "columnName": "session_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packageName",
+            "columnName": "package_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "processName",
+            "columnName": "process_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "startedAt",
+            "columnName": "started_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endedAt",
+            "columnName": "ended_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "moduleVersion",
+            "columnName": "module_version",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "targetVersion",
+            "columnName": "target_version",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "logMode",
+            "columnName": "log_mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "debugCount",
+            "columnName": "debug_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "infoCount",
+            "columnName": "info_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "warnCount",
+            "columnName": "warn_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "errorCount",
+            "columnName": "error_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "session_id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '139919326759d1e8f775c16c4de1dc81')"
+    ]
+  }
+}

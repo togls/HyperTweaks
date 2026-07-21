@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <!-- Export is required for scoped Hook processes; the provider validates protocol, UID and package. -->
+        <provider
+            android:name="io.github.togls.hypertweaks.logging.app.ingest.LogIngestProvider"
+            android:authorities="io.github.togls.hypertweaks.log.ingest"
+            android:exported="true"
+            android:grantUriPermissions="false"
+            tools:ignore="ExportedContentProvider" />
+    </application>
+</manifest>
