@@ -2,8 +2,13 @@ package io.github.togls.hypertweaks.ui.settings
 
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
+import io.github.togls.hypertweaks.logging.api.LogMode
 
 sealed interface SettingsAction {
+
+    data class SetLogMode(
+        val mode: LogMode,
+    ) : SettingsAction
 
     data class SetImeEnabled(
         val enabled: Boolean,

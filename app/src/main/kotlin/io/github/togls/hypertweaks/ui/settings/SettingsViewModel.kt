@@ -14,6 +14,8 @@ import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 import io.github.togls.hypertweaks.feature.ime.data.NavBarLayoutConfig
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAlivePackages
+import io.github.togls.hypertweaks.logging.api.LogMode
+import io.github.togls.hypertweaks.logging.app.AppLogRuntime
 
 class SettingsViewModel(
     application: Application,
@@ -21,58 +23,27 @@ class SettingsViewModel(
 
     private val configRepository: ConfigRepository = XposedConfigRepository()
 
-    var uiState by mutableStateOf(SettingsUiState())
+    var uiState by mutableStateOf(
+        SettingsUiState(logging = LogSettingsUiState(mode = AppLogRuntime.currentMode)),
+    )
         private set
 
     fun onAction(
         action: SettingsAction,
     ) {
         when (action) {
-            is SettingsAction.SetImeEnabled -> {
-                updateImeEnabled(
-                    enabled = action.enabled,
-                )
-            }
-
+            is SettingsAction.SetLogMode -> updateLogMode(action.mode)
+            is SettingsAction.SetImeEnabled -> updateImeEnabled(action.enabled)
             is SettingsAction.SetGooglePhotosLocationEnabled -> {
-                updateGooglePhotosLocationEnabled(
-                    enabled = action.enabled,
-                )
+                updateGooglePhotosLocationEnabled(action.enabled)
             }
-
-            is SettingsAction.SetKeepAliveEnabled -> {
-                updateKeepAliveEnabled(
-                    enabled = action.enabled,
-                )
-            }
-
-            is SettingsAction.SetStartButton -> {
-                updateStartButton(
-                    button = action.button,
-                )
-            }
-
-            is SettingsAction.SetEndButton -> {
-                updateEndButton(
-                    button = action.button,
-                )
-            }
-
-            is SettingsAction.UpdateKeepAlivePackagesText -> {
-                updateKeepAlivePackagesText(action.text)
-            }
-
-            SettingsAction.SaveKeepAlivePackages -> {
-                saveKeepAlivePackages()
-            }
-
-            SettingsAction.ReloadConfig -> {
-                loadConfig()
-            }
-
-            is SettingsAction.SetKeepAliveMode -> {
-                updateKeepAliveMode(action.mode)
-            }
+            is SettingsAction.SetKeepAliveEnabled -> updateKeepAliveEnabled(action.enabled)
+            is SettingsAction.SetStartButton -> updateStartButton(action.button)
+            is SettingsAction.SetEndButton -> updateEndButton(action.button)
+            is SettingsAction.UpdateKeepAlivePackagesText -> updateKeepAlivePackagesText(action.text)
+            SettingsAction.SaveKeepAlivePackages -> saveKeepAlivePackages()
+            SettingsAction.ReloadConfig -> loadConfig()
+            is SettingsAction.SetKeepAliveMode -> updateKeepAliveMode(action.mode)
         }
     }
 
@@ -80,6 +51,7 @@ class SettingsViewModel(
         configRepository
             .loadConfig()
             .onSuccess { config ->
+                AppLogRuntime.updateMode(config.logMode)
                 uiState = config.toSettingsUiState(
                     serviceConnected = true,
                     message = string(R.string.status_config_loaded),
@@ -200,6 +172,30 @@ class SettingsViewModel(
         saveFeatureToggles(
             toggles = currentFeatureToggles().copy(imeEnabled = enabled),
         )
+    }
+
+    private fun updateLogMode(mode: LogMode) {
+        val previousMode = uiState.logging.mode
+        configRepository.saveLogMode(mode)
+            .onSuccess { savedMode ->
+                AppLogRuntime.updateMode(savedMode)
+                uiState = uiState.copy(
+                    service = uiState.service.copy(
+                        connected = true,
+                        message = string(R.string.status_log_mode_saved),
+                    ),
+                    logging = uiState.logging.copy(mode = savedMode),
+                )
+            }
+            .onFailure { error ->
+                uiState = uiState.copy(
+                    service = uiState.service.copy(
+                        connected = configRepository.serviceConnected,
+                        message = error.message ?: string(R.string.status_save_config_failed),
+                    ),
+                    logging = uiState.logging.copy(mode = previousMode),
+                )
+            }
     }
 
     private fun updateGooglePhotosLocationEnabled(

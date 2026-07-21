@@ -53,6 +53,15 @@
     <string name="keep_alive_mode_oom_only_description">Only protect OOM priority. Do not block kill or force stop calls.</string>
     <string name="status_keep_alive_mode_saved">Keep alive mode saved</string>
 
+    <string name="logging_title">Logs</string>
+    <string name="logging_mode_title">Log level</string>
+    <string name="logging_mode_off_summary">Disable all App and Hook logs.</string>
+    <string name="logging_mode_basic_summary">Record lifecycle, install results, warnings and errors.</string>
+    <string name="logging_mode_debug_summary">Record complete Hook and probe diagnostics.</string>
+    <string name="logging_view_logs">View logs</string>
+    <string name="logging_view_logs_summary">Browse, filter, copy and clear App and Hook logs.</string>
+    <string name="status_log_mode_saved">Log level saved and synchronized to running Hook processes.</string>
+
     <string name="keep_alive_packages_label">Package names</string>
     <string name="action_save_keep_alive_packages">Save keep-alive list</string>
     <string name="status_keep_alive_saved">Keep-alive package list saved.</string>

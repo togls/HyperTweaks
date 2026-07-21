@@ -7,6 +7,7 @@ import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 import io.github.togls.hypertweaks.feature.ime.data.NavBarLayoutConfig
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAlivePackages
+import io.github.togls.hypertweaks.logging.api.LogMode
 import io.github.togls.hypertweaks.service.XposedServiceStore
 
 class XposedConfigRepository(
@@ -26,6 +27,7 @@ class XposedConfigRepository(
             )
 
             HyperTweaksConfig(
+                logMode = readLogMode(prefs),
                 features = readFeatureToggles(prefs),
                 ime = ImeConfig(
                     navBarLayout = navBarLayout,
@@ -35,6 +37,22 @@ class XposedConfigRepository(
                     packages = readKeepAlivePackages(prefs),
                 ),
             )
+        }
+    }
+
+    override fun loadLogMode(): Result<LogMode> {
+        return withRemotePreferences(::readLogMode)
+    }
+
+    override fun saveLogMode(mode: LogMode): Result<LogMode> {
+        return withRemotePreferences { prefs ->
+            val nextVersion = prefs.getLong(RemotePreferenceKeys.LogConfigVersion, 0L) + 1L
+            val saved = prefs.edit()
+                .putString(RemotePreferenceKeys.LogMode, mode.persistedValue)
+                .putLong(RemotePreferenceKeys.LogConfigVersion, nextVersion)
+                .commit()
+            check(saved) { "Failed to persist remote log mode" }
+            mode
         }
     }
 
@@ -171,6 +189,12 @@ class XposedConfigRepository(
                 RemotePreferenceKeys.KeepAliveMode,
                 KeepAliveMode.Default.value,
             ),
+        )
+    }
+
+    private fun readLogMode(prefs: SharedPreferences): LogMode {
+        return LogMode.fromPersistedValue(
+            prefs.getString(RemotePreferenceKeys.LogMode, LogMode.Default.persistedValue),
         )
     }
 

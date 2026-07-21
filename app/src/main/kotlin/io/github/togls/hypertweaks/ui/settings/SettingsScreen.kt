@@ -20,6 +20,7 @@ import io.github.togls.hypertweaks.feature.googlephotos.ui.GooglePhotosTweaksCar
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 import io.github.togls.hypertweaks.feature.ime.ui.ImeTweaksCard
 import io.github.togls.hypertweaks.feature.keepalive.data.KeepAliveMode
+import io.github.togls.hypertweaks.logging.api.LogMode
 import io.github.togls.hypertweaks.feature.keepalive.ui.KeepAliveTweaksCard
 import io.github.togls.hypertweaks.ui.components.AppScaffold
 import io.github.togls.hypertweaks.ui.components.AppSpacing
@@ -27,6 +28,8 @@ import io.github.togls.hypertweaks.ui.components.AppSpacing
 @Composable
 fun SettingsScreen(
     uiState: SettingsUiState,
+    onLogModeChange: (LogMode) -> Unit,
+    onViewLogsClick: () -> Unit,
     onImeEnabledChange: (Boolean) -> Unit,
     onGooglePhotosLocationEnabledChange: (Boolean) -> Unit,
     onKeepAliveEnabledChange: (Boolean) -> Unit,
@@ -46,6 +49,8 @@ fun SettingsScreen(
     ) {
         SettingsContent(
             uiState = uiState,
+            onLogModeChange = onLogModeChange,
+            onViewLogsClick = onViewLogsClick,
             onImeEnabledChange = onImeEnabledChange,
             onGooglePhotosLocationEnabledChange = onGooglePhotosLocationEnabledChange,
             onKeepAliveEnabledChange = onKeepAliveEnabledChange,
@@ -64,6 +69,8 @@ fun SettingsScreen(
 @Composable
 private fun SettingsContent(
     uiState: SettingsUiState,
+    onLogModeChange: (LogMode) -> Unit,
+    onViewLogsClick: () -> Unit,
     onImeEnabledChange: (Boolean) -> Unit,
     onGooglePhotosLocationEnabledChange: (Boolean) -> Unit,
     onKeepAliveEnabledChange: (Boolean) -> Unit,
@@ -97,6 +104,8 @@ private fun SettingsContent(
         ) {
             SettingsSections(
                 uiState = uiState,
+                onLogModeChange = onLogModeChange,
+                onViewLogsClick = onViewLogsClick,
                 onImeEnabledChange = onImeEnabledChange,
                 onGooglePhotosLocationEnabledChange = onGooglePhotosLocationEnabledChange,
                 onKeepAliveEnabledChange = onKeepAliveEnabledChange,
@@ -115,6 +124,8 @@ private fun SettingsContent(
 @Composable
 private fun SettingsSections(
     uiState: SettingsUiState,
+    onLogModeChange: (LogMode) -> Unit,
+    onViewLogsClick: () -> Unit,
     onImeEnabledChange: (Boolean) -> Unit,
     onGooglePhotosLocationEnabledChange: (Boolean) -> Unit,
     onKeepAliveEnabledChange: (Boolean) -> Unit,
@@ -131,6 +142,12 @@ private fun SettingsSections(
         message = uiState.service.message,
         onReloadClick = onReloadClick,
         showDebugInfo = showDebugInfo,
+    )
+    LogSettingsCard(
+        mode = uiState.logging.mode,
+        serviceConnected = uiState.service.connected,
+        onModeChange = onLogModeChange,
+        onViewLogsClick = onViewLogsClick,
     )
     ImeTweaksCard(
         serviceConnected = uiState.service.connected,

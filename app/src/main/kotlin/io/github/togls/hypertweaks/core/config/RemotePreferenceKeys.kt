@@ -14,4 +14,7 @@ object RemotePreferenceKeys {
     const val KeepAlivePackages = "keep_alive_packages"
 
     const val KeepAliveMode = "keep_alive_mode"
+
+    const val LogMode = "log_mode"
+    const val LogConfigVersion = "log_config_version"
 }
