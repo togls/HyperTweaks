@@ -137,8 +137,11 @@ internal data class MarkerConversionResult(
 }
 
 internal class SessionScopedMarkerTransformer(
-    private val converter: (Double, Double) -> Coordinate = ChinaCoordinateConverter::wgs84ToGcj02,
-    private val conversionGuard: SessionObjectConversionGuard = SessionObjectConversionGuard(),
+    private val converter: (Double, Double) -> Coordinate =
+        ChinaCoordinateConverter::wgs84ToGcj02,
+
+    private val conversionGuard: MarkerCoordinateConversionGuard =
+        MarkerCoordinateConversionGuard(),
 ) {
     fun transform(
         sessionId: Long?,
@@ -146,21 +149,82 @@ internal class SessionScopedMarkerTransformer(
         original: Coordinate,
         applyConversion: (Coordinate) -> Unit,
     ): MarkerConversionResult {
-        if (sessionId == null) return skipped("NO_ACTIVE_SESSION", original)
-        if (!CoordinateValidator.isValid(original.latitude, original.longitude)) {
-            return unchanged("INVALID_COORDINATE", original)
+        if (sessionId == null) {
+            return skipped(
+                "NO_ACTIVE_SESSION",
+                original,
+            )
         }
-        if (!CoordinateValidator.isInMainlandChina(original.latitude, original.longitude)) {
-            return unchanged("OUTSIDE_CHINA", original)
+
+        if (
+            !CoordinateValidator.isValid(
+                original.latitude,
+                original.longitude,
+            )
+        ) {
+            return unchanged(
+                "INVALID_COORDINATE",
+                original,
+            )
         }
+
+        /*
+         * 必须在 China 范围判断和 converter 调用之前检查。
+         *
+         * 已转换后的 GCJ02 坐标仍然位于中国范围内，
+         * 如果先执行 converter，就会产生二次偏移。
+         */
+        if (
+            conversionGuard.isAlreadyConverted(
+                target,
+                original,
+            )
+        ) {
+            return skipped(
+                "ALREADY_CONVERTED",
+                original,
+            )
+        }
+
+        if (
+            !CoordinateValidator.isInMainlandChina(
+                original.latitude,
+                original.longitude,
+            )
+        ) {
+            return unchanged(
+                "OUTSIDE_CHINA",
+                original,
+            )
+        }
+
         val converted = try {
-            converter(original.latitude, original.longitude)
+            converter(
+                original.latitude,
+                original.longitude,
+            )
         } catch (error: Exception) {
-            return MarkerConversionResult.failed("CONVERSION_FAILED", error).copy(original = original)
+            return MarkerConversionResult
+                .failed(
+                    "CONVERSION_FAILED",
+                    error,
+                )
+                .copy(original = original)
         }
-        if (converted == original) return unchanged("NO_OFFSET", original)
-        if (!conversionGuard.claim(target, sessionId)) return skipped("ALREADY_CONVERTED", original)
-        return applyConversion(target, original, converted, applyConversion)
+
+        if (converted == original) {
+            return unchanged(
+                "NO_OFFSET",
+                original,
+            )
+        }
+
+        return applyConversion(
+            target = target,
+            original = original,
+            converted = converted,
+            update = applyConversion,
+        )
     }
 
     private fun applyConversion(
@@ -171,40 +235,80 @@ internal class SessionScopedMarkerTransformer(
     ): MarkerConversionResult {
         return try {
             update(converted)
-            MarkerConversionResult(
-                MarkerConversionOutcome.CONVERTED,
-                "WGS84_TO_GCJ02",
-                original,
+
+            /*
+             * 只有真正写入成功后才记录。
+             */
+            conversionGuard.record(
+                target,
                 converted,
             )
+
+            MarkerConversionResult(
+                outcome = MarkerConversionOutcome.CONVERTED,
+                reason = "WGS84_TO_GCJ02",
+                original = original,
+                converted = converted,
+            )
         } catch (error: Exception) {
-            conversionGuard.release(target)
-            MarkerConversionResult.failed("WRITE_POSITION_FAILED", error).copy(original = original)
+            MarkerConversionResult
+                .failed(
+                    "WRITE_POSITION_FAILED",
+                    error,
+                )
+                .copy(original = original)
         }
     }
 
-    private fun skipped(reason: String, original: Coordinate): MarkerConversionResult {
-        return MarkerConversionResult(MarkerConversionOutcome.SKIPPED, reason, original)
+    private fun skipped(
+        reason: String,
+        original: Coordinate,
+    ): MarkerConversionResult {
+        return MarkerConversionResult(
+            outcome = MarkerConversionOutcome.SKIPPED,
+            reason = reason,
+            original = original,
+        )
     }
 
-    private fun unchanged(reason: String, original: Coordinate): MarkerConversionResult {
-        return MarkerConversionResult(MarkerConversionOutcome.UNCHANGED, reason, original, original)
+    private fun unchanged(
+        reason: String,
+        original: Coordinate,
+    ): MarkerConversionResult {
+        return MarkerConversionResult(
+            outcome = MarkerConversionOutcome.UNCHANGED,
+            reason = reason,
+            original = original,
+            converted = original,
+        )
     }
 }
 
-internal class SessionObjectConversionGuard {
-    private val convertedSessions = WeakHashMap<Any, Long>()
+/**
+ * 记录模块最后一次真正写入 MarkerOptions 的坐标。
+ *
+ * 只有当前坐标仍然等于模块上次写入值时，才判定为重复转换。
+ * 如果 Google Photos 复用 MarkerOptions 并写入新 WGS84 坐标，
+ * 新坐标与 stamp 不同，会再次转换。
+ */
+internal class MarkerCoordinateConversionGuard {
+    private val convertedCoordinates =
+        WeakHashMap<Any, Coordinate>()
 
     @Synchronized
-    fun claim(target: Any, sessionId: Long): Boolean {
-        if (convertedSessions[target] == sessionId) return false
-        convertedSessions[target] = sessionId
-        return true
+    fun isAlreadyConverted(
+        target: Any,
+        current: Coordinate,
+    ): Boolean {
+        return convertedCoordinates[target] == current
     }
 
     @Synchronized
-    fun release(target: Any) {
-        convertedSessions.remove(target)
+    fun record(
+        target: Any,
+        converted: Coordinate,
+    ) {
+        convertedCoordinates[target] = converted
     }
 }
 

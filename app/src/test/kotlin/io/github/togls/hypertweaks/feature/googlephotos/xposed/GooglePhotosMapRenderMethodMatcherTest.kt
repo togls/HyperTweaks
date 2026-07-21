@@ -10,8 +10,8 @@ class GooglePhotosMapRenderMethodMatcherTest {
 
     @Test
     fun findsMarkerApiThroughActivityControllerStructure() {
-        val report = GooglePhotosMapRenderMethodMatcher(FakeCoordinate::class.java)
-            .inspect(FakeMapActivity::class.java)
+        val report =
+            GooglePhotosMapRenderMethodMatcher(FakeCoordinate::class.java).inspect(FakeMapActivity::class.java)
         val binding = report.binding
 
         assertNotNull(binding)
@@ -24,8 +24,9 @@ class GooglePhotosMapRenderMethodMatcherTest {
 
     @Test
     fun failsClosedWhenMoreThanOneRenderMethodMatches() {
-        val report = GooglePhotosMapRenderMethodMatcher(FakeCoordinate::class.java)
-            .inspect(AmbiguousMapActivity::class.java)
+        val report = GooglePhotosMapRenderMethodMatcher(FakeCoordinate::class.java).inspect(
+                AmbiguousMapActivity::class.java
+            )
 
         assertEquals(2, report.bindings.size)
         assertNull(report.binding)
@@ -33,30 +34,142 @@ class GooglePhotosMapRenderMethodMatcherTest {
 
     @Test
     fun failsClosedWhenControllerDoesNotExposeMarkerApi() {
-        val report = GooglePhotosMapRenderMethodMatcher(FakeCoordinate::class.java)
-            .inspect(ActivityWithoutMap::class.java)
+        val report = GooglePhotosMapRenderMethodMatcher(FakeCoordinate::class.java).inspect(
+                ActivityWithoutMap::class.java
+            )
 
         assertEquals(0, report.bindings.size)
         assertNull(report.binding)
     }
 
     @Test
-    fun markerConversionRequiresSessionAndAvoidsDuplicateTarget() {
+    fun markerConversionRequiresSessionAndAvoidsConvertedCoordinateDuplicate() {
         val transformer = SessionScopedMarkerTransformer(
-            converter = { latitude, longitude -> Coordinate(latitude + 1.0, longitude + 2.0) },
+            converter = { latitude, longitude ->
+                Coordinate(
+                    latitude + 1.0,
+                    longitude + 2.0,
+                )
+            },
         )
+
         val target = Any()
-        var applied: Coordinate? = null
+        var currentCoordinate = Shenzhen
 
-        val inactive = transformer.transform(null, target, Shenzhen) { applied = it }
-        val converted = transformer.transform(1L, target, Shenzhen) { applied = it }
-        val duplicate = transformer.transform(1L, target, Shenzhen) { applied = it }
+        val inactive = transformer.transform(
+            sessionId = null,
+            target = target,
+            original = currentCoordinate,
+        ) {
+            currentCoordinate = it
+        }
 
-        assertEquals(MarkerConversionOutcome.SKIPPED, inactive.outcome)
-        assertEquals("NO_ACTIVE_SESSION", inactive.reason)
-        assertEquals(MarkerConversionOutcome.CONVERTED, converted.outcome)
-        assertEquals(Coordinate(23.543096, 116.057865), applied)
-        assertEquals("ALREADY_CONVERTED", duplicate.reason)
+        val converted = transformer.transform(
+            sessionId = 1L,
+            target = target,
+            original = currentCoordinate,
+        ) {
+            currentCoordinate = it
+        }
+
+        val duplicate = transformer.transform(
+            sessionId = 1L,
+            target = target,
+            original = currentCoordinate,
+        ) {
+            currentCoordinate = it
+        }
+
+        assertEquals(
+            MarkerConversionOutcome.SKIPPED,
+            inactive.outcome,
+        )
+
+        assertEquals(
+            "NO_ACTIVE_SESSION",
+            inactive.reason,
+        )
+
+        assertEquals(
+            MarkerConversionOutcome.CONVERTED,
+            converted.outcome,
+        )
+
+        assertEquals(
+            Coordinate(
+                23.543096,
+                116.057865,
+            ),
+            currentCoordinate,
+        )
+
+        assertEquals(
+            MarkerConversionOutcome.SKIPPED,
+            duplicate.outcome,
+        )
+
+        assertEquals(
+            "ALREADY_CONVERTED",
+            duplicate.reason,
+        )
+    }
+
+    @Test
+    fun reusedMarkerTargetWithNewCoordinateIsConvertedAgain() {
+        val transformer = SessionScopedMarkerTransformer(
+            converter = { latitude, longitude ->
+                Coordinate(
+                    latitude + 1.0,
+                    longitude + 2.0,
+                )
+            },
+        )
+
+        val target = Any()
+        var currentCoordinate = Shenzhen
+
+        val first = transformer.transform(
+            sessionId = 1L,
+            target = target,
+            original = currentCoordinate,
+        ) {
+            currentCoordinate = it
+        }
+
+        assertEquals(
+            MarkerConversionOutcome.CONVERTED,
+            first.outcome,
+        )
+
+        /*
+         * 模拟同一个 MarkerOptions 被 Google Photos 复用，
+         * 并写入另一个未经转换的原始坐标。
+         */
+        currentCoordinate = Coordinate(
+            23.129110,
+            113.264385,
+        )
+
+        val reused = transformer.transform(
+            sessionId = 1L,
+            target = target,
+            original = currentCoordinate,
+        ) {
+            currentCoordinate = it
+        }
+
+        assertEquals(
+            MarkerConversionOutcome.CONVERTED,
+            reused.outcome,
+        )
+
+        assertEquals(
+            Coordinate(
+                24.129110,
+                115.264385,
+            ),
+            currentCoordinate,
+        )
     }
 
     @Test
@@ -85,13 +198,11 @@ class GooglePhotosMapRenderMethodMatcherTest {
     }
 
     private class FakeMapActivity {
-        @Suppress("unused")
-        private val controller = FakeMapController()
+        @Suppress("unused") private val controller = FakeMapController()
     }
 
     private class FakeMapController {
-        @Suppress("unused")
-        private val mapFacade = FakeMapFacade()
+        @Suppress("unused") private val mapFacade = FakeMapFacade()
     }
 
     private class FakeMapFacade {
@@ -100,8 +211,7 @@ class GooglePhotosMapRenderMethodMatcherTest {
     }
 
     private class FakeMarkerOptions {
-        @Suppress("unused")
-        var position: FakeCoordinate? = null
+        @Suppress("unused") var position: FakeCoordinate? = null
     }
 
     private class FakeMarker {
@@ -109,13 +219,11 @@ class GooglePhotosMapRenderMethodMatcherTest {
     }
 
     private class AmbiguousMapActivity {
-        @Suppress("unused")
-        private val controller = AmbiguousMapController()
+        @Suppress("unused") private val controller = AmbiguousMapController()
     }
 
     private class AmbiguousMapController {
-        @Suppress("unused")
-        private val mapFacade = AmbiguousMapFacade()
+        @Suppress("unused") private val mapFacade = AmbiguousMapFacade()
     }
 
     private class AmbiguousMapFacade {
@@ -127,13 +235,11 @@ class GooglePhotosMapRenderMethodMatcherTest {
     }
 
     private class ActivityWithoutMap {
-        @Suppress("unused")
-        private val controller = ControllerWithoutMap()
+        @Suppress("unused") private val controller = ControllerWithoutMap()
     }
 
     private class ControllerWithoutMap {
-        @Suppress("unused")
-        private val label = "no map"
+        @Suppress("unused") private val label = "no map"
     }
 
     private class FakeCoordinate(

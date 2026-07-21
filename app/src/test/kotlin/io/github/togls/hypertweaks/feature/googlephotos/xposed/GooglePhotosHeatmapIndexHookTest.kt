@@ -95,7 +95,7 @@ class GooglePhotosHeatmapIndexHookTest {
             converter = { latitude, longitude -> Coordinate(latitude + 1.0, longitude + 2.0) },
         )
 
-        val result = transformer.transform(null, Any(), latitudes, longitudes, 1)
+        val result = transformer.transform(null, latitudes, longitudes, 1)
 
         assertEquals(HeatmapConversionOutcome.SKIPPED, result.outcome)
         assertEquals("NO_ACTIVE_SESSION", result.reason)
@@ -104,21 +104,175 @@ class GooglePhotosHeatmapIndexHookTest {
     }
 
     @Test
-    fun sameBuilderIsConvertedOnlyOncePerSession() {
+    fun transformerConvertsMultipleDistinctBatches() {
         val transformer = SessionScopedHeatmapTransformer(
-            converter = { latitude, longitude -> Coordinate(latitude + 1.0, longitude + 2.0) },
+            converter = { latitude, longitude ->
+                Coordinate(
+                    latitude + 1.0,
+                    longitude + 2.0,
+                )
+            },
         )
-        val builder = Any()
+
+        val firstLatitudes = floatArrayOf(22.543096f)
+
+        val firstLongitudes = floatArrayOf(114.057865f)
+
+        val secondLatitudes = floatArrayOf(23.129110f)
+
+        val secondLongitudes = floatArrayOf(113.264385f)
+
+        val first = transformer.transform(
+            sessionId = 7L,
+            latitudes = firstLatitudes,
+            longitudes = firstLongitudes,
+            itemCount = 1,
+        )
+
+        val second = transformer.transform(
+            sessionId = 7L,
+            latitudes = secondLatitudes,
+            longitudes = secondLongitudes,
+            itemCount = 1,
+        )
+
+        assertEquals(
+            HeatmapConversionOutcome.CONVERTED,
+            first.outcome,
+        )
+
+        assertEquals(
+            HeatmapConversionOutcome.CONVERTED,
+            second.outcome,
+        )
+
+        assertArrayEquals(
+            floatArrayOf(23.543096f),
+            firstLatitudes,
+            0.0001f,
+        )
+
+        assertArrayEquals(
+            floatArrayOf(24.129110f),
+            secondLatitudes,
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun sameConvertedBatchIsNotConvertedTwice() {
+        val transformer = SessionScopedHeatmapTransformer(
+            converter = { latitude, longitude ->
+                Coordinate(
+                    latitude + 1.0,
+                    longitude + 2.0,
+                )
+            },
+        )
+
         val latitudes = floatArrayOf(22.543096f)
+
         val longitudes = floatArrayOf(114.057865f)
 
-        val first = transformer.transform(7L, builder, latitudes, longitudes, 1)
-        val convertedLatitude = latitudes.single()
-        val duplicate = transformer.transform(7L, builder, latitudes, longitudes, 1)
+        val first = transformer.transform(
+            sessionId = 7L,
+            latitudes = latitudes,
+            longitudes = longitudes,
+            itemCount = 1,
+        )
 
-        assertEquals(HeatmapConversionOutcome.CONVERTED, first.outcome)
-        assertEquals("ALREADY_CONVERTED", duplicate.reason)
-        assertEquals(convertedLatitude, latitudes.single(), 0.0f)
+        val convertedLatitude = latitudes.single()
+        val convertedLongitude = longitudes.single()
+
+        val duplicate = transformer.transform(
+            sessionId = 7L,
+            latitudes = latitudes,
+            longitudes = longitudes,
+            itemCount = 1,
+        )
+
+        assertEquals(
+            HeatmapConversionOutcome.CONVERTED,
+            first.outcome,
+        )
+
+        assertEquals(
+            HeatmapConversionOutcome.SKIPPED,
+            duplicate.outcome,
+        )
+
+        assertEquals(
+            "ALREADY_CONVERTED",
+            duplicate.reason,
+        )
+
+        assertEquals(
+            convertedLatitude,
+            latitudes.single(),
+            0.0f,
+        )
+
+        assertEquals(
+            convertedLongitude,
+            longitudes.single(),
+            0.0f,
+        )
+    }
+
+    @Test
+    fun reusedArraysWithNewCoordinatesAreConvertedAgain() {
+        val transformer = SessionScopedHeatmapTransformer(
+            converter = { latitude, longitude ->
+                Coordinate(
+                    latitude + 1.0,
+                    longitude + 2.0,
+                )
+            },
+        )
+
+        val latitudes = floatArrayOf(22.543096f)
+
+        val longitudes = floatArrayOf(114.057865f)
+
+        val first = transformer.transform(
+            sessionId = 7L,
+            latitudes = latitudes,
+            longitudes = longitudes,
+            itemCount = 1,
+        )
+
+        assertEquals(
+            HeatmapConversionOutcome.CONVERTED,
+            first.outcome,
+        )
+
+        // 模拟 Google Photos 复用数组并填入下一批原始坐标。
+        latitudes[0] = 23.129110f
+        longitudes[0] = 113.264385f
+
+        val reused = transformer.transform(
+            sessionId = 7L,
+            latitudes = latitudes,
+            longitudes = longitudes,
+            itemCount = 1,
+        )
+
+        assertEquals(
+            HeatmapConversionOutcome.CONVERTED,
+            reused.outcome,
+        )
+
+        assertEquals(
+            24.129110f,
+            latitudes.single(),
+            0.0001f,
+        )
+
+        assertEquals(
+            115.264385f,
+            longitudes.single(),
+            0.0001f,
+        )
     }
 
     @Test
@@ -127,7 +281,7 @@ class GooglePhotosHeatmapIndexHookTest {
         val longitudes = floatArrayOf(114.0f)
         val transformer = SessionScopedHeatmapTransformer()
 
-        val result = transformer.transform(1L, Any(), latitudes, longitudes, 1)
+        val result = transformer.transform(1L, latitudes, longitudes, 1)
 
         assertEquals(HeatmapConversionOutcome.SKIPPED, result.outcome)
         assertEquals("ARRAY_SIZE_MISMATCH", result.reason)
@@ -141,7 +295,7 @@ class GooglePhotosHeatmapIndexHookTest {
         val longitudes = floatArrayOf(139.6503f)
         val transformer = SessionScopedHeatmapTransformer()
 
-        val result = transformer.transform(1L, Any(), latitudes, longitudes, 1)
+        val result = transformer.transform(1L, latitudes, longitudes, 1)
 
         assertEquals(HeatmapConversionOutcome.SKIPPED, result.outcome)
         assertEquals("NO_CHINA_COORDINATES", result.reason)

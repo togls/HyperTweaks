@@ -6,9 +6,11 @@ import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.ChinaCoordinateConverter
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.Coordinate
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.CoordinateValidator
+import java.lang.ref.WeakReference
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.Locale
+import java.util.WeakHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 internal class GooglePhotosHeatmapIndexHook(
@@ -46,7 +48,6 @@ internal class GooglePhotosHeatmapIndexHook(
         )
         val result = transformer.transform(
             sessionId = session?.sessionId,
-            receiver = receiver,
             latitudes = latitudes,
             longitudes = longitudes,
             itemCount = itemCount,
@@ -183,60 +184,236 @@ internal data class HeatmapSessionConversionResult(
 }
 
 internal class SessionScopedHeatmapTransformer(
-    private val converter: (Double, Double) -> Coordinate = ChinaCoordinateConverter::wgs84ToGcj02,
-    private val conversionGuard: SessionObjectConversionGuard = SessionObjectConversionGuard(),
+    private val converter: (Double, Double) -> Coordinate =
+        ChinaCoordinateConverter::wgs84ToGcj02,
+
+    /*
+     * 防止同一数组、同一批已转换内容被再次转换。
+     *
+     * 不再使用 S2Index.BuilderImpl 作为防重键，
+     * 因为一个 Builder 会连续提交多批数据。
+     */
+    private val conversionGuard: HeatmapBatchConversionGuard =
+        HeatmapBatchConversionGuard(),
 ) {
     fun transform(
         sessionId: Long?,
-        receiver: Any?,
         latitudes: FloatArray?,
         longitudes: FloatArray?,
         itemCount: Int?,
     ): HeatmapSessionConversionResult {
-        val inspection = HeatmapCoordinateBatchTransformer.inspect(latitudes, longitudes, itemCount)
-        if (sessionId == null) return skipped("NO_ACTIVE_SESSION", inspection)
-        if (receiver == null) return skipped("NO_RECEIVER", inspection)
-        if (inspection.failure != null) return skipped(inspection.failureReason ?: "INVALID_BATCH", inspection)
-        if (latitudes == null || longitudes == null || itemCount == null) {
-            return skipped("INVALID_ARGUMENTS", inspection)
+        val inspection = HeatmapCoordinateBatchTransformer.inspect(
+            latitudes,
+            longitudes,
+            itemCount,
+        )
+
+        if (sessionId == null) {
+            return skipped(
+                "NO_ACTIVE_SESSION",
+                inspection,
+            )
         }
-        return convertActiveBatch(sessionId, receiver, latitudes, longitudes, itemCount)
+
+        if (inspection.failure != null) {
+            return skipped(
+                inspection.failureReason ?: "INVALID_BATCH",
+                inspection,
+            )
+        }
+
+        if (
+            latitudes == null ||
+            longitudes == null ||
+            itemCount == null
+        ) {
+            return skipped(
+                "INVALID_ARGUMENTS",
+                inspection,
+            )
+        }
+
+        /*
+         * 当前数组中的数据恰好等于上次模块写入的转换结果时，
+         * 才认定为重复调用。
+         *
+         * 如果 Google Photos 复用数组并写入了新的 WGS84 坐标，
+         * 指纹会变化，仍然会正常转换。
+         */
+        if (
+            conversionGuard.isAlreadyConverted(
+                latitudes,
+                longitudes,
+                itemCount,
+            )
+        ) {
+            return skipped(
+                "ALREADY_CONVERTED",
+                inspection,
+            )
+        }
+
+        return convertActiveBatch(
+            latitudes,
+            longitudes,
+            itemCount,
+        )
     }
 
     private fun convertActiveBatch(
-        sessionId: Long,
-        receiver: Any,
         latitudes: FloatArray,
         longitudes: FloatArray,
         itemCount: Int,
     ): HeatmapSessionConversionResult {
+        /*
+         * 先在副本中转换，保证转换过程中任意一个坐标失败时，
+         * 原始批次不会被部分修改。
+         */
         val convertedLatitudes = latitudes.copyOf()
         val convertedLongitudes = longitudes.copyOf()
+
         val result = HeatmapCoordinateBatchTransformer.transform(
             convertedLatitudes,
             convertedLongitudes,
             itemCount,
             converter,
         )
-        if (result.failure != null) return HeatmapSessionConversionResult(
-            HeatmapConversionOutcome.FAILED,
-            result.failureReason ?: "CONVERSION_FAILED",
-            result,
-        )
-        if (result.convertedCount == 0) return skipped("NO_CHINA_COORDINATES", result)
-        if (!conversionGuard.claim(receiver, sessionId)) {
-            return skipped("ALREADY_CONVERTED", result.copy(convertedCount = 0))
+
+        if (result.failure != null) {
+            return HeatmapSessionConversionResult(
+                outcome = HeatmapConversionOutcome.FAILED,
+                reason = result.failureReason ?: "CONVERSION_FAILED",
+                batchResult = result,
+            )
         }
-        convertedLatitudes.copyInto(latitudes)
-        convertedLongitudes.copyInto(longitudes)
-        return HeatmapSessionConversionResult(HeatmapConversionOutcome.CONVERTED, "WGS84_TO_GCJ02", result)
+
+        if (result.convertedCount == 0) {
+            return skipped(
+                "NO_CHINA_COORDINATES",
+                result,
+            )
+        }
+
+        /*
+         * 只写回 itemCount 范围。
+         * 数组尾部可能是 Builder 预分配但尚未使用的空间。
+         */
+        convertedLatitudes.copyInto(
+            destination = latitudes,
+            endIndex = itemCount,
+        )
+
+        convertedLongitudes.copyInto(
+            destination = longitudes,
+            endIndex = itemCount,
+        )
+
+        conversionGuard.record(
+            latitudes,
+            longitudes,
+            itemCount,
+        )
+
+        return HeatmapSessionConversionResult(
+            outcome = HeatmapConversionOutcome.CONVERTED,
+            reason = "WGS84_TO_GCJ02",
+            batchResult = result,
+        )
     }
 
     private fun skipped(
         reason: String,
         batchResult: HeatmapBatchConversionResult,
     ): HeatmapSessionConversionResult {
-        return HeatmapSessionConversionResult(HeatmapConversionOutcome.SKIPPED, reason, batchResult)
+        return HeatmapSessionConversionResult(
+            outcome = HeatmapConversionOutcome.SKIPPED,
+            reason = reason,
+            batchResult = batchResult,
+        )
+    }
+}
+
+internal data class HeatmapBatchConversionStamp(
+    /*
+     * 纬度数组作为 WeakHashMap 的弱键。
+     * 经度数组使用 WeakReference，避免 Guard 延长数组生命周期。
+     */
+    val longitudeArray: WeakReference<FloatArray>,
+    val itemCount: Int,
+    val convertedFingerprint: Long,
+)
+
+internal class HeatmapBatchConversionGuard {
+    private val stamps =
+        WeakHashMap<FloatArray, HeatmapBatchConversionStamp>()
+
+    @Synchronized
+    fun isAlreadyConverted(
+        latitudes: FloatArray,
+        longitudes: FloatArray,
+        itemCount: Int,
+    ): Boolean {
+        val stamp = stamps[latitudes] ?: return false
+
+        if (stamp.longitudeArray.get() !== longitudes) {
+            return false
+        }
+
+        if (stamp.itemCount != itemCount) {
+            return false
+        }
+
+        return stamp.convertedFingerprint ==
+            fingerprint(
+                latitudes,
+                longitudes,
+                itemCount,
+            )
+    }
+
+    @Synchronized
+    fun record(
+        latitudes: FloatArray,
+        longitudes: FloatArray,
+        itemCount: Int,
+    ) {
+        stamps[latitudes] = HeatmapBatchConversionStamp(
+            longitudeArray = WeakReference(longitudes),
+            itemCount = itemCount,
+            convertedFingerprint = fingerprint(
+                latitudes,
+                longitudes,
+                itemCount,
+            ),
+        )
+    }
+
+    private fun fingerprint(
+        latitudes: FloatArray,
+        longitudes: FloatArray,
+        itemCount: Int,
+    ): Long {
+        var hash = FingerprintSeed
+
+        repeat(itemCount) { index ->
+            hash =
+                FingerprintMultiplier * hash +
+                    latitudes[index].toRawBits()
+
+            hash =
+                FingerprintMultiplier * hash +
+                    longitudes[index].toRawBits()
+        }
+
+        return hash
+    }
+
+    private companion object {
+        private const val FingerprintSeed =
+            1125899906842597L
+
+        private const val FingerprintMultiplier =
+            31L
     }
 }
 

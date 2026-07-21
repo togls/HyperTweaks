@@ -1,205 +1,340 @@
 package io.github.togls.hypertweaks.feature.googlephotos.xposed
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GooglePhotosMapSessionStateMachineTest {
 
     @Test
-    fun homeActivityResumedAndMapAttachedActivatesSession() {
+    fun mapExploreActivityActivatesSessionDuringCreate() {
         val stateMachine = stateMachine()
         val activity = ActivityKey()
-        stateMachine.onActivityCreated(activity, GooglePhotosClassNames.HomeActivity)
-        stateMachine.onActivityResumed(activity, GooglePhotosClassNames.HomeActivity)
 
-        val transition = stateMachine.onMapViewAttached(ViewKey(), activity)
-
-        assertTrue(transition.activatedSession != null)
-        assertSame(activity, transition.activeSession?.hostActivity)
-    }
-
-    @Test
-    fun collectionsActivityResumedAndMapAttachedActivatesSession() {
-        val stateMachine = stateMachine()
-        val activity = ActivityKey()
-        stateMachine.onActivityCreated(activity, GooglePhotosClassNames.CollectionsActivity)
-        stateMachine.onActivityResumed(activity, GooglePhotosClassNames.CollectionsActivity)
-
-        val transition = stateMachine.onMapViewAttached(ViewKey(), activity)
+        val transition = stateMachine.onActivityCreated(
+            activity,
+            GooglePhotosClassNames.MapExploreActivity,
+        )
 
         assertNotNull(transition.activatedSession)
+        assertNotNull(transition.activeSession)
+        assertSame(
+            activity,
+            transition.activeSession?.hostActivity,
+        )
+        assertEquals(
+            GooglePhotosClassNames.MapExploreActivity,
+            transition.activeSession?.hostClassName,
+        )
+        assertEquals(
+            transition.activatedSession?.sessionId,
+            transition.activeSession?.sessionId,
+        )
+        assertSame(
+            transition.activeSession,
+            stateMachine.currentSession(),
+        )
     }
 
     @Test
-    fun mapExploreActivityIsRejectedAsSinglePhotoMap() {
+    fun mapExploreResumeKeepsSessionCreatedDuringCreate() {
         val stateMachine = stateMachine()
         val activity = ActivityKey()
-        stateMachine.onActivityCreated(activity, GooglePhotosClassNames.MapExploreActivity)
-        stateMachine.onActivityResumed(activity, GooglePhotosClassNames.MapExploreActivity)
 
-        val transition = stateMachine.onMapViewAttached(ViewKey(), activity)
+        val created = stateMachine.onActivityCreated(
+            activity,
+            GooglePhotosClassNames.MapExploreActivity,
+        )
 
-        assertEquals(MapSessionRejectionReason.SINGLE_PHOTO_MAP, transition.reason)
-        assertNull(stateMachine.currentSession())
+        val resumed = stateMachine.onActivityResumed(
+            activity,
+            GooglePhotosClassNames.MapExploreActivity,
+        )
+
+        assertNotNull(created.activatedSession)
+
+        // onResume 不能重复创建新的 Session。
+        assertNull(resumed.activatedSession)
+        assertNull(resumed.deactivatedSession)
+
+        assertEquals(
+            created.activeSession?.sessionId,
+            resumed.activeSession?.sessionId,
+        )
+        assertSame(
+            activity,
+            resumed.currentResumedActivity,
+        )
     }
 
     @Test
-    fun unknownActivityIsRejected() {
+    fun mapExploreDoesNotRequireMapViewAttachment() {
         val stateMachine = stateMachine()
         val activity = ActivityKey()
-        stateMachine.onActivityCreated(activity, "example.UnknownActivity")
-        stateMachine.onActivityResumed(activity, "example.UnknownActivity")
 
-        val transition = stateMachine.onMapViewAttached(ViewKey(), activity)
+        val transition = stateMachine.onActivityCreated(
+            activity,
+            GooglePhotosClassNames.MapExploreActivity,
+        )
 
-        assertEquals(MapSessionRejectionReason.UNKNOWN_HOST, transition.reason)
-        assertNull(stateMachine.currentSession())
+        assertNotNull(transition.activeSession)
+
+        // 字段暂时保留用于兼容现有日志，但不再参与作用域判断。
+        assertEquals(
+            0,
+            transition.attachedViewCount,
+        )
     }
 
     @Test
-    fun attachedMapActivatesAfterActivityResumes() {
+    fun homeActivityDoesNotActivateSession() {
         val stateMachine = stateMachine()
         val activity = ActivityKey()
-        stateMachine.onActivityCreated(activity, GooglePhotosClassNames.HomeActivity)
-        val attachTransition = stateMachine.onMapViewAttached(ViewKey(), activity)
 
-        val resumeTransition = stateMachine.onActivityResumed(activity, GooglePhotosClassNames.HomeActivity)
+        val transition = stateMachine.onActivityCreated(
+            activity,
+            GooglePhotosClassNames.HomeActivity,
+        )
 
-        assertEquals(MapSessionRejectionReason.HOST_NOT_RESUMED, attachTransition.reason)
-        assertNotNull(resumeTransition.activatedSession)
-    }
-
-    @Test
-    fun resumedActivityActivatesAfterMapAttaches() {
-        val stateMachine = stateMachine()
-        val activity = ActivityKey()
-        stateMachine.onActivityCreated(activity, GooglePhotosClassNames.HomeActivity)
-
-        val resumeTransition = stateMachine.onActivityResumed(activity, GooglePhotosClassNames.HomeActivity)
-        val attachTransition = stateMachine.onMapViewAttached(ViewKey(), activity)
-
-        assertEquals(MapSessionRejectionReason.MAP_VIEW_NOT_ATTACHED, resumeTransition.reason)
-        assertNotNull(attachTransition.activatedSession)
-    }
-
-    @Test
-    fun mapDetachDeactivatesSession() {
-        val stateMachine = stateMachine()
-        val activity = activate(stateMachine)
-        val view = attachedView
-
-        val transition = stateMachine.onMapViewDetached(view)
-
-        assertEquals(MapSessionRejectionReason.VIEW_DETACHED, transition.reason)
-        assertNotNull(transition.deactivatedSession)
-        assertNull(stateMachine.currentSession())
-        assertSame(activity, transition.deactivatedSession?.hostActivity)
-    }
-
-    @Test
-    fun activityPauseDeactivatesSession() {
-        val stateMachine = stateMachine()
-        val activity = activate(stateMachine)
-
-        val transition = stateMachine.onActivityPaused(activity)
-
-        assertEquals(MapSessionRejectionReason.ACTIVITY_PAUSED, transition.reason)
-        assertNotNull(transition.deactivatedSession)
-        assertNull(stateMachine.currentSession())
-    }
-
-    @Test
-    fun activityDestroyCleansViewsAndSession() {
-        val stateMachine = stateMachine()
-        val activity = activate(stateMachine)
-
-        val transition = stateMachine.onActivityDestroyed(activity)
-        val detachedTransition = stateMachine.onMapViewDetached(attachedView)
-
-        assertEquals(MapSessionRejectionReason.ACTIVITY_DESTROYED, transition.reason)
-        assertNull(stateMachine.currentSession())
-        assertEquals(MapSessionRejectionReason.VIEW_DETACHED, detachedTransition.reason)
-    }
-
-    @Test
-    fun repeatedAttachDoesNotCreateAnotherSession() {
-        val stateMachine = stateMachine()
-        val activity = ActivityKey()
-        val view = ViewKey()
-        stateMachine.onActivityCreated(activity, GooglePhotosClassNames.HomeActivity)
-        stateMachine.onActivityResumed(activity, GooglePhotosClassNames.HomeActivity)
-
-        val first = stateMachine.onMapViewAttached(view, activity)
-        val repeated = stateMachine.onMapViewAttached(view, activity)
-
-        assertNotNull(first.activatedSession)
-        assertNull(repeated.activatedSession)
-        assertEquals(first.activeSession?.sessionId, repeated.activeSession?.sessionId)
-    }
-
-    @Test
-    fun detachingOneOfMultipleViewsKeepsSessionActive() {
-        val stateMachine = stateMachine()
-        val activity = ActivityKey()
-        val firstView = ViewKey()
-        val secondView = ViewKey()
-        stateMachine.onActivityCreated(activity, GooglePhotosClassNames.HomeActivity)
-        stateMachine.onActivityResumed(activity, GooglePhotosClassNames.HomeActivity)
-        stateMachine.onMapViewAttached(firstView, activity)
-        stateMachine.onMapViewAttached(secondView, activity)
-
-        val transition = stateMachine.onMapViewDetached(firstView)
-
-        assertNull(transition.deactivatedSession)
-        assertNotNull(stateMachine.currentSession())
-        assertEquals(1, transition.attachedViewCount)
-    }
-
-    @Test
-    fun viewWithoutHostActivityIsRejected() {
-        val transition = stateMachine().onMapViewAttached(ViewKey(), null)
-
-        assertEquals(MapSessionRejectionReason.NO_HOST_ACTIVITY, transition.reason)
         assertNull(transition.activeSession)
+        assertNull(transition.activatedSession)
+        assertEquals(
+            MapSessionRejectionReason.NOT_MAP_EXPLORE,
+            transition.reason,
+        )
+        assertNull(stateMachine.currentSession())
     }
 
     @Test
-    fun resumingDifferentActivityFailsClosedUntilItsMapAttaches() {
+    fun collectionsActivityDoesNotActivateSession() {
         val stateMachine = stateMachine()
-        activate(stateMachine)
-        val nextActivity = ActivityKey()
-        stateMachine.onActivityCreated(nextActivity, GooglePhotosClassNames.CollectionsActivity)
+        val activity = ActivityKey()
 
-        val transition = stateMachine.onActivityResumed(
-            nextActivity,
+        val transition = stateMachine.onActivityCreated(
+            activity,
             GooglePhotosClassNames.CollectionsActivity,
         )
 
+        assertNull(transition.activeSession)
+        assertEquals(
+            MapSessionRejectionReason.NOT_MAP_EXPLORE,
+            transition.reason,
+        )
+    }
+
+    @Test
+    fun unknownActivityDoesNotActivateSession() {
+        val stateMachine = stateMachine()
+        val activity = ActivityKey()
+
+        val transition = stateMachine.onActivityCreated(
+            activity,
+            "example.UnknownActivity",
+        )
+
+        assertNull(transition.activeSession)
+        assertEquals(
+            MapSessionRejectionReason.NOT_MAP_EXPLORE,
+            transition.reason,
+        )
+    }
+
+    @Test
+    fun pausingMapExploreDeactivatesSession() {
+        val stateMachine = stateMachine()
+        val activity = activateMapExplore(stateMachine)
+
+        val transition = stateMachine.onActivityPaused(activity)
+
+        assertNull(transition.activeSession)
         assertNotNull(transition.deactivatedSession)
-        assertEquals(MapSessionRejectionReason.MAP_VIEW_NOT_ATTACHED, transition.reason)
+        assertSame(
+            activity,
+            transition.deactivatedSession?.hostActivity,
+        )
+        assertEquals(
+            MapSessionRejectionReason.ACTIVITY_PAUSED,
+            transition.reason,
+        )
         assertNull(stateMachine.currentSession())
     }
 
-    private lateinit var attachedView: ViewKey
+    @Test
+    fun destroyingMapExploreDeactivatesSession() {
+        val stateMachine = stateMachine()
+        val activity = activateMapExplore(stateMachine)
 
-    private fun activate(
-        stateMachine: GooglePhotosMapSessionStateMachine<ActivityKey, ViewKey>,
+        val transition = stateMachine.onActivityDestroyed(activity)
+
+        assertNull(transition.activeSession)
+        assertNotNull(transition.deactivatedSession)
+        assertSame(
+            activity,
+            transition.deactivatedSession?.hostActivity,
+        )
+        assertEquals(
+            MapSessionRejectionReason.ACTIVITY_DESTROYED,
+            transition.reason,
+        )
+        assertNull(stateMachine.currentSession())
+    }
+
+    @Test
+    fun destroyingInactiveActivityDoesNotDeactivateMapSession() {
+        val stateMachine = stateMachine()
+        val mapActivity = activateMapExplore(stateMachine)
+        val unrelatedActivity = ActivityKey()
+
+        stateMachine.onActivityCreated(
+            unrelatedActivity,
+            GooglePhotosClassNames.HomeActivity,
+        )
+
+        val transition =
+            stateMachine.onActivityDestroyed(unrelatedActivity)
+
+        assertNull(transition.deactivatedSession)
+        assertSame(
+            mapActivity,
+            stateMachine.currentSession()?.hostActivity,
+        )
+    }
+
+    @Test
+    fun resumingSameMapExploreDoesNotCreateAnotherSession() {
+        val stateMachine = stateMachine()
+        val activity = ActivityKey()
+
+        val created = stateMachine.onActivityCreated(
+            activity,
+            GooglePhotosClassNames.MapExploreActivity,
+        )
+
+        val firstSessionId =
+            created.activeSession?.sessionId
+
+        repeat(3) {
+            val transition = stateMachine.onActivityResumed(
+                activity,
+                GooglePhotosClassNames.MapExploreActivity,
+            )
+
+            assertNull(transition.activatedSession)
+            assertEquals(
+                firstSessionId,
+                transition.activeSession?.sessionId,
+            )
+        }
+    }
+
+    @Test
+    fun creatingSecondMapExploreReplacesPreviousSession() {
+        val stateMachine = stateMachine()
+        val firstActivity = ActivityKey()
+        val secondActivity = ActivityKey()
+
+        val first = stateMachine.onActivityCreated(
+            firstActivity,
+            GooglePhotosClassNames.MapExploreActivity,
+        )
+
+        val second = stateMachine.onActivityCreated(
+            secondActivity,
+            GooglePhotosClassNames.MapExploreActivity,
+        )
+
+        assertNotNull(first.activatedSession)
+        assertNotNull(second.activatedSession)
+        assertNotNull(second.deactivatedSession)
+
+        assertSame(
+            firstActivity,
+            second.deactivatedSession?.hostActivity,
+        )
+        assertSame(
+            secondActivity,
+            second.activeSession?.hostActivity,
+        )
+
+        assertEquals(
+            first.activeSession!!.sessionId + 1L,
+            second.activeSession!!.sessionId,
+        )
+    }
+
+    @Test
+    fun resumingNonMapActivityClearsStaleMapSession() {
+        val stateMachine = stateMachine()
+        val mapActivity = activateMapExplore(stateMachine)
+        val homeActivity = ActivityKey()
+
+        stateMachine.onActivityCreated(
+            homeActivity,
+            GooglePhotosClassNames.HomeActivity,
+        )
+
+        val transition = stateMachine.onActivityResumed(
+            homeActivity,
+            GooglePhotosClassNames.HomeActivity,
+        )
+
+        assertNull(transition.activeSession)
+        assertNotNull(transition.deactivatedSession)
+        assertSame(
+            mapActivity,
+            transition.deactivatedSession?.hostActivity,
+        )
+        assertEquals(
+            MapSessionRejectionReason.NOT_MAP_EXPLORE,
+            transition.reason,
+        )
+        assertNull(stateMachine.currentSession())
+    }
+
+    @Test
+    fun currentResumedActivityIsClearedOnPause() {
+        val stateMachine = stateMachine()
+        val activity = ActivityKey()
+
+        stateMachine.onActivityCreated(
+            activity,
+            GooglePhotosClassNames.MapExploreActivity,
+        )
+
+        stateMachine.onActivityResumed(
+            activity,
+            GooglePhotosClassNames.MapExploreActivity,
+        )
+
+        assertSame(
+            activity,
+            stateMachine.currentResumedActivity(),
+        )
+
+        val paused =
+            stateMachine.onActivityPaused(activity)
+
+        assertNull(paused.currentResumedActivity)
+        assertNull(stateMachine.currentResumedActivity())
+    }
+
+    private fun activateMapExplore(
+        stateMachine: GooglePhotosMapSessionStateMachine<ActivityKey>,
     ): ActivityKey {
         val activity = ActivityKey()
-        attachedView = ViewKey()
-        stateMachine.onActivityCreated(activity, GooglePhotosClassNames.HomeActivity)
-        stateMachine.onActivityResumed(activity, GooglePhotosClassNames.HomeActivity)
-        stateMachine.onMapViewAttached(attachedView, activity)
+
+        stateMachine.onActivityCreated(
+            activity,
+            GooglePhotosClassNames.MapExploreActivity,
+        )
+
         return activity
     }
 
-    private fun stateMachine() = GooglePhotosMapSessionStateMachine<ActivityKey, ViewKey>()
+    private fun stateMachine() =
+        GooglePhotosMapSessionStateMachine<ActivityKey>()
 
     private class ActivityKey
-    private class ViewKey
 }
