@@ -11,6 +11,11 @@ activityCompose = "1.13.0"
 lifecycle = "2.11.0"
 androidxFragment = "1.8.8"
 miuix = "0.9.3"
+room3 = "3.0.0"
+sqlite = "2.7.0"
+paging = "3.5.0"
+ksp = "2.3.9"
+coroutines = "1.10.2"
 
 junit = "4.13.2"
 
@@ -19,6 +24,9 @@ libxposedService = "102.0.0"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+androidx-room3 = { id = "androidx.room3", version.ref = "room3" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 
 [libraries]
@@ -33,6 +41,13 @@ androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-
 androidx-fragment = { module = "androidx.fragment:fragment", version.ref = "androidxFragment" }
 miuix-ui = { module = "top.yukonga.miuix.kmp:miuix-ui", version.ref = "miuix" }
 miuix-preference = { module = "top.yukonga.miuix.kmp:miuix-preference", version.ref = "miuix" }
+androidx-room3-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room3" }
+androidx-room3-compiler = { module = "androidx.room3:room3-compiler", version.ref = "room3" }
+androidx-room3-paging = { module = "androidx.room3:room3-paging", version.ref = "room3" }
+androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
+androidx-paging-runtime = { module = "androidx.paging:paging-runtime", version.ref = "paging" }
+androidx-paging-compose = { module = "androidx.paging:paging-compose", version.ref = "paging" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 
 junit = { module = "junit:junit", version.ref = "junit" }
 

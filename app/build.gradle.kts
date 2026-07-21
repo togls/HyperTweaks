@@ -105,6 +105,11 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:logging-api"))
+    implementation(project(":core:logging-app"))
+    implementation(project(":core:logging-hook"))
+    implementation(project(":feature:logviewer"))
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.compose)
     implementation(libs.miuix.ui)

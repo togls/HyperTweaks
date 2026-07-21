@@ -24,3 +24,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "HyperTweaks"
 include(":app")
+include(":core:logging-api")
+include(":core:logging-app")
+include(":core:logging-hook")
+include(":feature:logviewer")
