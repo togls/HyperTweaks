@@ -17,4 +17,5 @@ object RemotePreferenceKeys {
 
     const val LogMode = "log_mode"
     const val LogConfigVersion = "log_config_version"
+    const val LogBridgeRecoveryGeneration = "log_bridge_recovery_generation"
 }

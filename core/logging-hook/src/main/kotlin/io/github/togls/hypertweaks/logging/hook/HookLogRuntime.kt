@@ -1,6 +1,7 @@
 package io.github.togls.hypertweaks.logging.hook
 
 import android.content.SharedPreferences
+import android.util.Log
 import io.github.libxposed.api.XposedModule
 import io.github.togls.hypertweaks.logging.api.LogContext
 import io.github.togls.hypertweaks.logging.api.Logger
@@ -28,11 +29,20 @@ class HookLogRuntime private constructor(
             preferencesProvider: () -> SharedPreferences,
             modeKey: String,
             versionKey: String,
+            recoveryKey: String,
             transport: HookBatchTransport,
             context: LogContext = LogContext(),
         ): HookLogBootstrap {
             return runCatching {
-                create(module, preferencesProvider, modeKey, versionKey, transport, context)
+                create(
+                    module,
+                    preferencesProvider,
+                    modeKey,
+                    versionKey,
+                    recoveryKey,
+                    transport,
+                    context,
+                )
             }.fold(
                 onSuccess = { runtime -> HookLogBootstrap(runtime.rootLogger, runtime) },
                 onFailure = { error -> createFallback(module, context, error) },
@@ -44,21 +54,38 @@ class HookLogRuntime private constructor(
             preferencesProvider: () -> SharedPreferences,
             modeKey: String,
             versionKey: String,
+            recoveryKey: String,
             transport: HookBatchTransport,
             context: LogContext = LogContext(),
         ): HookLogRuntime {
-            val configSource = HookLogConfigSource(preferencesProvider, modeKey, versionKey)
-            val configResult = configSource.start()
-            val dispatcher = HookBatchDispatcher(HookEventBuffer(), transport).apply { start() }
-            val logger = HookLogger.create(
-                configSource = configSource,
-                xposedSink = XposedLogSink(module),
-                fallbackSink = AndroidFallbackSink(),
-                bridgeSink = HookLogBridgeSink(dispatcher),
-                context = context,
+            val dispatcher = HookBatchDispatcher(HookEventBuffer(), transport)
+            val configSource = HookLogConfigSource(
+                preferencesProvider = preferencesProvider,
+                modeKey = modeKey,
+                versionKey = versionKey,
+                recoveryKey = recoveryKey,
+                onRecoveryRequested = dispatcher::requestFlush,
+                onListenerFailure = { error ->
+                    module.log(Log.ERROR, "HyperTweaks", "config.listener.failed", error)
+                },
             )
-            logConfigurationResult(logger, configResult)
-            return HookLogRuntime(logger, configSource, dispatcher)
+            return try {
+                dispatcher.start()
+                val configResult = configSource.start()
+                val logger = HookLogger.create(
+                    configSource = configSource,
+                    xposedSink = XposedLogSink(module),
+                    fallbackSink = AndroidFallbackSink(),
+                    bridgeSink = HookLogBridgeSink(dispatcher),
+                    context = context,
+                )
+                logConfigurationResult(logger, configResult)
+                HookLogRuntime(logger, configSource, dispatcher)
+            } catch (error: Throwable) {
+                configSource.close()
+                dispatcher.close()
+                throw error
+            }
         }
 
         private fun logConfigurationResult(

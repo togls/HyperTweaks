@@ -36,6 +36,7 @@ class HyperTweaksModule : XposedModule() {
             preferencesProvider = { getRemotePreferences(RemotePreferenceKeys.GroupName) },
             modeKey = RemotePreferenceKeys.LogMode,
             versionKey = RemotePreferenceKeys.LogConfigVersion,
+            recoveryKey = RemotePreferenceKeys.LogBridgeRecoveryGeneration,
             transport = HookLogBridgeTransport(),
             context = createLogContext(),
         )

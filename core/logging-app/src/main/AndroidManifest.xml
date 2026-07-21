@@ -1,12 +1,37 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Keep synchronized with CallerValidator.DefaultAllowedPackages. These queries let the
+         module app grant reverse package visibility only to installed Hook targets. -->
+    <queries>
+        <package android:name="com.google.android.apps.photos" />
+        <package android:name="com.android.systemui" />
+        <package android:name="com.miui.powerkeeper" />
+        <package android:name="com.miui.securitycenter" />
+        <package android:name="com.miui.securitycenter.remote" />
+        <package android:name="com.lbe.security.miui" />
+        <package android:name="com.google.android.inputmethod.latin" />
+        <package android:name="com.baidu.input" />
+        <package android:name="com.baidu.input_mi" />
+        <package android:name="com.sohu.inputmethod.sogou" />
+        <package android:name="com.sohu.inputmethod.sogou.xiaomi" />
+        <package android:name="com.iflytek.inputmethod" />
+        <package android:name="com.iflytek.inputmethod.miui" />
+        <package android:name="com.tencent.wetype" />
+        <package android:name="keepass2android.keepass2android" />
+        <package android:name="org.mozilla.firefox" />
+        <package android:name="org.mozilla.firefox_beta" />
+        <package android:name="org.mozilla.fenix" />
+    </queries>
+
     <application>
-        <!-- Export is required for scoped Hook processes; the provider validates protocol, UID and package. -->
+        <!-- URI grants establish Android 11+ reverse package visibility for scoped Hook targets.
+             Provider calls remain restricted by protocol, UID and package validation. -->
         <provider
             android:name="io.github.togls.hypertweaks.logging.app.ingest.LogIngestProvider"
             android:authorities="io.github.togls.hypertweaks.log.ingest"
             android:exported="true"
-            android:grantUriPermissions="false"
+            android:grantUriPermissions="true"
             tools:ignore="ExportedContentProvider" />
     </application>
 </manifest>

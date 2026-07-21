@@ -8,6 +8,7 @@ import io.github.togls.hypertweaks.logging.api.LogLevel
 import io.github.togls.hypertweaks.logging.api.LogLimits
 import io.github.togls.hypertweaks.logging.api.LogSource
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -23,6 +24,7 @@ class HookBatchDispatcher(
     private val clock: () -> Long = System::currentTimeMillis,
 ) : AutoCloseable {
     private val started = AtomicBoolean(false)
+    private val flushRequested = AtomicBoolean(false)
     private val retryBackoff = RetryBackoff()
     private var nextAttemptMillis = 0L
 
@@ -42,6 +44,25 @@ class HookBatchDispatcher(
             executor.execute(::flushSafely)
         }
         return accepted
+    }
+
+    fun requestFlush() {
+        if (!started.get() || !flushRequested.compareAndSet(false, true)) return
+        try {
+            executor.execute {
+                try {
+                    if (!started.get()) return@execute
+                    retryBackoff.reset()
+                    nextAttemptMillis = 0L
+                    flushSafely()
+                } finally {
+                    flushRequested.set(false)
+                }
+            }
+        } catch (error: RejectedExecutionException) {
+            flushRequested.set(false)
+            if (started.get()) throw error
+        }
     }
 
     override fun close() {

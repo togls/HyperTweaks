@@ -12,6 +12,7 @@ import io.github.togls.hypertweaks.logging.api.Logger
 import io.github.togls.hypertweaks.logging.api.NoOpLogger
 import io.github.togls.hypertweaks.logging.api.LogSink
 import io.github.togls.hypertweaks.logging.app.database.HyperTweaksLogDatabase
+import io.github.togls.hypertweaks.logging.app.ingest.LogBridgeVisibilityGranter
 import io.github.togls.hypertweaks.logging.app.repository.LogRepository
 import io.github.togls.hypertweaks.logging.app.repository.RoomLogRepository
 import io.github.togls.hypertweaks.logging.app.sink.AndroidLogSink
@@ -27,6 +28,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 object AppLogRuntime {
@@ -78,8 +80,31 @@ object AppLogRuntime {
             roomSink = roomRouter,
             context = createAppContext(appContext),
         )
+        grantBridgeVisibility(appContext)
         logger.info("module.load.succeeded", "HyperTweaks app logging initialized")
         scope.launch { openDatabase() }
+    }
+
+    private fun grantBridgeVisibility(context: Context) {
+        val summary = LogBridgeVisibilityGranter.grant(context)
+        logger.info(
+            event = "provider.visibility.grant.completed",
+            fields = mapOf(
+                "requested_count" to summary.requestedPackageCount.toString(),
+                "installed_count" to summary.installedPackageCount.toString(),
+                "granted_count" to summary.grantedPackages.size.toString(),
+                "failed_count" to summary.failures.size.toString(),
+            ),
+        )
+        if (summary.failures.isEmpty()) return
+        logger.warn(
+            event = "provider.visibility.failed",
+            fields = mapOf(
+                "failures" to summary.failures.entries.joinToString { (packageName, errorType) ->
+                    "$packageName:$errorType"
+                },
+            ),
+        )
     }
 
     fun updateMode(nextMode: LogMode, persistCache: Boolean = true): Result<LogMode> {
@@ -93,6 +118,14 @@ object AppLogRuntime {
 
     fun ingest(events: List<LogEvent>): Int {
         return countAcceptedPrefix(events, roomRouter::offer)
+    }
+
+    fun runWhenDatabaseReady(action: () -> Unit) {
+        scope.launch {
+            databaseStateFlow.first { state -> state is LogDatabaseState.Ready }
+            runCatching(action)
+                .onFailure { error -> infrastructureError("database.ready.action.failed", error) }
+        }
     }
 
     private suspend fun openDatabase() {
