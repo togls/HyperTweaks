@@ -2,53 +2,12 @@ package io.github.togls.hypertweaks.feature.googlephotos.xposed
 
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.Coordinate
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GooglePhotosMapInteractionHookTest {
-    @Test
-    fun resolvesDynamicPreviewCallbackAndSelectedMarker() {
-        val renderBinding = renderBinding(FakeMapActivity::class.java)
-        val report = PreviewMarkerBindingResolver(FakeImage::class.java, FakeCoordinate::class.java)
-            .inspect(renderBinding)
-
-        assertNotNull(report.binding)
-        assertEquals(1, report.selectedMarkerFieldCount)
-        assertEquals(1, report.callbackCount)
-        assertEquals("selectedMarker", report.binding?.selectedMarkerField?.name)
-        assertEquals("previewCallback", report.binding?.callbackField?.name)
-        assertEquals("update", report.binding?.callbackMethod?.name)
-    }
-
-    @Test
-    fun previewResolverFailsClosedForMultipleCallbacks() {
-        val report = PreviewMarkerBindingResolver(FakeImage::class.java, FakeCoordinate::class.java)
-            .inspect(renderBinding(AmbiguousPreviewActivity::class.java))
-
-        assertEquals(2, report.callbackCount)
-        assertNull(report.binding)
-    }
-
-    @Test
-    fun previewRegistryOnlyEnablesUpdatesAfterSelectedMarkerExists() {
-        val controller = FakeMapController()
-        val callbackField = FakeMapController::class.java.getDeclaredField("previewCallback")
-            .apply { isAccessible = true }
-        val selectedMarkerField = FakeMapController::class.java.getDeclaredField("selectedMarker")
-            .apply { isAccessible = true }
-        val callback = requireNotNull(callbackField.get(controller))
-        val registry = PreviewMarkerTargetRegistry()
-        registry.register(callback, controller, selectedMarkerField)
-
-        assertFalse(registry.hasSelectedMarker(callback))
-        controller.selectedMarker = FakeMarker()
-        assertTrue(registry.hasSelectedMarker(callback))
-    }
-
     @Test
     fun resolvesCurrentLocationRequestThroughSharedMapFacade() {
         val activity = FakeMapActivity()
@@ -135,20 +94,7 @@ class GooglePhotosMapInteractionHookTest {
 
     private class FakeMapController {
         private val mapFacade = FakeMapFacade()
-        var selectedMarker: FakeMarker? = null
-        private val previewCallback: FakePreviewCallback = FakePreviewCallbackImpl()
         val currentLocationController = FakeCurrentLocationController(mapFacade)
-    }
-
-    private class AmbiguousPreviewActivity {
-        private val controller = AmbiguousPreviewController()
-    }
-
-    private class AmbiguousPreviewController {
-        private val mapFacade = FakeMapFacade()
-        private var selectedMarker: FakeMarker? = null
-        private val previewCallback: FakePreviewCallback = FakePreviewCallbackImpl()
-        private val secondPreviewCallback: FakePreviewCallback = FakePreviewCallbackImpl()
     }
 
     private class AmbiguousLocationActivity {
@@ -157,8 +103,6 @@ class GooglePhotosMapInteractionHookTest {
 
     private class AmbiguousLocationController {
         private val mapFacade = FakeMapFacade()
-        private var selectedMarker: FakeMarker? = null
-        private val previewCallback: FakePreviewCallback = FakePreviewCallbackImpl()
         private val currentLocationController = AmbiguousCurrentLocationController(mapFacade)
     }
 
@@ -174,14 +118,6 @@ class GooglePhotosMapInteractionHookTest {
         fun position(): FakeCoordinate = FakeCoordinate(0.0, 0.0)
     }
 
-    private interface FakePreviewCallback {
-        fun update(image: FakeImage, coordinate: FakeCoordinate)
-    }
-
-    private class FakePreviewCallbackImpl : FakePreviewCallback {
-        override fun update(image: FakeImage, coordinate: FakeCoordinate) = Unit
-    }
-
     private class FakeCurrentLocationController(var mapFacade: FakeMapFacade?) {
         fun requestCurrentLocation() = Unit
     }
@@ -190,8 +126,6 @@ class GooglePhotosMapInteractionHookTest {
         fun requestCurrentLocation() = Unit
         fun retryCurrentLocation() = Unit
     }
-
-    private class FakeImage
 
     private class FakeCoordinate(latitude: Double, longitude: Double) {
         private val latitudeValue = latitude

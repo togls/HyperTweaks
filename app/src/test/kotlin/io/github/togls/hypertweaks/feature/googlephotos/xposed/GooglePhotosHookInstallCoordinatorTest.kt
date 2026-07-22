@@ -8,6 +8,27 @@ import org.junit.Test
 class GooglePhotosHookInstallCoordinatorTest {
 
     @Test
+    fun previewCallbackCoordinateMutationStrategyIsNotInstalled() {
+        assertFalse(
+            GooglePhotosInstallTarget.entries.any { target -> target.name == "PREVIEW_MARKER" },
+        )
+    }
+
+    @Test
+    fun sharedPhotoIndexMutationStrategyIsNotInstalled() {
+        assertFalse(
+            GooglePhotosInstallTarget.entries.any { target -> target.name == "S2_INDEX" },
+        )
+    }
+
+    @Test
+    fun markerAnimationStrategyIsInstalledIndependently() {
+        assertTrue(
+            GooglePhotosInstallTarget.entries.any { target -> target.name == "MARKER_ANIMATION" },
+        )
+    }
+
+    @Test
     fun failedStrategyDoesNotInterruptOtherInstallTargets() {
         val attemptedTargets = mutableListOf<GooglePhotosInstallTarget>()
         val failedTargets = mutableListOf<GooglePhotosInstallTarget>()
@@ -19,19 +40,21 @@ class GooglePhotosHookInstallCoordinatorTest {
             step(GooglePhotosInstallTarget.LIFECYCLE, attemptedTargets),
             step(GooglePhotosInstallTarget.MAP_VIEW, attemptedTargets),
             failingStep(GooglePhotosInstallTarget.MARKER_API, attemptedTargets),
-            step(GooglePhotosInstallTarget.PREVIEW_MARKER, attemptedTargets),
+            step(GooglePhotosInstallTarget.MARKER_ANIMATION, attemptedTargets),
             step(GooglePhotosInstallTarget.MAP_LOCATION, attemptedTargets),
-            step(GooglePhotosInstallTarget.S2_INDEX, attemptedTargets),
+            step(GooglePhotosInstallTarget.CAMERA_UPDATE, attemptedTargets),
+            step(GooglePhotosInstallTarget.S2_QUERY, attemptedTargets),
         )
 
         assertEquals(GooglePhotosInstallTarget.entries, attemptedTargets)
         assertEquals(listOf(GooglePhotosInstallTarget.MARKER_API), failedTargets)
         assertFalse(result.installed(GooglePhotosInstallTarget.MARKER_API))
         assertTrue(result.installed(GooglePhotosInstallTarget.LIFECYCLE))
-        assertTrue(result.installed(GooglePhotosInstallTarget.S2_INDEX))
         assertTrue(result.installed(GooglePhotosInstallTarget.MAP_VIEW))
-        assertTrue(result.installed(GooglePhotosInstallTarget.PREVIEW_MARKER))
+        assertTrue(result.installed(GooglePhotosInstallTarget.MARKER_ANIMATION))
         assertTrue(result.installed(GooglePhotosInstallTarget.MAP_LOCATION))
+        assertTrue(result.installed(GooglePhotosInstallTarget.CAMERA_UPDATE))
+        assertTrue(result.installed(GooglePhotosInstallTarget.S2_QUERY))
     }
 
     private fun step(

@@ -18,6 +18,17 @@ class ChinaCoordinateConverterTest {
     }
 
     @Test
+    fun convertsGcj02CoordinateBackToWgs84() {
+        val converted = ChinaCoordinateConverter.gcj02ToWgs84(
+            latitude = 22.540378,
+            longitude = 114.062978,
+        )
+
+        assertEquals(22.543096, converted.latitude, 0.000001)
+        assertEquals(114.057865, converted.longitude, 0.000001)
+    }
+
+    @Test
     fun leavesCoordinateOutsideMainlandChinaUnchanged() {
         val original = Coordinate(51.5074, -0.1278)
 

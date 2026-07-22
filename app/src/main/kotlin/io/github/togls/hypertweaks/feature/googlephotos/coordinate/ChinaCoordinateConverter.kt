@@ -28,6 +28,17 @@ object ChinaCoordinateConverter {
         ).coordinate
     }
 
+    fun gcj02ToWgs84(
+        latitude: Double,
+        longitude: Double,
+    ): Coordinate {
+        return convertSafely(
+            latitude = latitude,
+            longitude = longitude,
+            conversion = ::invertInsideMainlandChina,
+        ).coordinate
+    }
+
     internal fun wgs84ToGcj02Result(
         latitude: Double,
         longitude: Double,
@@ -82,6 +93,22 @@ object ChinaCoordinateConverter {
             longitudeOffset * DegreesPerRadian /
             (SemiMajorAxis / squareRootMagic * kotlin.math.cos(latitudeRadians) * PI)
         return Coordinate(adjustedLatitude, adjustedLongitude)
+    }
+
+    private fun invertInsideMainlandChina(
+        latitude: Double,
+        longitude: Double,
+    ): Coordinate {
+        // GCJ-02 没有可直接使用的闭式逆变换；固定点迭代可避免一次近似在高缩放级别留下可见误差。
+        var estimate = Coordinate(latitude, longitude)
+        repeat(InverseIterationCount) {
+            val projected = convertInsideMainlandChina(estimate.latitude, estimate.longitude)
+            estimate = Coordinate(
+                latitude = estimate.latitude + latitude - projected.latitude,
+                longitude = estimate.longitude + longitude - projected.longitude,
+            )
+        }
+        return estimate
     }
 
     private fun transformLatitude(
@@ -139,4 +166,5 @@ object ChinaCoordinateConverter {
     private const val ReferenceLongitude = 105.0
     private const val DegreesPerRadian = 180.0
     private const val TwoThirds = 2.0 / 3.0
+    private const val InverseIterationCount = 4
 }
