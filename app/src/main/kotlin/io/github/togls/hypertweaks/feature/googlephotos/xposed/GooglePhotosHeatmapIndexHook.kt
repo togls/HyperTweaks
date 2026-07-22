@@ -19,7 +19,7 @@ internal class GooglePhotosHeatmapIndexHook(
     private val sessionTracker: GooglePhotosMapSessionTracker,
 ) {
     private val module = context.module
-    private val transformer = SessionScopedHeatmapTransformer()
+    private val transformer = HeatmapCoordinateTransformer()
     private val observedCallCount = AtomicInteger()
     private lateinit var addItemsMethod: Method
 
@@ -40,14 +40,14 @@ internal class GooglePhotosHeatmapIndexHook(
         val latitudes = arguments.getOrNull(LatitudeArgumentIndex) as? FloatArray
         val longitudes = arguments.getOrNull(LongitudeArgumentIndex) as? FloatArray
         val itemCount = arguments.getOrNull(ItemCountArgumentIndex) as? Int
-        val session = sessionTracker.currentSession()
-        val logSession = session?.toProbeLogSnapshot()
+
+        // Session 只保留为诊断上下文；后台批次不能因页面生命周期变化而漏掉转换。
+        val logSession = sessionTracker.currentSession()?.toProbeLogSnapshot()
         val callOrdinal = observedCallCount.incrementAndGet()
         val callCount = logger.heatmapInvoked(
             invocationSnapshot(receiver, arguments, latitudes, longitudes, logSession, callOrdinal),
         )
         val result = transformer.transform(
-            sessionId = session?.sessionId,
             latitudes = latitudes,
             longitudes = longitudes,
             itemCount = itemCount,
@@ -81,7 +81,7 @@ internal class GooglePhotosHeatmapIndexHook(
         latitudes: FloatArray?,
         longitudes: FloatArray?,
         itemCount: Int?,
-        result: HeatmapSessionConversionResult,
+        result: HeatmapConversionResult,
     ): HeatmapArrayLogSnapshot {
         val sampleCount = validSampleCount(latitudes, longitudes, itemCount)
         return HeatmapArrayLogSnapshot(
@@ -175,7 +175,7 @@ internal data class HeatmapBatchConversionResult(
     val failureReason: String? = null,
 )
 
-internal data class HeatmapSessionConversionResult(
+internal data class HeatmapConversionResult(
     val outcome: HeatmapConversionOutcome,
     val reason: String,
     val batchResult: HeatmapBatchConversionResult = HeatmapBatchConversionResult(0),
@@ -183,7 +183,7 @@ internal data class HeatmapSessionConversionResult(
     val failure: Exception? = batchResult.failure
 }
 
-internal class SessionScopedHeatmapTransformer(
+internal class HeatmapCoordinateTransformer(
     private val converter: (Double, Double) -> Coordinate =
         ChinaCoordinateConverter::wgs84ToGcj02,
 
@@ -197,23 +197,15 @@ internal class SessionScopedHeatmapTransformer(
         HeatmapBatchConversionGuard(),
 ) {
     fun transform(
-        sessionId: Long?,
         latitudes: FloatArray?,
         longitudes: FloatArray?,
         itemCount: Int?,
-    ): HeatmapSessionConversionResult {
+    ): HeatmapConversionResult {
         val inspection = HeatmapCoordinateBatchTransformer.inspect(
             latitudes,
             longitudes,
             itemCount,
         )
-
-        if (sessionId == null) {
-            return skipped(
-                "NO_ACTIVE_SESSION",
-                inspection,
-            )
-        }
 
         if (inspection.failure != null) {
             return skipped(
@@ -253,18 +245,18 @@ internal class SessionScopedHeatmapTransformer(
             )
         }
 
-        return convertActiveBatch(
+        return convertBatch(
             latitudes,
             longitudes,
             itemCount,
         )
     }
 
-    private fun convertActiveBatch(
+    private fun convertBatch(
         latitudes: FloatArray,
         longitudes: FloatArray,
         itemCount: Int,
-    ): HeatmapSessionConversionResult {
+    ): HeatmapConversionResult {
         /*
          * 先在副本中转换，保证转换过程中任意一个坐标失败时，
          * 原始批次不会被部分修改。
@@ -280,7 +272,7 @@ internal class SessionScopedHeatmapTransformer(
         )
 
         if (result.failure != null) {
-            return HeatmapSessionConversionResult(
+            return HeatmapConversionResult(
                 outcome = HeatmapConversionOutcome.FAILED,
                 reason = result.failureReason ?: "CONVERSION_FAILED",
                 batchResult = result,
@@ -314,7 +306,7 @@ internal class SessionScopedHeatmapTransformer(
             itemCount,
         )
 
-        return HeatmapSessionConversionResult(
+        return HeatmapConversionResult(
             outcome = HeatmapConversionOutcome.CONVERTED,
             reason = "WGS84_TO_GCJ02",
             batchResult = result,
@@ -324,8 +316,8 @@ internal class SessionScopedHeatmapTransformer(
     private fun skipped(
         reason: String,
         batchResult: HeatmapBatchConversionResult,
-    ): HeatmapSessionConversionResult {
-        return HeatmapSessionConversionResult(
+    ): HeatmapConversionResult {
+        return HeatmapConversionResult(
             outcome = HeatmapConversionOutcome.SKIPPED,
             reason = reason,
             batchResult = batchResult,

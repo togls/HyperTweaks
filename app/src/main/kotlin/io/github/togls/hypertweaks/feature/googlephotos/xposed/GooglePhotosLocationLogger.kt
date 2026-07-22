@@ -318,7 +318,7 @@ internal class GooglePhotosLocationLogger(
         event: String,
         callCount: Int,
         session: ProbeSessionLogSnapshot?,
-        result: HeatmapSessionConversionResult,
+        result: HeatmapConversionResult,
     ) {
         if (!shouldLogProbe(callCount, HeatmapDetailedCallLimit)) return
         val fields = arrayOf(

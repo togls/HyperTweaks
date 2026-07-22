@@ -86,26 +86,24 @@ class GooglePhotosHeatmapIndexHookTest {
     }
 
     @Test
-    fun inactiveSessionLeavesBatchUntouched() {
-        val originalLatitudes = floatArrayOf(22.543096f)
-        val originalLongitudes = floatArrayOf(114.057865f)
-        val latitudes = originalLatitudes.copyOf()
-        val longitudes = originalLongitudes.copyOf()
-        val transformer = SessionScopedHeatmapTransformer(
+    fun batchIsConvertedWithoutActiveMapSession() {
+        val latitudes = floatArrayOf(22.543096f)
+        val longitudes = floatArrayOf(114.057865f)
+        val transformer = HeatmapCoordinateTransformer(
             converter = { latitude, longitude -> Coordinate(latitude + 1.0, longitude + 2.0) },
         )
 
-        val result = transformer.transform(null, latitudes, longitudes, 1)
+        val result = transformer.transform(latitudes, longitudes, 1)
 
-        assertEquals(HeatmapConversionOutcome.SKIPPED, result.outcome)
-        assertEquals("NO_ACTIVE_SESSION", result.reason)
-        assertArrayEquals(originalLatitudes, latitudes, 0.0f)
-        assertArrayEquals(originalLongitudes, longitudes, 0.0f)
+        assertEquals(HeatmapConversionOutcome.CONVERTED, result.outcome)
+        assertEquals("WGS84_TO_GCJ02", result.reason)
+        assertArrayEquals(floatArrayOf(23.543096f), latitudes, 0.0001f)
+        assertArrayEquals(floatArrayOf(116.057865f), longitudes, 0.0001f)
     }
 
     @Test
     fun transformerConvertsMultipleDistinctBatches() {
-        val transformer = SessionScopedHeatmapTransformer(
+        val transformer = HeatmapCoordinateTransformer(
             converter = { latitude, longitude ->
                 Coordinate(
                     latitude + 1.0,
@@ -123,14 +121,12 @@ class GooglePhotosHeatmapIndexHookTest {
         val secondLongitudes = floatArrayOf(113.264385f)
 
         val first = transformer.transform(
-            sessionId = 7L,
             latitudes = firstLatitudes,
             longitudes = firstLongitudes,
             itemCount = 1,
         )
 
         val second = transformer.transform(
-            sessionId = 7L,
             latitudes = secondLatitudes,
             longitudes = secondLongitudes,
             itemCount = 1,
@@ -161,7 +157,7 @@ class GooglePhotosHeatmapIndexHookTest {
 
     @Test
     fun sameConvertedBatchIsNotConvertedTwice() {
-        val transformer = SessionScopedHeatmapTransformer(
+        val transformer = HeatmapCoordinateTransformer(
             converter = { latitude, longitude ->
                 Coordinate(
                     latitude + 1.0,
@@ -175,7 +171,6 @@ class GooglePhotosHeatmapIndexHookTest {
         val longitudes = floatArrayOf(114.057865f)
 
         val first = transformer.transform(
-            sessionId = 7L,
             latitudes = latitudes,
             longitudes = longitudes,
             itemCount = 1,
@@ -185,7 +180,6 @@ class GooglePhotosHeatmapIndexHookTest {
         val convertedLongitude = longitudes.single()
 
         val duplicate = transformer.transform(
-            sessionId = 7L,
             latitudes = latitudes,
             longitudes = longitudes,
             itemCount = 1,
@@ -221,7 +215,7 @@ class GooglePhotosHeatmapIndexHookTest {
 
     @Test
     fun reusedArraysWithNewCoordinatesAreConvertedAgain() {
-        val transformer = SessionScopedHeatmapTransformer(
+        val transformer = HeatmapCoordinateTransformer(
             converter = { latitude, longitude ->
                 Coordinate(
                     latitude + 1.0,
@@ -235,7 +229,6 @@ class GooglePhotosHeatmapIndexHookTest {
         val longitudes = floatArrayOf(114.057865f)
 
         val first = transformer.transform(
-            sessionId = 7L,
             latitudes = latitudes,
             longitudes = longitudes,
             itemCount = 1,
@@ -251,7 +244,6 @@ class GooglePhotosHeatmapIndexHookTest {
         longitudes[0] = 113.264385f
 
         val reused = transformer.transform(
-            sessionId = 7L,
             latitudes = latitudes,
             longitudes = longitudes,
             itemCount = 1,
@@ -279,9 +271,9 @@ class GooglePhotosHeatmapIndexHookTest {
     fun mismatchedArraysAreSkippedWithoutMutation() {
         val latitudes = floatArrayOf(22.5f, 31.2f)
         val longitudes = floatArrayOf(114.0f)
-        val transformer = SessionScopedHeatmapTransformer()
+        val transformer = HeatmapCoordinateTransformer()
 
-        val result = transformer.transform(1L, latitudes, longitudes, 1)
+        val result = transformer.transform(latitudes, longitudes, 1)
 
         assertEquals(HeatmapConversionOutcome.SKIPPED, result.outcome)
         assertEquals("ARRAY_SIZE_MISMATCH", result.reason)
@@ -293,9 +285,9 @@ class GooglePhotosHeatmapIndexHookTest {
     fun outsideChinaBatchRemainsUnchanged() {
         val latitudes = floatArrayOf(35.6762f)
         val longitudes = floatArrayOf(139.6503f)
-        val transformer = SessionScopedHeatmapTransformer()
+        val transformer = HeatmapCoordinateTransformer()
 
-        val result = transformer.transform(1L, latitudes, longitudes, 1)
+        val result = transformer.transform(latitudes, longitudes, 1)
 
         assertEquals(HeatmapConversionOutcome.SKIPPED, result.outcome)
         assertEquals("NO_CHINA_COORDINATES", result.reason)

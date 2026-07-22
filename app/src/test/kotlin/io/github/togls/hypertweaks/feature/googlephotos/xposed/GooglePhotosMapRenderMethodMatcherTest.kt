@@ -43,8 +43,8 @@ class GooglePhotosMapRenderMethodMatcherTest {
     }
 
     @Test
-    fun markerConversionRequiresSessionAndAvoidsConvertedCoordinateDuplicate() {
-        val transformer = SessionScopedMarkerTransformer(
+    fun markerConversionDoesNotRequireSessionAndAvoidsConvertedCoordinateDuplicate() {
+        val transformer = MarkerCoordinateTransformer(
             converter = { latitude, longitude ->
                 Coordinate(
                     latitude + 1.0,
@@ -56,16 +56,7 @@ class GooglePhotosMapRenderMethodMatcherTest {
         val target = Any()
         var currentCoordinate = Shenzhen
 
-        val inactive = transformer.transform(
-            sessionId = null,
-            target = target,
-            original = currentCoordinate,
-        ) {
-            currentCoordinate = it
-        }
-
         val converted = transformer.transform(
-            sessionId = 1L,
             target = target,
             original = currentCoordinate,
         ) {
@@ -73,22 +64,11 @@ class GooglePhotosMapRenderMethodMatcherTest {
         }
 
         val duplicate = transformer.transform(
-            sessionId = 1L,
             target = target,
             original = currentCoordinate,
         ) {
             currentCoordinate = it
         }
-
-        assertEquals(
-            MarkerConversionOutcome.SKIPPED,
-            inactive.outcome,
-        )
-
-        assertEquals(
-            "NO_ACTIVE_SESSION",
-            inactive.reason,
-        )
 
         assertEquals(
             MarkerConversionOutcome.CONVERTED,
@@ -116,7 +96,7 @@ class GooglePhotosMapRenderMethodMatcherTest {
 
     @Test
     fun reusedMarkerTargetWithNewCoordinateIsConvertedAgain() {
-        val transformer = SessionScopedMarkerTransformer(
+        val transformer = MarkerCoordinateTransformer(
             converter = { latitude, longitude ->
                 Coordinate(
                     latitude + 1.0,
@@ -129,7 +109,6 @@ class GooglePhotosMapRenderMethodMatcherTest {
         var currentCoordinate = Shenzhen
 
         val first = transformer.transform(
-            sessionId = 1L,
             target = target,
             original = currentCoordinate,
         ) {
@@ -151,7 +130,6 @@ class GooglePhotosMapRenderMethodMatcherTest {
         )
 
         val reused = transformer.transform(
-            sessionId = 1L,
             target = target,
             original = currentCoordinate,
         ) {
@@ -174,10 +152,10 @@ class GooglePhotosMapRenderMethodMatcherTest {
 
     @Test
     fun markerConversionLeavesOutsideAndInvalidCoordinatesUnchanged() {
-        val transformer = SessionScopedMarkerTransformer()
+        val transformer = MarkerCoordinateTransformer()
 
-        val outside = transformer.transform(1L, Any(), Coordinate(35.6762, 139.6503)) {}
-        val invalid = transformer.transform(1L, Any(), Coordinate(Double.NaN, 114.0)) {}
+        val outside = transformer.transform(Any(), Coordinate(35.6762, 139.6503)) {}
+        val invalid = transformer.transform(Any(), Coordinate(Double.NaN, 114.0)) {}
 
         assertEquals(MarkerConversionOutcome.UNCHANGED, outside.outcome)
         assertEquals("OUTSIDE_CHINA", outside.reason)

@@ -24,7 +24,7 @@
     <string name="feature_ime_description">启用输入法导航栏和输入法选择器相关 Hook。</string>
 
     <string name="feature_google_photos_location_title">Google Photos 地点坐标修正</string>
-    <string name="feature_google_photos_location_description">实验性功能。当前版本仅验证 Google Photos Hook 是否正常工作，不会修改坐标。</string>
+    <string name="feature_google_photos_location_description">在 Google Photos 内全局修正中国大陆地点渲染坐标，将 WGS-84 转换为 GCJ-02。</string>
 
     <string name="start_button_title">Start Button</string>
     <string name="start_button_description">导航栏左侧按钮</string>

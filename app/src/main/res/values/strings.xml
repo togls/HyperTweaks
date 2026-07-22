@@ -24,7 +24,7 @@
     <string name="feature_ime_description">Enable input method navigation bar and picker hooks.</string>
 
     <string name="feature_google_photos_location_title">Google Photos location coordinate correction</string>
-    <string name="feature_google_photos_location_description">Experimental. This version only verifies that the Google Photos Hook works and does not modify coordinates.</string>
+    <string name="feature_google_photos_location_description">Correct mainland China location rendering across Google Photos from WGS-84 to GCJ-02.</string>
 
     <string name="start_button_title">Start Button</string>
     <string name="start_button_description">Button on the left side of the IME navigation bar</string>

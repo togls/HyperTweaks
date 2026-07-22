@@ -17,7 +17,7 @@ internal class GooglePhotosMapRenderHook(
     private val sessionTracker: GooglePhotosMapSessionTracker,
 ) {
     private val module = context.module
-    private val transformer = SessionScopedMarkerTransformer()
+    private val transformer = MarkerCoordinateTransformer()
     private lateinit var coordinateAccessors: CoordinateAccessors
     private lateinit var renderBinding: MapRenderBinding
 
@@ -46,38 +46,32 @@ internal class GooglePhotosMapRenderHook(
 
     private fun observeAndConvert(receiver: Any?, markerOptions: Any?) {
         val markerPosition = markerOptions?.let(::readMarkerPosition)
-        val session = sessionTracker.currentSession()
-        val logSession = session?.toProbeLogSnapshot()
+
+        // Session 只保留为诊断上下文；转换范围由 Google Photos 包与主进程边界决定。
+        val logSession = sessionTracker.currentSession()?.toProbeLogSnapshot()
         val callCount = logger.markerInvoked(
             method = renderBinding.method.toGenericString(),
             receiverClass = receiver?.javaClass?.name,
             session = logSession,
             coordinate = markerPosition?.position?.coordinate,
         )
-        if (session == null) {
-            logger.markerResult("skipped", callCount, null, MarkerConversionResult.noSession())
-            return
-        }
-        val activeLogSession = session.toProbeLogSnapshot()
         if (markerOptions == null) {
-            logger.markerResult("skipped", callCount, activeLogSession, MarkerConversionResult.noTarget())
+            logger.markerResult("skipped", callCount, logSession, MarkerConversionResult.noTarget())
             return
         }
-        convertActiveMarker(
+        convertMarker(
             markerOptions,
             markerPosition ?: MarkerPositionReadResult(),
-            session.sessionId,
             callCount,
-            activeLogSession,
+            logSession,
         )
     }
 
-    private fun convertActiveMarker(
+    private fun convertMarker(
         markerOptions: Any,
         markerPosition: MarkerPositionReadResult,
-        sessionId: Long,
         callCount: Int,
-        logSession: ProbeSessionLogSnapshot,
+        logSession: ProbeSessionLogSnapshot?,
     ) {
         if (markerPosition.failure != null) {
             logger.markerResult("failed", callCount, logSession, markerPosition.failure)
@@ -87,7 +81,7 @@ internal class GooglePhotosMapRenderHook(
             logger.markerResult("skipped", callCount, logSession, MarkerConversionResult.noPosition())
             return
         }
-        val result = transformer.transform(sessionId, markerOptions, originalPosition.coordinate) {
+        val result = transformer.transform(markerOptions, originalPosition.coordinate) {
             renderBinding.positionField.set(markerOptions, coordinateAccessors.create(it))
         }
         logger.markerResult(result.outcome.logEvent, callCount, logSession, result)
@@ -125,7 +119,6 @@ internal data class MarkerConversionResult(
     val failure: Exception? = null,
 ) {
     companion object {
-        fun noSession() = MarkerConversionResult(MarkerConversionOutcome.SKIPPED, "NO_ACTIVE_SESSION")
         fun noTarget() = MarkerConversionResult(MarkerConversionOutcome.SKIPPED, "NO_MARKER_OPTIONS")
         fun noPosition() = MarkerConversionResult(MarkerConversionOutcome.SKIPPED, "NO_POSITION")
         fun failed(reason: String, error: Exception) = MarkerConversionResult(
@@ -136,7 +129,7 @@ internal data class MarkerConversionResult(
     }
 }
 
-internal class SessionScopedMarkerTransformer(
+internal class MarkerCoordinateTransformer(
     private val converter: (Double, Double) -> Coordinate =
         ChinaCoordinateConverter::wgs84ToGcj02,
 
@@ -144,18 +137,10 @@ internal class SessionScopedMarkerTransformer(
         MarkerCoordinateConversionGuard(),
 ) {
     fun transform(
-        sessionId: Long?,
         target: Any,
         original: Coordinate,
         applyConversion: (Coordinate) -> Unit,
     ): MarkerConversionResult {
-        if (sessionId == null) {
-            return skipped(
-                "NO_ACTIVE_SESSION",
-                original,
-            )
-        }
-
         if (
             !CoordinateValidator.isValid(
                 original.latitude,

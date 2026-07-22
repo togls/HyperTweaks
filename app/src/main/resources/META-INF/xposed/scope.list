@@ -15,6 +15,8 @@ com.iflytek.inputmethod.miui
 com.tencent.wetype
 keepass2android.keepass2android
 
+com.google.android.apps.photos
+
 org.mozilla.firefox
 org.mozilla.firefox_beta
 org.mozilla.fenix
