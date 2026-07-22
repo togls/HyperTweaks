@@ -18,6 +18,8 @@ class GooglePhotosMapRenderMethodMatcherTest {
         assertEquals(1, report.controllerCandidateCount)
         assertEquals(1, report.facadeCandidateCount)
         assertEquals(1, report.bindings.size)
+        assertEquals("controller", binding?.controllerField?.name)
+        assertEquals("mapFacade", binding?.facadeField?.name)
         assertEquals("addMarker", binding?.method?.name)
         assertEquals("position", binding?.positionField?.name)
     }

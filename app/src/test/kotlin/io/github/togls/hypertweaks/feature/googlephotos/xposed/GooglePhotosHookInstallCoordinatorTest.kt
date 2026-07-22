@@ -19,6 +19,8 @@ class GooglePhotosHookInstallCoordinatorTest {
             step(GooglePhotosInstallTarget.LIFECYCLE, attemptedTargets),
             step(GooglePhotosInstallTarget.MAP_VIEW, attemptedTargets),
             failingStep(GooglePhotosInstallTarget.MARKER_API, attemptedTargets),
+            step(GooglePhotosInstallTarget.PREVIEW_MARKER, attemptedTargets),
+            step(GooglePhotosInstallTarget.MAP_LOCATION, attemptedTargets),
             step(GooglePhotosInstallTarget.S2_INDEX, attemptedTargets),
         )
 
@@ -28,6 +30,8 @@ class GooglePhotosHookInstallCoordinatorTest {
         assertTrue(result.installed(GooglePhotosInstallTarget.LIFECYCLE))
         assertTrue(result.installed(GooglePhotosInstallTarget.S2_INDEX))
         assertTrue(result.installed(GooglePhotosInstallTarget.MAP_VIEW))
+        assertTrue(result.installed(GooglePhotosInstallTarget.PREVIEW_MARKER))
+        assertTrue(result.installed(GooglePhotosInstallTarget.MAP_LOCATION))
     }
 
     private fun step(

@@ -16,6 +16,8 @@ internal class GooglePhotosLocationHook(
     private val installed = AtomicBoolean(false)
     private val sessionTracker = GooglePhotosMapSessionTracker(logger)
     private val renderHook = GooglePhotosMapRenderHook(context, logger, sessionTracker)
+    private val previewMarkerHook = GooglePhotosPreviewMarkerHook(context, logger, sessionTracker)
+    private val mapLocationHook = GooglePhotosMapLocationHook(context, logger, sessionTracker)
     private val heatmapIndexHook = GooglePhotosHeatmapIndexHook(context, logger, sessionTracker)
     private val mapViewHook = GooglePhotosMapViewHook(context, logger, sessionTracker)
 
@@ -48,6 +50,12 @@ internal class GooglePhotosLocationHook(
             GooglePhotosHookInstallStep(GooglePhotosInstallTarget.MARKER_API) {
                 renderHook.install(classLoader)
             },
+            GooglePhotosHookInstallStep(GooglePhotosInstallTarget.PREVIEW_MARKER) {
+                previewMarkerHook.install(classLoader)
+            },
+            GooglePhotosHookInstallStep(GooglePhotosInstallTarget.MAP_LOCATION) {
+                mapLocationHook.install(classLoader)
+            },
             GooglePhotosHookInstallStep(GooglePhotosInstallTarget.S2_INDEX) {
                 heatmapIndexHook.install(classLoader)
             },
@@ -57,9 +65,13 @@ internal class GooglePhotosLocationHook(
     private fun installActivityLifecycleHooks(activityClass: Class<*>) {
         hookAfter(activityClass, "onCreate", arrayOf(Bundle::class.java), "activity_create") {
             sessionTracker.onActivityCreated(it)
+            previewMarkerHook.onActivityAvailable(it)
+            mapLocationHook.onActivityAvailable(it)
         }
         hookAfter(activityClass, "onResume", emptyArray(), "activity_resume") {
             sessionTracker.onActivityResumed(it)
+            previewMarkerHook.onActivityAvailable(it)
+            mapLocationHook.onActivityAvailable(it)
         }
         hookBefore(activityClass, "onPause", emptyArray(), "activity_pause") {
             sessionTracker.onActivityPaused(it)
@@ -142,6 +154,8 @@ internal enum class GooglePhotosInstallTarget(
     LIFECYCLE("lifecycle", false),
     MAP_VIEW("map_view", false),
     MARKER_API("marker_api", true),
+    PREVIEW_MARKER("preview_marker", true),
+    MAP_LOCATION("map_location", true),
     S2_INDEX("s2_index", true),
 }
 

@@ -79,6 +79,8 @@ internal class GooglePhotosLocationLogger(
     private val markerCallCounts = ConcurrentHashMap<Long, AtomicInteger>()
     private val markerSessionStats = ConcurrentHashMap<Long, MarkerSessionStats>()
     private val heatmapCallCount = AtomicInteger()
+    private val previewCallCount = AtomicInteger()
+    private val locationReadCount = AtomicInteger()
 
     fun installBegin() {
         log.info(
@@ -133,6 +135,8 @@ internal class GooglePhotosLocationLogger(
             message = "GooglePhotosLocation: install completed",
             fields = arrayOf(
                 "marker" to result.installed(GooglePhotosInstallTarget.MARKER_API),
+                "previewMarker" to result.installed(GooglePhotosInstallTarget.PREVIEW_MARKER),
+                "mapLocation" to result.installed(GooglePhotosInstallTarget.MAP_LOCATION),
                 "s2" to result.installed(GooglePhotosInstallTarget.S2_INDEX),
                 "mapView" to result.installed(GooglePhotosInstallTarget.MAP_VIEW),
                 "lifecycle" to result.installed(GooglePhotosInstallTarget.LIFECYCLE),
@@ -246,6 +250,79 @@ internal class GooglePhotosLocationLogger(
             )
         }
         return callCount
+    }
+
+    fun previewMatcherCompleted(report: PreviewMarkerMatchReport) {
+        log.info(
+            event = if (report.binding == null) "adapter.probe.rejected" else "adapter.probe.selected",
+            message = "GooglePhotosPreviewMarker: matcher completed",
+            fields = arrayOf(
+                "selectedMarkerFieldCount" to report.selectedMarkerFieldCount,
+                "callbackCount" to report.callbackCount,
+                "matched" to (report.binding != null),
+            ).toLogFields(),
+        )
+    }
+
+    fun previewBound(callbackClass: String, method: String) {
+        if (!shouldLogEvent("preview_bound")) return
+        log.info(
+            event = "adapter.probe.selected",
+            message = "GooglePhotosPreviewMarker: callback bound",
+            fields = mapOf("callbackClass" to callbackClass, "method" to method),
+        )
+    }
+
+    fun previewResult(session: ProbeSessionLogSnapshot?, result: MarkerConversionResult) {
+        val callCount = previewCallCount.incrementAndGet()
+        if (!shouldLogProbe(callCount, PreviewDetailedCallLimit)) return
+        val fields = markerResultFields(callCount, session, result).toLogFields()
+        if (result.outcome == MarkerConversionOutcome.FAILED) {
+            log.warn("hook.callback.failed", "GooglePhotosPreviewMarker: failed", result.failure, fields)
+        } else {
+            log.debug("hook.callback.completed", "GooglePhotosPreviewMarker: ${result.outcome.logEvent}", fields = fields)
+        }
+    }
+
+    fun locationMatcherCompleted(report: CurrentLocationRequestMatchReport) {
+        if (!shouldLogEvent("location_matcher")) return
+        log.info(
+            event = if (report.binding == null) "adapter.probe.rejected" else "adapter.probe.selected",
+            message = "GooglePhotosMapLocation: matcher completed",
+            fields = arrayOf(
+                "controllerCount" to report.controllerCandidateCount,
+                "methodCount" to report.methodCandidateCount,
+                "matched" to (report.binding != null),
+            ).toLogFields(),
+        )
+    }
+
+    fun locationRequestArmed(receiverClass: String, session: ProbeSessionLogSnapshot) {
+        if (!shouldLogEvent("location_request")) return
+        log.debug(
+            event = "hook.callback.started",
+            message = "GooglePhotosMapLocation: current location request armed",
+            fields = mapOf(
+                "receiverClass" to receiverClass,
+                "sessionId" to session.sessionId.toString(),
+            ),
+        )
+    }
+
+    fun locationRead(
+        axis: CoordinateAxis,
+        decision: MapLocationReadDecision,
+        session: ProbeSessionLogSnapshot,
+        result: LocationCoordinateResult,
+    ) {
+        val callCount = locationReadCount.incrementAndGet()
+        if (!shouldLogProbe(callCount, LocationDetailedCallLimit)) return
+        val fields = locationResultFields(callCount, axis, decision, session, result).toLogFields()
+        if (result.outcome == LocationCoordinateOutcome.FAILED) {
+            log.warn("hook.callback.failed", "GooglePhotosMapLocation: failed", result.failure, fields)
+        } else {
+            log.debug("hook.callback.completed", "GooglePhotosMapLocation: coordinate read", fields = fields)
+        }
     }
 
     fun markerResult(
@@ -409,6 +486,27 @@ internal class GooglePhotosLocationLogger(
         )
     }
 
+    private fun locationResultFields(
+        callCount: Int,
+        axis: CoordinateAxis,
+        decision: MapLocationReadDecision,
+        session: ProbeSessionLogSnapshot,
+        result: LocationCoordinateResult,
+    ): Array<Pair<String, Any?>> {
+        return arrayOf(
+            "callCount" to callCount,
+            "axis" to axis,
+            "source" to decision.source,
+            "callerClass" to decision.callerClass,
+            "sessionId" to session.sessionId,
+            "reason" to result.reason,
+            "originalLatitude" to formatCoordinate(result.original.latitude),
+            "originalLongitude" to formatCoordinate(result.original.longitude),
+            "convertedLatitude" to formatCoordinate(result.converted?.latitude),
+            "convertedLongitude" to formatCoordinate(result.converted?.longitude),
+        )
+    }
+
     private fun targetField(target: GooglePhotosInstallTarget): Pair<String, Any?> {
         return if (target.isStrategy) "strategy" to target.logName else "component" to target.logName
     }
@@ -441,6 +539,8 @@ internal class GooglePhotosLocationLogger(
         private const val MaximumLogsPerErrorType = 3
         private const val EventDetailedCallLimit = 100
         private const val MarkerDetailedCallLimit = 20
+        private const val PreviewDetailedCallLimit = 20
+        private const val LocationDetailedCallLimit = 20
         private const val HeatmapDetailedCallLimit = 20
         private const val SummaryInterval = 100
     }

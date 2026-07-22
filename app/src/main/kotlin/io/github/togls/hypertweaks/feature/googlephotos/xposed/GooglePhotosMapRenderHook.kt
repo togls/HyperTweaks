@@ -308,6 +308,8 @@ internal data class MarkerPositionReadResult(
 )
 
 internal data class MapRenderBinding(
+    val controllerField: Field,
+    val facadeField: Field,
     val method: Method,
     val positionField: Field,
 )
@@ -324,41 +326,52 @@ internal class GooglePhotosMapRenderMethodMatcher(
     private val coordinateClass: Class<*>,
 ) {
     fun inspect(activityClass: Class<*>): MapRenderMatchReport {
-        val controllerTypes = activityClass.declaredFields
+        val controllerFields = activityClass.declaredFields
             .asSequence()
+            .filterNot { Modifier.isStatic(it.modifiers) }
+            .filter { it.type.classLoader === activityClass.classLoader }
+            .distinctBy(Field::getType)
+            .toList()
+        val facadeTypes = controllerFields
+            .asSequence()
+            .flatMap { controllerField -> controllerField.type.declaredFields.asSequence() }
             .filterNot { Modifier.isStatic(it.modifiers) }
             .map(Field::getType)
             .filter { it.classLoader === activityClass.classLoader }
             .distinct()
             .toList()
-        val facadeTypes = controllerTypes
-            .asSequence()
-            .flatMap { controllerType -> controllerType.declaredFields.asSequence() }
-            .filterNot { Modifier.isStatic(it.modifiers) }
-            .map(Field::getType)
-            .filter { it.classLoader === activityClass.classLoader }
-            .distinct()
-            .toList()
-        val bindings = facadeTypes.flatMap(::candidateBindings)
+        val bindings = controllerFields.flatMap(::candidateBindings)
             .distinctBy(MapRenderBinding::method)
-        return MapRenderMatchReport(controllerTypes.size, facadeTypes.size, bindings)
+        return MapRenderMatchReport(controllerFields.size, facadeTypes.size, bindings)
     }
 
-    private fun candidateBindings(facadeType: Class<*>): List<MapRenderBinding> {
-        return facadeType.declaredMethods
-            .asSequence()
-            .filter { method -> method.parameterCount == 1 && method.returnType != Void.TYPE }
-            .mapNotNull(::bindingFor)
-            .toList()
+    private fun candidateBindings(controllerField: Field): List<MapRenderBinding> {
+        return controllerField.type.declaredFields.flatMap { facadeField ->
+            if (Modifier.isStatic(facadeField.modifiers)) {
+                emptyList()
+            } else {
+                facadeField.type.declaredMethods
+                    .asSequence()
+                    .filter { method -> method.parameterCount == 1 && method.returnType != Void.TYPE }
+                    .mapNotNull { method -> bindingFor(controllerField, facadeField, method) }
+                    .toList()
+            }
+        }
     }
 
-    private fun bindingFor(method: Method): MapRenderBinding? {
+    private fun bindingFor(
+        controllerField: Field,
+        facadeField: Field,
+        method: Method,
+    ): MapRenderBinding? {
         val optionsType = method.parameterTypes.single()
         val positionFields = optionsType.declaredFields.filter { field ->
             !Modifier.isStatic(field.modifiers) && field.type == coordinateClass
         }
         if (positionFields.size != 1 || !returnTypeExposesCoordinate(method.returnType)) return null
         return MapRenderBinding(
+            controllerField = controllerField.apply { isAccessible = true },
+            facadeField = facadeField.apply { isAccessible = true },
             method = method,
             positionField = positionFields.single().apply { isAccessible = true },
         )
