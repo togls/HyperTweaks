@@ -153,12 +153,15 @@ class GooglePhotosMapRenderMethodMatcherTest {
     }
 
     @Test
-    fun markerConversionLeavesOutsideAndInvalidCoordinatesUnchanged() {
+    fun markerConversionLeavesHongKongOutsideAndInvalidCoordinatesUnchanged() {
         val transformer = MarkerCoordinateTransformer()
 
+        val hongKong = transformer.transform(Any(), Coordinate(22.3193, 114.1694)) {}
         val outside = transformer.transform(Any(), Coordinate(35.6762, 139.6503)) {}
         val invalid = transformer.transform(Any(), Coordinate(Double.NaN, 114.0)) {}
 
+        assertEquals(MarkerConversionOutcome.UNCHANGED, hongKong.outcome)
+        assertEquals("OUTSIDE_CHINA", hongKong.reason)
         assertEquals(MarkerConversionOutcome.UNCHANGED, outside.outcome)
         assertEquals("OUTSIDE_CHINA", outside.reason)
         assertEquals(MarkerConversionOutcome.UNCHANGED, invalid.outcome)

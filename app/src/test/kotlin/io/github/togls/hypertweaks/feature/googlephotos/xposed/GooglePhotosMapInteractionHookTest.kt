@@ -68,16 +68,19 @@ class GooglePhotosMapInteractionHookTest {
     }
 
     @Test
-    fun locationTransformerConvertsChinaAndLeavesOutsideCoordinateUnchanged() {
+    fun locationTransformerConvertsMainlandAndLeavesHongKongAndOutsideUnchanged() {
         val transformer = LocationCoordinateTransformer { latitude, longitude ->
             Coordinate(latitude + 1.0, longitude + 2.0)
         }
 
         val converted = transformer.transform(Coordinate(22.543096, 114.057865))
+        val hongKong = transformer.transform(Coordinate(22.3193, 114.1694))
         val outside = transformer.transform(Coordinate(35.6762, 139.6503))
 
         assertEquals(LocationCoordinateOutcome.CONVERTED, converted.outcome)
         assertEquals(Coordinate(23.543096, 116.057865), converted.converted)
+        assertEquals(LocationCoordinateOutcome.UNCHANGED, hongKong.outcome)
+        assertEquals(hongKong.original, hongKong.converted)
         assertEquals(LocationCoordinateOutcome.UNCHANGED, outside.outcome)
         assertEquals(outside.original, outside.converted)
     }

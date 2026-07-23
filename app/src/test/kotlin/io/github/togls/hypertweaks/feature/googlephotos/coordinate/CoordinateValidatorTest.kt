@@ -32,4 +32,13 @@ class CoordinateValidatorTest {
         assertFalse(CoordinateValidator.isInMainlandChina(0.8292, 100.0))
         assertFalse(CoordinateValidator.isInMainlandChina(30.0, 137.8348))
     }
+
+    @Test
+    fun excludesHongKongWithoutExcludingNearbyShenzhen() {
+        assertFalse(CoordinateValidator.isInMainlandChina(22.3193, 114.1694))
+        assertFalse(CoordinateValidator.isInMainlandChina(22.5285, 114.1133))
+        assertFalse(CoordinateValidator.isInMainlandChina(22.5455, 114.2037))
+        assertTrue(CoordinateValidator.isInMainlandChina(22.543096, 114.057865))
+        assertTrue(CoordinateValidator.isInMainlandChina(22.5998, 114.2784))
+    }
 }

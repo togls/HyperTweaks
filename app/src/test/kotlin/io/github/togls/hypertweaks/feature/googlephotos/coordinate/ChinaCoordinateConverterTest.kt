@@ -39,6 +39,20 @@ class ChinaCoordinateConverterTest {
     }
 
     @Test
+    fun leavesHongKongCoordinateUnchangedInBothDirections() {
+        val original = Coordinate(22.3193, 114.1694)
+
+        assertEquals(
+            original,
+            ChinaCoordinateConverter.wgs84ToGcj02(original.latitude, original.longitude),
+        )
+        assertEquals(
+            original,
+            ChinaCoordinateConverter.gcj02ToWgs84(original.latitude, original.longitude),
+        )
+    }
+
+    @Test
     fun leavesInvalidCoordinatesUnchanged() {
         val nanResult = ChinaCoordinateConverter.wgs84ToGcj02(Double.NaN, 114.0)
         val positiveInfinityResult = ChinaCoordinateConverter.wgs84ToGcj02(
