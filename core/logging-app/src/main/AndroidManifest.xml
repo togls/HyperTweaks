@@ -5,11 +5,6 @@
          module app grant reverse package visibility only to installed Hook targets. -->
     <queries>
         <package android:name="com.google.android.apps.photos" />
-        <package android:name="com.android.systemui" />
-        <package android:name="com.miui.powerkeeper" />
-        <package android:name="com.miui.securitycenter" />
-        <package android:name="com.miui.securitycenter.remote" />
-        <package android:name="com.lbe.security.miui" />
         <package android:name="com.google.android.inputmethod.latin" />
         <package android:name="com.baidu.input" />
         <package android:name="com.baidu.input_mi" />
@@ -19,9 +14,6 @@
         <package android:name="com.iflytek.inputmethod.miui" />
         <package android:name="com.tencent.wetype" />
         <package android:name="keepass2android.keepass2android" />
-        <package android:name="org.mozilla.firefox" />
-        <package android:name="org.mozilla.firefox_beta" />
-        <package android:name="org.mozilla.fenix" />
     </queries>
 
     <application>

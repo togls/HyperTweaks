@@ -17,11 +17,6 @@ class CallerValidator(
         val DefaultAllowedPackages = setOf(
             "io.github.togls.hypertweaks",
             "com.google.android.apps.photos",
-            "com.android.systemui",
-            "com.miui.powerkeeper",
-            "com.miui.securitycenter",
-            "com.miui.securitycenter.remote",
-            "com.lbe.security.miui",
             "com.google.android.inputmethod.latin",
             "com.baidu.input",
             "com.baidu.input_mi",
@@ -31,9 +26,6 @@ class CallerValidator(
             "com.iflytek.inputmethod.miui",
             "com.tencent.wetype",
             "keepass2android.keepass2android",
-            "org.mozilla.firefox",
-            "org.mozilla.firefox_beta",
-            "org.mozilla.fenix",
         )
     }
 }

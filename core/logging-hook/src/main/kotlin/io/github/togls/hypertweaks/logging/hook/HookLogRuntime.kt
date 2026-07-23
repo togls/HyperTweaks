@@ -1,8 +1,6 @@
 package io.github.togls.hypertweaks.logging.hook
 
 import android.content.SharedPreferences
-import android.util.Log
-import io.github.libxposed.api.XposedModule
 import io.github.togls.hypertweaks.logging.api.LogContext
 import io.github.togls.hypertweaks.logging.api.Logger
 import io.github.togls.hypertweaks.logging.api.LoggerFactory
@@ -11,7 +9,6 @@ import io.github.togls.hypertweaks.logging.api.LogSink
 import io.github.togls.hypertweaks.logging.api.LogSource
 import io.github.togls.hypertweaks.logging.hook.sink.AndroidFallbackSink
 import io.github.togls.hypertweaks.logging.hook.sink.HookLogBridgeSink
-import io.github.togls.hypertweaks.logging.hook.sink.XposedLogSink
 
 class HookLogRuntime private constructor(
     val rootLogger: Logger,
@@ -25,7 +22,8 @@ class HookLogRuntime private constructor(
 
     companion object {
         fun createSafe(
-            module: XposedModule,
+            xposedSink: LogSink,
+            onListenerFailure: (Throwable) -> Unit,
             preferencesProvider: () -> SharedPreferences,
             modeKey: String,
             versionKey: String,
@@ -35,7 +33,8 @@ class HookLogRuntime private constructor(
         ): HookLogBootstrap {
             return runCatching {
                 create(
-                    module,
+                    xposedSink,
+                    onListenerFailure,
                     preferencesProvider,
                     modeKey,
                     versionKey,
@@ -45,12 +44,13 @@ class HookLogRuntime private constructor(
                 )
             }.fold(
                 onSuccess = { runtime -> HookLogBootstrap(runtime.rootLogger, runtime) },
-                onFailure = { error -> createFallback(module, context, error) },
+                onFailure = { error -> createFallback(xposedSink, context, error) },
             )
         }
 
         fun create(
-            module: XposedModule,
+            xposedSink: LogSink,
+            onListenerFailure: (Throwable) -> Unit,
             preferencesProvider: () -> SharedPreferences,
             modeKey: String,
             versionKey: String,
@@ -65,16 +65,14 @@ class HookLogRuntime private constructor(
                 versionKey = versionKey,
                 recoveryKey = recoveryKey,
                 onRecoveryRequested = dispatcher::requestFlush,
-                onListenerFailure = { error ->
-                    module.log(Log.ERROR, "HyperTweaks", "config.listener.failed", error)
-                },
+                onListenerFailure = onListenerFailure,
             )
             return try {
                 dispatcher.start()
                 val configResult = configSource.start()
                 val logger = HookLogger.create(
                     configSource = configSource,
-                    xposedSink = XposedLogSink(module),
+                    xposedSink = xposedSink,
                     fallbackSink = AndroidFallbackSink(),
                     bridgeSink = HookLogBridgeSink(dispatcher),
                     context = context,
@@ -107,12 +105,12 @@ class HookLogRuntime private constructor(
         }
 
         private fun createFallback(
-            module: XposedModule,
+            xposedSink: LogSink,
             context: LogContext,
             error: Throwable,
         ): HookLogBootstrap {
             val sink = HookDispatchSink(
-                xposedSink = XposedLogSink(module),
+                xposedSink = xposedSink,
                 fallbackSink = AndroidFallbackSink(),
                 bridgeSink = LogSink { },
             )

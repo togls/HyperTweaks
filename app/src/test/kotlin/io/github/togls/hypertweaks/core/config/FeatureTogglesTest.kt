@@ -1,6 +1,6 @@
 package io.github.togls.hypertweaks.core.config
 
-import io.github.togls.hypertweaks.core.xposed.HookFeature
+import io.github.togls.hypertweaks.feature.googlephotos.GooglePhotosHookFeatureProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -16,7 +16,7 @@ class FeatureTogglesTest {
     fun `Google Photos hook feature should use its dedicated preference key`() {
         assertEquals(
             RemotePreferenceKeys.GooglePhotosLocationEnabled,
-            HookFeature.GooglePhotosLocation.preferenceKey,
+            GooglePhotosHookFeatureProvider().features().single().preferenceKey,
         )
     }
 }

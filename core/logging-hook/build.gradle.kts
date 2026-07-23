@@ -18,7 +18,6 @@ android {
 
 dependencies {
     api(project(":core:logging-api"))
-    compileOnly(libs.libxposed.api)
 
     testImplementation(libs.junit)
 }
