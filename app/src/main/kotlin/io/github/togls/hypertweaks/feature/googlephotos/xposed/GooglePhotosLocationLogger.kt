@@ -114,6 +114,8 @@ internal class GooglePhotosLocationLogger(
             fields = arrayOf(
                 "marker" to result.installed(GooglePhotosInstallTarget.MARKER_API),
                 "markerAnimation" to result.installed(GooglePhotosInstallTarget.MARKER_ANIMATION),
+                "initialPreviewSelection" to
+                    result.installed(GooglePhotosInstallTarget.INITIAL_PREVIEW_SELECTION),
                 "mapLocation" to result.installed(GooglePhotosInstallTarget.MAP_LOCATION),
                 "cameraUpdate" to result.installed(GooglePhotosInstallTarget.CAMERA_UPDATE),
                 "s2Query" to result.installed(GooglePhotosInstallTarget.S2_QUERY),
@@ -383,6 +385,18 @@ internal class GooglePhotosLocationLogger(
             ).toLogFields(),
         )
         return callCount
+    }
+
+    fun initialPreviewSelectionPreserved(session: ProbeSessionLogSnapshot) {
+        log.info(
+            event = "hook.callback.completed",
+            message = "GooglePhotosInitialPreviewSelection: preserved",
+            fields = mapOf(
+                "sessionId" to session.sessionId.toString(),
+                "hostActivity" to session.hostActivity,
+                "reason" to "INITIAL_BOUNDS_REFRESH",
+            ),
+        )
     }
 
     fun previewMarkerAnimationResult(

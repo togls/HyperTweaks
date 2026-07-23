@@ -41,6 +41,7 @@ class GooglePhotosHookInstallCoordinatorTest {
             step(GooglePhotosInstallTarget.MAP_VIEW, attemptedTargets),
             failingStep(GooglePhotosInstallTarget.MARKER_API, attemptedTargets),
             step(GooglePhotosInstallTarget.MARKER_ANIMATION, attemptedTargets),
+            step(GooglePhotosInstallTarget.INITIAL_PREVIEW_SELECTION, attemptedTargets),
             step(GooglePhotosInstallTarget.MAP_LOCATION, attemptedTargets),
             step(GooglePhotosInstallTarget.CAMERA_UPDATE, attemptedTargets),
             step(GooglePhotosInstallTarget.S2_QUERY, attemptedTargets),
@@ -52,6 +53,7 @@ class GooglePhotosHookInstallCoordinatorTest {
         assertTrue(result.installed(GooglePhotosInstallTarget.LIFECYCLE))
         assertTrue(result.installed(GooglePhotosInstallTarget.MAP_VIEW))
         assertTrue(result.installed(GooglePhotosInstallTarget.MARKER_ANIMATION))
+        assertTrue(result.installed(GooglePhotosInstallTarget.INITIAL_PREVIEW_SELECTION))
         assertTrue(result.installed(GooglePhotosInstallTarget.MAP_LOCATION))
         assertTrue(result.installed(GooglePhotosInstallTarget.CAMERA_UPDATE))
         assertTrue(result.installed(GooglePhotosInstallTarget.S2_QUERY))

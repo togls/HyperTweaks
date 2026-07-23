@@ -18,6 +18,8 @@ internal class GooglePhotosLocationHook(
     private val renderHook = GooglePhotosMapRenderHook(context, logger, sessionTracker)
     private val markerAnimationHook =
         GooglePhotosPreviewMarkerAnimationHook(context, logger, sessionTracker)
+    private val initialPreviewSelectionHook =
+        GooglePhotosInitialPreviewSelectionHook(context, logger, sessionTracker)
     private val mapLocationHook = GooglePhotosMapLocationHook(context, logger, sessionTracker)
     private val cameraUpdateHook = GooglePhotosCameraUpdateHook(context, logger, sessionTracker)
     private val s2QueryHook = GooglePhotosS2QueryHook(context, logger, sessionTracker)
@@ -54,6 +56,9 @@ internal class GooglePhotosLocationHook(
             },
             GooglePhotosHookInstallStep(GooglePhotosInstallTarget.MARKER_ANIMATION) {
                 markerAnimationHook.install(classLoader)
+            },
+            GooglePhotosHookInstallStep(GooglePhotosInstallTarget.INITIAL_PREVIEW_SELECTION) {
+                initialPreviewSelectionHook.install(classLoader)
             },
             GooglePhotosHookInstallStep(GooglePhotosInstallTarget.MAP_LOCATION) {
                 mapLocationHook.install(classLoader)
@@ -158,6 +163,7 @@ internal enum class GooglePhotosInstallTarget(
     MAP_VIEW("map_view", false),
     MARKER_API("marker_api", true),
     MARKER_ANIMATION("marker_animation", true),
+    INITIAL_PREVIEW_SELECTION("initial_preview_selection", true),
     MAP_LOCATION("map_location", true),
     CAMERA_UPDATE("camera_update", true),
     S2_QUERY("s2_query", true),

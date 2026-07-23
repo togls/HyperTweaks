@@ -7,11 +7,14 @@ import org.junit.Test
 
 class GooglePhotosCameraUpdateProbeHookTest {
     @Test
-    fun resolvesOnlySingleCoordinateCameraUpdateMethod() {
+    fun resolvesCoordinateCameraUpdateMethodsWithOptionalZoom() {
         val methods = CameraUpdateBindingResolver(FakeCoordinate::class.java)
             .resolve(FakeCameraUpdateFactory::class.java)
 
-        assertEquals(listOf("newLatLng"), methods.map(MethodName))
+        assertEquals(
+            listOf("newLatLng", "newLatLngZoom"),
+            methods.map(MethodName).sorted(),
+        )
     }
 
     @Test

@@ -80,7 +80,7 @@ internal class GooglePhotosCameraUpdateHook(
         private const val CameraUpdateFactoryClassName = "bmeb"
         private const val LatLngClassName = "com.google.android.gms.maps.model.LatLng"
         private const val CoordinateArgumentIndex = 0
-        private const val ExpectedFactoryMethodCount = 1
+        private const val ExpectedFactoryMethodCount = 2
         private const val StackFrameLimit = 16
         private const val ModulePackagePrefix = "io.github.togls.hypertweaks"
         private const val VmStackClassName = "dalvik.system.VMStack"
@@ -93,8 +93,12 @@ internal class CameraUpdateBindingResolver(
     fun resolve(factoryClass: Class<*>): List<Method> {
         return factoryClass.declaredMethods.filter { method ->
             Modifier.isStatic(method.modifiers) &&
-                method.parameterTypes.firstOrNull() == coordinateClass &&
-                method.parameterCount == 1
+                (
+                    method.parameterTypes.contentEquals(arrayOf(coordinateClass)) ||
+                        method.parameterTypes.contentEquals(
+                            arrayOf(coordinateClass, Float::class.javaPrimitiveType),
+                        )
+                    )
         }
     }
 }
