@@ -2,6 +2,8 @@ package io.github.togls.hypertweaks.feature.ime.installer
 
 import io.github.togls.hypertweaks.core.xposed.HookFeatureContext
 import io.github.togls.hypertweaks.core.xposed.HookInstallResult
+import io.github.togls.hypertweaks.core.xposed.aggregateHookInstallResult
+import io.github.togls.hypertweaks.core.xposed.rethrowIfFatal
 
 internal sealed interface ImeTargetInstallResult {
     val target: String
@@ -30,15 +32,19 @@ internal class ImeInstallCoordinator {
     fun install(
         context: HookFeatureContext,
         installers: List<ImeTargetInstaller>,
-    ): HookInstallResult.Installed {
+    ): HookInstallResult {
         val results = installers.flatMap { installer ->
             installSafely(context, installer)
         }
-        return HookInstallResult.Installed(
-            installedTargets = results.filterIsInstance<ImeTargetInstallResult.Installed>()
-                .mapTo(mutableSetOf(), ImeTargetInstallResult.Installed::target),
-            failedTargets = results.filterIsInstance<ImeTargetInstallResult.Failed>()
-                .mapTo(mutableSetOf(), ImeTargetInstallResult.Failed::target),
+        val installedTargets = results.filterIsInstance<ImeTargetInstallResult.Installed>()
+            .mapTo(mutableSetOf(), ImeTargetInstallResult.Installed::target)
+        val failedTargets = results.filterIsInstance<ImeTargetInstallResult.Failed>()
+            .associateTo(linkedMapOf()) { result -> result.target to result.error }
+        return aggregateHookInstallResult(
+            installedTargets = installedTargets,
+            failedTargets = failedTargets,
+            unsupportedReason = unsupportedReason(results),
+            hasUsableInstalledTarget = installedTargets.isNotEmpty(),
         )
     }
 
@@ -49,7 +55,7 @@ internal class ImeInstallCoordinator {
         val results = try {
             installer.install(context)
         } catch (error: Throwable) {
-            rethrowFatal(error)
+            error.rethrowIfFatal()
             listOf(ImeTargetInstallResult.Failed(installer.target, error))
         }
         results.forEach { result -> logResult(context, result) }
@@ -84,9 +90,14 @@ internal class ImeInstallCoordinator {
         return mapOf("subtarget" to target, "reason" to reason)
     }
 
-    private fun rethrowFatal(error: Throwable) {
-        if (error is VirtualMachineError || error is ThreadDeath) {
-            throw error
+    private fun unsupportedReason(results: List<ImeTargetInstallResult>): String {
+        val skippedTargets = results.filterIsInstance<ImeTargetInstallResult.Skipped>()
+            .sortedBy(ImeTargetInstallResult.Skipped::target)
+        if (skippedTargets.isEmpty()) return "No IME hook target was installed"
+        return skippedTargets.joinToString(
+            prefix = "No IME hook target was installed: ",
+        ) { result ->
+            "${result.target} (${result.reason})"
         }
     }
 }

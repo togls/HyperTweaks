@@ -17,9 +17,10 @@ class ImeVersionStrategyTest {
         assertTrue(strategy.supports(35))
         assertFalse(strategy.supports(33))
         assertFalse(strategy.supports(36))
+        val result = strategy.install(imeTestContext(34)) as HookInstallResult.Installed
         assertEquals(
             setOf("legacy"),
-            strategy.install(imeTestContext(34)).installedTargets,
+            result.installedTargets,
         )
     }
 
@@ -30,9 +31,10 @@ class ImeVersionStrategyTest {
         assertFalse(strategy.supports(35))
         assertTrue(strategy.supports(36))
         assertTrue(strategy.supports(40))
+        val result = strategy.install(imeTestContext(36)) as HookInstallResult.Installed
         assertEquals(
             setOf("modern"),
-            strategy.install(imeTestContext(36)).installedTargets,
+            result.installedTargets,
         )
     }
 

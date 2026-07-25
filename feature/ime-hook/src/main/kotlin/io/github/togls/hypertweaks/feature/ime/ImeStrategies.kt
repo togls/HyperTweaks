@@ -21,7 +21,7 @@ internal interface SystemServerStrategy {
 
     fun supports(sdkInt: Int): Boolean
 
-    fun install(context: HookFeatureContext): HookInstallResult.Installed
+    fun install(context: HookFeatureContext): HookInstallResult
 }
 
 internal class Android34To35Strategy(
@@ -34,7 +34,7 @@ internal class Android34To35Strategy(
         return sdkInt in ImeVersionPolicy.MinimumSupportedApi until ImeVersionPolicy.Android16Api
     }
 
-    override fun install(context: HookFeatureContext): HookInstallResult.Installed {
+    override fun install(context: HookFeatureContext): HookInstallResult {
         return coordinator.install(context.child(id), installers)
     }
 }
@@ -49,7 +49,7 @@ internal class Android36PlusStrategy(
         return sdkInt >= ImeVersionPolicy.Android16Api
     }
 
-    override fun install(context: HookFeatureContext): HookInstallResult.Installed {
+    override fun install(context: HookFeatureContext): HookInstallResult {
         return coordinator.install(context.child(id), installers)
     }
 }

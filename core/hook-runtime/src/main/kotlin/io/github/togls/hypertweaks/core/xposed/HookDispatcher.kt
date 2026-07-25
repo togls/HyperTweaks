@@ -13,6 +13,7 @@ class HookDispatcher(
 
     fun dispatch(environment: HookEnvironment): List<HookFeatureDispatchResult> {
         installLogger.registryStarted(environment)
+        settingsProvider.refreshIfUnavailable()
         val settingsState = settingsProvider.currentState
         if (settingsState is HookSettingsState.Unavailable) {
             installLogger.settingsUnavailable(environment, settingsState.reason)
@@ -68,6 +69,7 @@ class HookDispatcher(
         return try {
             handleInstallResult(feature, environment, key, feature.install(context))
         } catch (error: Throwable) {
+            error.rethrowIfFatal()
             handleInstallFailure(feature, environment, key, error)
         }
     }
@@ -115,6 +117,7 @@ class HookDispatcher(
         key: HookInstallKey,
         error: Throwable,
     ): HookFeatureDispatchResult.Failed {
+        error.rethrowIfFatal()
         installGuard.markFailed(key)
         installLogger.failed(feature, environment, error)
         return HookFeatureDispatchResult.Failed(feature.id, error)

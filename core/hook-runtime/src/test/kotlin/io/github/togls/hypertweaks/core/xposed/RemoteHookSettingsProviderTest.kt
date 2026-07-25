@@ -53,11 +53,55 @@ class RemoteHookSettingsProviderTest {
 
         val state = provider.currentState as HookSettingsState.Unavailable
         assertEquals(error, state.reason)
+        assertTrue(state.retryable)
+    }
+
+    @Test
+    fun unsupportedPreferencesAreNotRetryable() {
+        val provider = RemoteHookSettingsProvider.create(
+            preferencesProvider = { throw UnsupportedOperationException("unsupported") },
+            logger = NoOpLogger,
+        )
+
+        val state = provider.currentState as HookSettingsState.Unavailable
+
+        assertFalse(state.retryable)
+    }
+
+    @Test(expected = OutOfMemoryError::class)
+    fun fatalProviderFailureIsRethrown() {
+        RemoteHookSettingsProvider.create(
+            preferencesProvider = { throw OutOfMemoryError("fatal") },
+            logger = NoOpLogger,
+        )
+    }
+
+    @Test(expected = OutOfMemoryError::class)
+    fun fatalSnapshotReadFailureIsRethrown() {
+        RemoteHookSettingsProvider.create(
+            preferencesProvider = {
+                FakeSharedPreferences(
+                    values = mutableMapOf(),
+                    readFailure = OutOfMemoryError("fatal"),
+                )
+            },
+            logger = NoOpLogger,
+        )
+    }
+
+    @Test(expected = ThreadDeath::class)
+    fun fatalSubscriberFailureIsRethrown() {
+        val preferences = FakeSharedPreferences(mutableMapOf())
+        val provider = RemoteHookSettingsProvider.create({ preferences }, NoOpLogger)
+        provider.subscribe { throw ThreadDeath() }
+
+        preferences.update(mapOf(RemotePreferenceKeys.HookConfigVersion to 2L))
     }
 }
 
-private class FakeSharedPreferences(
+internal class FakeSharedPreferences(
     private val values: MutableMap<String, Any?>,
+    private val readFailure: Throwable? = null,
 ) : SharedPreferences {
     private val listeners = mutableSetOf<SharedPreferences.OnSharedPreferenceChangeListener>()
 
@@ -84,6 +128,7 @@ private class FakeSharedPreferences(
     }
 
     override fun getLong(key: String?, defaultValue: Long): Long {
+        readFailure?.let { throw it }
         return values[key] as? Long ?: defaultValue
     }
 

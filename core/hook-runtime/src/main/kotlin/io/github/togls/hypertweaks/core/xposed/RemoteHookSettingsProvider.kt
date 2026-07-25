@@ -36,6 +36,17 @@ class RemoteHookSettingsProvider private constructor(
         }
     }
 
+    override fun refreshIfUnavailable() {
+        val unavailableState = currentState as? HookSettingsState.Unavailable ?: return
+        if (!unavailableState.retryable) return
+        refresh()
+        val refreshedState = currentState as? HookSettingsState.Ready ?: return
+        logger.info(
+            event = "config.snapshot.recovered",
+            fields = mapOf("config_version" to refreshedState.snapshot.version.toString()),
+        )
+    }
+
     override fun subscribe(listener: (HookSettingsState) -> Unit): HookSettingsSubscription {
         subscribers += listener
         return HookSettingsSubscription { subscribers -= listener }
@@ -49,17 +60,18 @@ class RemoteHookSettingsProvider private constructor(
     }
 
     private fun start() {
-        runCatching {
+        try {
             val remotePreferences = preferencesProvider()
             val listener = createPreferenceListener()
             remotePreferences.registerOnSharedPreferenceChangeListener(listener)
             preferences = remotePreferences
             preferenceListener = listener
             publish(readState(remotePreferences))
-        }.onFailure { error ->
+        } catch (error: Throwable) {
+            error.rethrowIfFatal()
             preferences = null
             preferenceListener = null
-            publish(HookSettingsState.Unavailable(error))
+            publish(unavailableState(error))
         }
     }
 
@@ -69,9 +81,12 @@ class RemoteHookSettingsProvider private constructor(
         preferences = null
         preferenceListener = null
         if (currentPreferences != null && currentListener != null) {
-            runCatching {
+            try {
                 currentPreferences.unregisterOnSharedPreferenceChangeListener(currentListener)
-            }.onFailure(::logListenerFailure)
+            } catch (error: Throwable) {
+                error.rethrowIfFatal()
+                logListenerFailure(error)
+            }
         }
     }
 
@@ -85,11 +100,19 @@ class RemoteHookSettingsProvider private constructor(
     }
 
     private fun readState(remotePreferences: SharedPreferences): HookSettingsState {
-        return runCatching {
+        return try {
             HookSettingsState.Ready(remotePreferences.readSnapshot())
-        }.getOrElse { error ->
-            HookSettingsState.Unavailable(error)
+        } catch (error: Throwable) {
+            error.rethrowIfFatal()
+            unavailableState(error)
         }
+    }
+
+    private fun unavailableState(error: Throwable): HookSettingsState.Unavailable {
+        return HookSettingsState.Unavailable(
+            reason = error,
+            retryable = error !is UnsupportedOperationException,
+        )
     }
 
     private fun SharedPreferences.readSnapshot(): HookSettingsSnapshot {
@@ -130,7 +153,12 @@ class RemoteHookSettingsProvider private constructor(
     private fun publish(nextState: HookSettingsState) {
         state.set(nextState)
         subscribers.forEach { subscriber ->
-            runCatching { subscriber(nextState) }.onFailure(::logListenerFailure)
+            try {
+                subscriber(nextState)
+            } catch (error: Throwable) {
+                error.rethrowIfFatal()
+                logListenerFailure(error)
+            }
         }
     }
 

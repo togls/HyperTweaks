@@ -2,6 +2,8 @@ package io.github.togls.hypertweaks.feature.googlephotos.xposed
 
 import android.app.Application
 import io.github.togls.hypertweaks.core.xposed.HookContext
+import io.github.togls.hypertweaks.core.xposed.HookInstallResult
+import io.github.togls.hypertweaks.core.xposed.rethrowIfFatal
 import io.github.togls.hypertweaks.feature.googlephotos.install.GooglePhotosHookInstallCoordinator
 import io.github.togls.hypertweaks.feature.googlephotos.install.GooglePhotosHookInstallResult
 import io.github.togls.hypertweaks.feature.googlephotos.install.GooglePhotosHookInstallStep
@@ -14,13 +16,18 @@ import io.github.togls.hypertweaks.feature.googlephotos.resolver.ResolveDiagnost
 import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosClassNames
 import io.github.togls.hypertweaks.feature.googlephotos.session.GooglePhotosMapSessionTracker
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 internal class GooglePhotosLocationHook(
     context: HookContext,
     private val diagnosticsPolicy: GooglePhotosDiagnosticsPolicy,
+    private val processNameProvider: () -> String = { Application.getProcessName() },
+    private val installHooksOverride:
+        ((ClassLoader) -> GooglePhotosHookInstallResult)? = null,
 ) {
     private val logger = GooglePhotosLocationLogger(context.log, diagnosticsPolicy)
     private val installed = AtomicBoolean(false)
+    private val successfulInstall = AtomicReference<HookInstallResult.Installed?>()
     private val sessionTracker = GooglePhotosMapSessionTracker(logger)
     private val renderHook = GooglePhotosMapRenderHook(context, logger, sessionTracker)
     private val markerAnimationHook =
@@ -37,17 +44,39 @@ internal class GooglePhotosLocationHook(
     private val heatmapIndexHook = GooglePhotosHeatmapIndexHook(context, logger, sessionTracker)
     private val mapViewHook = GooglePhotosMapViewHook(context, logger, sessionTracker)
 
-    fun install(classLoader: ClassLoader) {
-        if (Application.getProcessName() != GooglePhotosClassNames.PackageName) {
-            return
+    fun install(classLoader: ClassLoader): HookInstallResult {
+        if (processNameProvider() != GooglePhotosClassNames.PackageName) {
+            return HookInstallResult.Unsupported("Google Photos main process is required")
         }
+        successfulInstall.get()?.let { return it }
         if (!installed.compareAndSet(false, true)) {
-            return
+            return successfulInstall.get()
+                ?: HookInstallResult.Unsupported("Google Photos installation is already in progress")
         }
 
+        return runInstall(classLoader)
+    }
+
+    private fun runInstall(classLoader: ClassLoader): HookInstallResult {
+        val result = try {
+            installAndAggregate(classLoader)
+        } catch (error: Throwable) {
+            error.rethrowIfFatal()
+            HookInstallResult.Failed(error)
+        }
+        if (result is HookInstallResult.Installed) {
+            successfulInstall.set(result)
+        } else {
+            installed.set(false)
+        }
+        return result
+    }
+
+    private fun installAndAggregate(classLoader: ClassLoader): HookInstallResult {
         logger.installBegin()
-        val result = installHooks(classLoader)
-        logger.installCompleted(result)
+        val targetResult = installHooksOverride?.invoke(classLoader) ?: installHooks(classLoader)
+        logger.installCompleted(targetResult)
+        return targetResult.toHookInstallResult()
     }
 
     private fun installHooks(classLoader: ClassLoader): GooglePhotosHookInstallResult {

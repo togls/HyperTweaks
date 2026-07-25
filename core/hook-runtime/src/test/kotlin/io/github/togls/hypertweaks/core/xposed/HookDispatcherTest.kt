@@ -1,5 +1,6 @@
 package io.github.togls.hypertweaks.core.xposed
 
+import io.github.togls.hypertweaks.core.config.RemotePreferenceKeys
 import io.github.togls.hypertweaks.logging.api.NoOpLogger
 import java.lang.reflect.Executable
 import org.junit.Assert.assertEquals
@@ -24,6 +25,76 @@ class HookDispatcherTest {
         assertTrue(results[0] is HookFeatureDispatchResult.Failed)
         assertTrue(results[1] is HookFeatureDispatchResult.Installed)
         assertEquals(listOf("healthy"), installed)
+    }
+
+    @Test(expected = OutOfMemoryError::class)
+    fun outOfMemoryErrorIsRethrown() {
+        dispatcher(
+            listOf(TestFeature("fatal") { throw OutOfMemoryError("fatal") }),
+        ).dispatch(environment())
+    }
+
+    @Test(expected = ThreadDeath::class)
+    fun threadDeathIsRethrown() {
+        dispatcher(
+            listOf(TestFeature("fatal") { throw ThreadDeath() }),
+        ).dispatch(environment())
+    }
+
+    @Test(expected = OutOfMemoryError::class)
+    fun fatalStructuredFailureIsRethrown() {
+        dispatcher(
+            listOf(
+                TestFeature("fatal") {
+                    HookInstallResult.Failed(OutOfMemoryError("fatal"))
+                },
+            ),
+        ).dispatch(environment())
+    }
+
+    @Test
+    fun unavailableRemotePreferencesRecoverBeforeDispatch() {
+        var providerAttempts = 0
+        val preferences = FakeSharedPreferences(
+            mutableMapOf(RemotePreferenceKeys.ImeEnabled to true),
+        )
+        val settingsProvider = RemoteHookSettingsProvider.create(
+            preferencesProvider = {
+                providerAttempts++
+                if (providerAttempts == 1) error("temporarily unavailable")
+                preferences
+            },
+            logger = NoOpLogger,
+        )
+        val dispatcher = dispatcher(
+            features = listOf(TestFeature("recovered") { HookInstallResult.Installed() }),
+            settingsProvider = settingsProvider,
+        )
+
+        val result = dispatcher.dispatch(environment()).single()
+
+        assertEquals(2, providerAttempts)
+        assertTrue(result is HookFeatureDispatchResult.Installed)
+    }
+
+    @Test
+    fun permanentlyUnsupportedRemotePreferencesAreNotRetried() {
+        var providerAttempts = 0
+        val settingsProvider = RemoteHookSettingsProvider.create(
+            preferencesProvider = {
+                providerAttempts++
+                throw UnsupportedOperationException("not supported")
+            },
+            logger = NoOpLogger,
+        )
+        val dispatcher = dispatcher(
+            features = listOf(TestFeature("unsupported") { error("must not run") }),
+            settingsProvider = settingsProvider,
+        )
+
+        assertTrue(dispatcher.dispatch(environment()).isEmpty())
+        assertTrue(dispatcher.dispatch(environment()).isEmpty())
+        assertEquals(1, providerAttempts)
     }
 
     @Test
@@ -86,15 +157,18 @@ class HookDispatcherTest {
         assertTrue(result is HookFeatureDispatchResult.Disabled)
     }
 
-    private fun dispatcher(features: List<HookFeature>): HookDispatcher {
+    private fun dispatcher(
+        features: List<HookFeature>,
+        settingsProvider: HookSettingsProvider = TestSettingsProvider(
+            HookSettingsState.Ready(
+                HookSettingsSnapshot(enabledPreferenceKeys = setOf(PreferenceKey)),
+            ),
+        ),
+    ): HookDispatcher {
         return HookDispatcher(
             catalog = HookFeatureCatalog(listOf(TestProvider(features))),
             engine = TestEngine,
-            settingsProvider = TestSettingsProvider(
-                HookSettingsState.Ready(
-                    HookSettingsSnapshot(enabledPreferenceKeys = setOf(PreferenceKey)),
-                ),
-            ),
+            settingsProvider = settingsProvider,
             installGuard = ProcessHookInstallGuard(),
             logger = NoOpLogger,
         )
@@ -145,6 +219,6 @@ class HookDispatcherTest {
     }
 
     private companion object {
-        const val PreferenceKey = "test_enabled"
+        const val PreferenceKey = RemotePreferenceKeys.ImeEnabled
     }
 }

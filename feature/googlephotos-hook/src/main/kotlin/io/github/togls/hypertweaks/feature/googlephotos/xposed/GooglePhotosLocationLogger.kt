@@ -100,13 +100,13 @@ internal class GooglePhotosLocationLogger(
         )
     }
 
-    fun installTargetSkipped(target: GooglePhotosInstallTarget) {
+    fun installTargetSkipped(target: GooglePhotosInstallTarget, reason: String) {
         log.info(
             event = "hook.install.skipped",
-            message = "GooglePhotosLocation: diagnostic target disabled",
+            message = "GooglePhotosLocation: target skipped",
             fields = mapOf(
                 "subtarget" to target.logName,
-                "reason" to "RELEASE_DIAGNOSTICS_DISABLED",
+                "reason" to reason,
             ),
         )
     }

@@ -15,6 +15,7 @@ import io.github.togls.hypertweaks.core.xposed.HookRegistry
 import io.github.togls.hypertweaks.core.xposed.LibXposedHookEngine
 import io.github.togls.hypertweaks.core.xposed.ProcessHookInstallGuard
 import io.github.togls.hypertweaks.core.xposed.RemoteHookSettingsProvider
+import io.github.togls.hypertweaks.core.xposed.rethrowIfFatal
 import io.github.togls.hypertweaks.logging.api.LogContext
 import io.github.togls.hypertweaks.logging.hook.HookLogBootstrap
 import io.github.togls.hypertweaks.logging.hook.HookLogRuntime
@@ -101,13 +102,14 @@ internal class HyperTweaksEntryRuntime(
     }
 
     private fun createLogContext(): LogContext {
-        return runCatching {
+        return try {
             LogContext(
                 processName = Application.getProcessName(),
                 pid = Process.myPid(),
                 tid = Process.myTid(),
             )
-        }.getOrElse { error ->
+        } catch (error: Throwable) {
+            error.rethrowIfFatal()
             module.log(
                 android.util.Log.WARN,
                 "HyperTweaks",

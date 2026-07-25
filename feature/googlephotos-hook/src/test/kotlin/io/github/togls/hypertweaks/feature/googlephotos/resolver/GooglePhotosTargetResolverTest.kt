@@ -2,6 +2,7 @@ package io.github.togls.hypertweaks.feature.googlephotos.resolver
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class GooglePhotosTargetResolverTest {
@@ -60,7 +61,12 @@ class GooglePhotosTargetResolverTest {
         val diagnostics = mutableListOf<ResolveDiagnostic>()
         val resolver = resolver(diagnostics)
 
-        runCatching { resolver.resolve(GooglePhotosTarget.MAP_VIEW) }
+        try {
+            resolver.resolve(GooglePhotosTarget.MAP_VIEW)
+            fail("Expected unsupported target")
+        } catch (error: UnsupportedGooglePhotosTargetException) {
+            assertEquals(GooglePhotosTarget.MAP_VIEW, error.target)
+        }
 
         assertTrue(
             diagnostics.any { diagnostic ->

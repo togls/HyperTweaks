@@ -56,13 +56,13 @@ jobs:
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release-keystore.jks
 
-      - name: Build release APK
+      - name: Verify and build release APK
         env:
           ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/release-keystore.jks
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew :app:assembleRelease
+        run: ./gradlew test lint verifyXposedMigration :app:assembleRelease
 
       - name: Prepare pre-release artifact
         run: |

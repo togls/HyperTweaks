@@ -8,6 +8,11 @@ internal data class ResolvedGooglePhotosTarget(
     val source: ResolveStage,
 )
 
+internal class UnsupportedGooglePhotosTargetException(
+    val target: GooglePhotosTarget,
+    message: String,
+) : IllegalStateException(message)
+
 internal class GooglePhotosTargetResolver(
     applicationClassLoader: ClassLoader,
     private val diagnostics: ResolveDiagnostics,
@@ -67,7 +72,11 @@ internal class GooglePhotosTargetResolver(
             target.exactClassName,
             detail = "classLoaderCandidates=$sources",
         )
-        error("Unable to resolve ${target.logName}: ${target.exactClassName}")
+        throw UnsupportedGooglePhotosTargetException(
+            target,
+            "Unable to resolve ${target.logName}: ${target.exactClassName}; " +
+                "classLoaderCandidates=$sources",
+        )
     }
 }
 

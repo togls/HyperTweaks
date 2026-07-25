@@ -28,13 +28,10 @@ private object GooglePhotosLocationFeature : HookFeature {
     }
 
     override fun install(context: HookFeatureContext): HookInstallResult {
-        GooglePhotosLocationHook(
+        return GooglePhotosLocationHook(
             context.child("GooglePhotosLocationHook"),
             GooglePhotosDiagnosticsPolicy.forCurrentBuild(),
         )
             .install(context.environment.classLoader)
-        return HookInstallResult.Installed(
-            installedTargets = setOf("google_photos_location"),
-        )
     }
 }

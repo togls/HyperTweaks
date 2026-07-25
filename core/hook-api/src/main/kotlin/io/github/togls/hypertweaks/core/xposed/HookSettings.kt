@@ -28,11 +28,14 @@ sealed interface HookSettingsState {
 
     data class Unavailable(
         val reason: Throwable?,
+        val retryable: Boolean = true,
     ) : HookSettingsState
 }
 
 interface HookSettingsProvider {
     val currentState: HookSettingsState
+
+    fun refreshIfUnavailable() = Unit
 
     fun subscribe(listener: (HookSettingsState) -> Unit): HookSettingsSubscription
 }
