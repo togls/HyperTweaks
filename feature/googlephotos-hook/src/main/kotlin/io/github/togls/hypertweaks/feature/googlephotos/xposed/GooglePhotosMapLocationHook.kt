@@ -20,13 +20,14 @@ internal class GooglePhotosMapLocationHook(
     context: HookContext,
     private val logger: GooglePhotosLocationLogger,
     private val sessionTracker: GooglePhotosMapSessionTracker,
+    private val currentLocationCameraScope: CurrentLocationCameraUpdateScope,
 ) {
     private val engine = context.engine
     private val readScope = MapLocationReadScope()
     private val requestTargets = CurrentLocationRequestRegistry()
     private val hookedRequestMethods = mutableSetOf<Method>()
     private val readReentry = ThreadLocal.withInitial { false }
-    private val transformer = LocationCoordinateTransformer()
+    private val coordinatePolicy = MapLocationCoordinatePolicy()
     private lateinit var renderBinding: MapRenderBinding
     private lateinit var latitudeMethod: Method
     private lateinit var longitudeMethod: Method
@@ -72,9 +73,20 @@ internal class GooglePhotosMapLocationHook(
         val session = sessionTracker.currentSession() ?: return originalAxis
         val decision = readScope.decide(location, session.sessionId, callerClasses()) ?: return originalAxis
         val original = readCoordinate(location, axis, originalAxis) ?: return originalAxis
-        val result = transformer.transform(original)
+        if (decision.source == MapLocationReadSource.CURRENT_LOCATION_REQUEST) {
+            currentLocationCameraScope.record(session.sessionId, original)
+        }
+        /*
+         * 同一个 Location 会先被 Photos 用于定位相机，再被 Maps location layer 绘制蓝点。
+         * 前者保留 WGS84，后者转换为 GCJ02，避免相机与蓝点互相影响。
+         */
+        val result = coordinatePolicy.transform(decision.source, original)
         logger.locationRead(axis, decision, session.toProbeLogSnapshot(), result)
-        return result.converted?.value(axis) ?: originalAxis
+        val renderedCoordinate = result.converted ?: return originalAxis
+        return when (axis) {
+            CoordinateAxis.LATITUDE -> renderedCoordinate.latitude
+            CoordinateAxis.LONGITUDE -> renderedCoordinate.longitude
+        }
     }
 
     private fun readCoordinate(location: Any, axis: CoordinateAxis, originalAxis: Double): Coordinate? {
@@ -119,13 +131,6 @@ internal enum class CoordinateAxis {
     LONGITUDE,
 }
 
-private fun Coordinate.value(axis: CoordinateAxis): Double {
-    return when (axis) {
-        CoordinateAxis.LATITUDE -> latitude
-        CoordinateAxis.LONGITUDE -> longitude
-    }
-}
-
 internal enum class LocationCoordinateOutcome {
     CONVERTED,
     UNCHANGED,
@@ -139,6 +144,32 @@ internal data class LocationCoordinateResult(
     val converted: Coordinate? = null,
     val failure: Exception? = null,
 )
+
+internal class LocationCoordinatePassThrough(
+    private val reason: String,
+) {
+    fun observe(original: Coordinate): LocationCoordinateResult {
+        return LocationCoordinateResult(
+            outcome = LocationCoordinateOutcome.UNCHANGED,
+            reason = reason,
+            original = original,
+            converted = original,
+        )
+    }
+}
+
+internal class MapLocationCoordinatePolicy(
+    private val locationLayerTransformer: LocationCoordinateTransformer = LocationCoordinateTransformer(),
+    private val currentLocationPassThrough: LocationCoordinatePassThrough =
+        LocationCoordinatePassThrough("CURRENT_LOCATION_REQUEST_PASSTHROUGH"),
+) {
+    fun transform(source: MapLocationReadSource, original: Coordinate): LocationCoordinateResult {
+        return when (source) {
+            MapLocationReadSource.CURRENT_LOCATION_REQUEST -> currentLocationPassThrough.observe(original)
+            MapLocationReadSource.MAPS_LOCATION_LAYER -> locationLayerTransformer.transform(original)
+        }
+    }
+}
 
 internal class LocationCoordinateTransformer(
     private val converter: (Double, Double) -> Coordinate = ChinaCoordinateConverter::wgs84ToGcj02,

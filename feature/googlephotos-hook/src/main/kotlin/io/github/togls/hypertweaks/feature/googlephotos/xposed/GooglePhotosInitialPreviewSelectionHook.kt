@@ -58,23 +58,24 @@ internal class GooglePhotosInitialPreviewSelectionHook(
 
     private fun interceptSelectionChange(chain: HookChain): Any? {
         val session = sessionTracker.currentSession() ?: return chain.proceed()
+        val currentSelection = readCurrentSelection(chain.thisObject)
         val shouldPreserve = policy.shouldPreserve(
             sessionId = session.sessionId,
             singlePhotoEntry = session.hostActivity.intent?.hasExtra(InitialMediaExtra) == true,
             boundsUpdateActive = currentBoundsUpdateDepth() > 0,
             clearingSelection = chain.args.singleOrNull() == null,
-            currentSelectionPresent = readCurrentSelection(chain.thisObject),
+            currentSelectionPresent = currentSelection != null,
         )
-        if (!shouldPreserve) return chain.proceed()
-        logger.initialPreviewSelectionPreserved(session.toProbeLogSnapshot())
-        return null
+        if (!shouldPreserve || currentSelection == null) return chain.proceed()
+        logger.initialPreviewSelectionReselected(session.toProbeLogSnapshot())
+        return chain.proceed(InitialPreviewSelectionArguments.reselect(currentSelection))
     }
 
-    private fun readCurrentSelection(receiver: Any?): Boolean {
-        if (receiver == null) return false
-        return runCatching { binding.currentSelectionField.get(receiver) != null }
+    private fun readCurrentSelection(receiver: Any?): Any? {
+        if (receiver == null) return null
+        return runCatching { binding.currentSelectionField.get(receiver) }
             .onFailure { error -> logger.warning("initial_preview_selection_read_current", error) }
-            .getOrDefault(false)
+            .getOrNull()
     }
 
     private fun currentBoundsUpdateDepth(): Int = boundsUpdateDepth.get() ?: 0
@@ -82,6 +83,10 @@ internal class GooglePhotosInitialPreviewSelectionHook(
     private companion object {
         private const val InitialMediaExtra = "extra_initial_media"
     }
+}
+
+internal object InitialPreviewSelectionArguments {
+    fun reselect(currentSelection: Any): Array<Any?> = arrayOf(currentSelection)
 }
 
 internal data class InitialPreviewSelectionBinding(

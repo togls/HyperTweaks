@@ -68,6 +68,38 @@ class GooglePhotosMapInteractionHookTest {
     }
 
     @Test
+    fun currentLocationPassThroughLeavesSharedLocationUnchanged() {
+        val passThrough = LocationCoordinatePassThrough("CURRENT_LOCATION_REQUEST_PASSTHROUGH")
+        val mainland = Coordinate(22.543096, 114.057865)
+
+        val result = passThrough.observe(mainland)
+
+        assertEquals(LocationCoordinateOutcome.UNCHANGED, result.outcome)
+        assertEquals("CURRENT_LOCATION_REQUEST_PASSTHROUGH", result.reason)
+        assertEquals(mainland, result.original)
+        assertEquals(mainland, result.converted)
+    }
+
+    @Test
+    fun locationPolicyOnlyConvertsMapsLocationLayer() {
+        val policy = MapLocationCoordinatePolicy(
+            locationLayerTransformer = LocationCoordinateTransformer { latitude, longitude ->
+                Coordinate(latitude + 1.0, longitude + 2.0)
+            },
+        )
+        val original = Coordinate(22.543096, 114.057865)
+
+        val request = policy.transform(MapLocationReadSource.CURRENT_LOCATION_REQUEST, original)
+        val mapLayer = policy.transform(MapLocationReadSource.MAPS_LOCATION_LAYER, original)
+
+        assertEquals(LocationCoordinateOutcome.UNCHANGED, request.outcome)
+        assertEquals("CURRENT_LOCATION_REQUEST_PASSTHROUGH", request.reason)
+        assertEquals(original, request.converted)
+        assertEquals(LocationCoordinateOutcome.CONVERTED, mapLayer.outcome)
+        assertEquals(Coordinate(23.543096, 116.057865), mapLayer.converted)
+    }
+
+    @Test
     fun locationTransformerConvertsMainlandAndLeavesHongKongAndOutsideUnchanged() {
         val transformer = LocationCoordinateTransformer { latitude, longitude ->
             Coordinate(latitude + 1.0, longitude + 2.0)

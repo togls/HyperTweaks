@@ -3,6 +3,7 @@ package io.github.togls.hypertweaks.feature.googlephotos.xposed
 import io.github.togls.hypertweaks.feature.googlephotos.policy.InitialPreviewSelectionPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -38,6 +39,16 @@ class GooglePhotosInitialPreviewSelectionHookTest {
         assertFalse(policy.shouldPreserve(8L, true, false, true, true))
         assertFalse(policy.shouldPreserve(8L, true, true, false, true))
         assertFalse(policy.shouldPreserve(8L, true, true, true, false))
+    }
+
+    @Test
+    fun reselectsCurrentMediaThroughOriginalSelectionCallback() {
+        val currentMedia = FakeMedia()
+
+        val arguments = InitialPreviewSelectionArguments.reselect(currentMedia)
+
+        assertEquals(1, arguments.size)
+        assertSame(currentMedia, arguments.single())
     }
 
     private class FakeSelection {

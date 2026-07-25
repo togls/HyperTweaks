@@ -29,16 +29,24 @@ internal class GooglePhotosLocationHook(
     private val installed = AtomicBoolean(false)
     private val successfulInstall = AtomicReference<HookInstallResult.Installed?>()
     private val sessionTracker = GooglePhotosMapSessionTracker(logger)
+    private val currentLocationCameraScope = CurrentLocationCameraUpdateScope()
     private val renderHook = GooglePhotosMapRenderHook(context, logger, sessionTracker)
     private val markerAnimationHook =
         GooglePhotosPreviewMarkerAnimationHook(context, logger, sessionTracker)
     private val initialPreviewSelectionHook =
         GooglePhotosInitialPreviewSelectionHook(context, logger, sessionTracker)
-    private val mapLocationHook = GooglePhotosMapLocationHook(context, logger, sessionTracker)
+    private val mapLocationHook =
+        GooglePhotosMapLocationHook(context, logger, sessionTracker, currentLocationCameraScope)
     private val lifecycleInstaller =
         LifecycleHookInstaller(context, logger, sessionTracker, mapLocationHook)
     private val cameraUpdateHook =
-        GooglePhotosCameraUpdateHook(context, logger, sessionTracker, diagnosticsPolicy)
+        GooglePhotosCameraUpdateHook(
+            context,
+            logger,
+            sessionTracker,
+            diagnosticsPolicy,
+            currentLocationCameraScope,
+        )
     private val s2QueryHook =
         GooglePhotosS2QueryHook(context, logger, sessionTracker, diagnosticsPolicy)
     private val heatmapIndexHook = GooglePhotosHeatmapIndexHook(context, logger, sessionTracker)

@@ -1,5 +1,6 @@
 package io.github.togls.hypertweaks.feature.googlephotos.xposed
 
+import android.os.SystemClock
 import io.github.togls.hypertweaks.core.xposed.HookChain
 import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.Coordinate
@@ -9,12 +10,14 @@ import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTar
 import io.github.togls.hypertweaks.feature.googlephotos.session.GooglePhotosMapSessionTracker
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
+import kotlin.math.abs
 
 internal class GooglePhotosCameraUpdateHook(
     context: HookContext,
     private val logger: GooglePhotosLocationLogger,
     private val sessionTracker: GooglePhotosMapSessionTracker,
     private val diagnosticsPolicy: GooglePhotosDiagnosticsPolicy,
+    private val currentLocationCameraScope: CurrentLocationCameraUpdateScope,
 ) {
     private val engine = context.engine
     private val coordinatePolicy = CameraUpdateCoordinatePolicy()
@@ -51,7 +54,18 @@ internal class GooglePhotosCameraUpdateHook(
             session = session,
             stack = cameraUpdateStack(),
         )
-        val result = original?.let { coordinatePolicy.transform(it, session != null) }
+        val currentLocationTarget = if (original == null || session == null) {
+            false
+        } else {
+            currentLocationCameraScope.consumeIfMatches(session.sessionId, original)
+        }
+        val result = original?.let {
+            coordinatePolicy.transform(
+                original = it,
+                sessionActive = session != null,
+                currentLocationTarget = currentLocationTarget,
+            )
+        }
             ?: return chain.proceed()
         logger.cameraUpdateResult(callCount, session, result)
         val converted = result.converted?.takeIf { result.outcome == LocationCoordinateOutcome.CONVERTED }
@@ -113,8 +127,64 @@ internal class CameraUpdateBindingResolver(
 internal class CameraUpdateCoordinatePolicy(
     private val transformer: LocationCoordinateTransformer = LocationCoordinateTransformer(),
 ) {
-    fun transform(original: Coordinate, sessionActive: Boolean): LocationCoordinateResult? {
+    fun transform(
+        original: Coordinate,
+        sessionActive: Boolean,
+        currentLocationTarget: Boolean = false,
+    ): LocationCoordinateResult? {
         if (!sessionActive) return null
+        if (currentLocationTarget) {
+            return LocationCoordinateResult(
+                outcome = LocationCoordinateOutcome.UNCHANGED,
+                reason = "CURRENT_LOCATION_CAMERA_PASSTHROUGH",
+                original = original,
+                converted = original,
+            )
+        }
         return transformer.transform(original)
     }
 }
+
+internal class CurrentLocationCameraUpdateScope(
+    private val clock: () -> Long = SystemClock::elapsedRealtime,
+    private val timeoutMillis: Long = DefaultTimeoutMillis,
+) {
+    private var pendingTarget: PendingCurrentLocationCameraTarget? = null
+
+    @Synchronized
+    fun record(sessionId: Long, coordinate: Coordinate) {
+        pendingTarget = PendingCurrentLocationCameraTarget(
+            sessionId = sessionId,
+            coordinate = coordinate,
+            expiresAt = clock() + timeoutMillis,
+        )
+    }
+
+    @Synchronized
+    fun consumeIfMatches(sessionId: Long, coordinate: Coordinate): Boolean {
+        val pending = pendingTarget ?: return false
+        if (clock() > pending.expiresAt) {
+            pendingTarget = null
+            return false
+        }
+        if (pending.sessionId != sessionId || !pending.coordinate.matches(coordinate)) return false
+        pendingTarget = null
+        return true
+    }
+
+    private fun Coordinate.matches(other: Coordinate): Boolean {
+        return abs(latitude - other.latitude) <= CoordinateTolerance &&
+            abs(longitude - other.longitude) <= CoordinateTolerance
+    }
+
+    private companion object {
+        private const val DefaultTimeoutMillis = 2_000L
+        private const val CoordinateTolerance = 0.000001
+    }
+}
+
+private data class PendingCurrentLocationCameraTarget(
+    val sessionId: Long,
+    val coordinate: Coordinate,
+    val expiresAt: Long,
+)

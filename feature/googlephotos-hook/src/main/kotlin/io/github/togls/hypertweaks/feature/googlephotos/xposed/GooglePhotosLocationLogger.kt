@@ -541,15 +541,15 @@ internal class GooglePhotosLocationLogger(
         return callCount
     }
 
-    fun initialPreviewSelectionPreserved(session: ProbeSessionLogSnapshot) {
+    fun initialPreviewSelectionReselected(session: ProbeSessionLogSnapshot) {
         if (!diagnosticsPolicy.highFrequencyProbesEnabled) return
         log.info(
-            event = "hook.callback.completed",
-            message = "GooglePhotosInitialPreviewSelection: preserved",
+            event = "hook.callback.transformed",
+            message = "GooglePhotosInitialPreviewSelection: reselected",
             fields = mapOf(
                 "sessionId" to session.sessionId.toString(),
                 "hostActivity" to session.hostActivity,
-                "reason" to "INITIAL_BOUNDS_REFRESH",
+                "reason" to "INITIAL_SELECTION_RESELECTED",
             ),
         )
     }
