@@ -6,6 +6,7 @@ import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.core.xposed.HookSettingsSnapshot
 import io.github.togls.hypertweaks.core.xposed.HookSettingsSubscription
 import io.github.togls.hypertweaks.core.xposed.snapshotOrDisabled
+import io.github.togls.hypertweaks.feature.ime.installer.ImeTargetInstallResult
 import java.util.concurrent.atomic.AtomicReference
 
 class NavigationBarInflaterHook(
@@ -21,29 +22,40 @@ class NavigationBarInflaterHook(
 
     private val settingsSubscriptions = mutableListOf<HookSettingsSubscription>()
 
-    fun install(classLoader: ClassLoader) {
-        val inflateLayoutMethod = findInflateLayoutMethod(classLoader) ?: return
+    internal fun install(classLoader: ClassLoader): List<ImeTargetInstallResult> {
+        logImeTargetResolveStarted(log, Target)
+        val inflateLayoutMethod = findInflateLayoutMethod(classLoader)
+            ?: return listOf(
+                skipImeTarget(Target, "NavigationBarInflaterView.inflateLayout not found", log),
+            )
 
         observeSettings()
 
-        engine.hook(inflateLayoutMethod) { chain ->
-                val configuredLayout = navBarLayoutHandle.get().trim()
-                val originalLayout = chain.getArg(0) as? String
-
-                if (configuredLayout.isNotBlank() && originalLayout != null) {
-                    if (configuredLayout != originalLayout) {
-                        log.i("replace nav bar layout: $originalLayout -> $configuredLayout")
-                    }
-
-                    return@hook chain.proceed(
-                        arrayOf<Any>(configuredLayout),
-                    )
+        val installResult = installImeTarget(Target, log) {
+            engine.hook(inflateLayoutMethod) { chain ->
+                val replacement = preserveOriginalOnFailure(
+                    log = log,
+                    event = "NavigationBarInflaterView.inflateLayout",
+                    originalValue = null,
+                ) {
+                    resolveReplacementLayout(chain.getArg(0) as? String)
                 }
-
-                chain.proceed()
+                replacement?.let { layout ->
+                    chain.proceed(arrayOf<Any>(layout))
+                } ?: chain.proceed()
             }
+            log.i("hooked $TARGET_CLASS_NAME#inflateLayout(String)")
+        }
+        return listOf(installResult)
+    }
 
-        log.i("hooked $TARGET_CLASS_NAME#inflateLayout(String)")
+    private fun resolveReplacementLayout(originalLayout: String?): String? {
+        val configuredLayout = navBarLayoutHandle.get().trim()
+        if (configuredLayout.isBlank() || originalLayout == null) return null
+        if (configuredLayout != originalLayout) {
+            log.i("replace nav bar layout: $originalLayout -> $configuredLayout")
+        }
+        return configuredLayout
     }
 
     @SuppressLint("PrivateApi")
@@ -75,6 +87,7 @@ class NavigationBarInflaterHook(
     }
 
     private companion object {
+        private const val Target = "navigation_bar_inflater.inflate_layout"
         private const val TARGET_CLASS_NAME =
             "android.inputmethodservice.navigationbar.NavigationBarInflaterView"
     }

@@ -1,5 +1,8 @@
 package io.github.togls.hypertweaks.feature.googlephotos.xposed
 
+import io.github.togls.hypertweaks.feature.googlephotos.install.GooglePhotosHookInstallCoordinator
+import io.github.togls.hypertweaks.feature.googlephotos.install.GooglePhotosHookInstallStep
+import io.github.togls.hypertweaks.feature.googlephotos.install.GooglePhotosInstallTarget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -44,6 +47,7 @@ class GooglePhotosHookInstallCoordinatorTest {
             step(GooglePhotosInstallTarget.INITIAL_PREVIEW_SELECTION, attemptedTargets),
             step(GooglePhotosInstallTarget.MAP_LOCATION, attemptedTargets),
             step(GooglePhotosInstallTarget.CAMERA_UPDATE, attemptedTargets),
+            step(GooglePhotosInstallTarget.HEATMAP_INDEX, attemptedTargets),
             step(GooglePhotosInstallTarget.S2_QUERY, attemptedTargets),
         )
 
@@ -56,7 +60,30 @@ class GooglePhotosHookInstallCoordinatorTest {
         assertTrue(result.installed(GooglePhotosInstallTarget.INITIAL_PREVIEW_SELECTION))
         assertTrue(result.installed(GooglePhotosInstallTarget.MAP_LOCATION))
         assertTrue(result.installed(GooglePhotosInstallTarget.CAMERA_UPDATE))
+        assertTrue(result.installed(GooglePhotosInstallTarget.HEATMAP_INDEX))
         assertTrue(result.installed(GooglePhotosInstallTarget.S2_QUERY))
+    }
+
+    @Test
+    fun disabledDiagnosticTargetIsSkippedWithoutInstalling() {
+        var installed = false
+        val skippedTargets = mutableListOf<GooglePhotosInstallTarget>()
+        val coordinator = GooglePhotosHookInstallCoordinator(
+            onSkipped = { target -> skippedTargets += target },
+        )
+
+        val result = coordinator.install(
+            GooglePhotosHookInstallStep(
+                target = GooglePhotosInstallTarget.MAP_VIEW,
+                enabled = false,
+            ) {
+                installed = true
+            },
+        )
+
+        assertFalse(installed)
+        assertFalse(result.installed(GooglePhotosInstallTarget.MAP_VIEW))
+        assertEquals(listOf(GooglePhotosInstallTarget.MAP_VIEW), skippedTargets)
     }
 
     private fun step(

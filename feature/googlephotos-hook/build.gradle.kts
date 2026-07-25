@@ -1,3 +1,6 @@
+import com.android.build.api.variant.HasHostTestsBuilder
+import com.android.build.api.variant.HostTestBuilder
+
 plugins {
     alias(libs.plugins.android.library)
 }
@@ -10,9 +13,20 @@ android {
         minSdk = libs.versions.minSdk.get().toInt()
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) { variant ->
+        val hostTests = (variant as HasHostTestsBuilder).hostTests
+        hostTests[HostTestBuilder.UNIT_TEST_TYPE]?.enable = true
     }
 }
 

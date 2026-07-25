@@ -5,6 +5,10 @@ import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.ChinaCoordinateConverter
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.Coordinate
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.CoordinateValidator
+import io.github.togls.hypertweaks.feature.googlephotos.logging.GooglePhotosDiagnosticsPolicy
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTarget
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTargetResolver
+import io.github.togls.hypertweaks.feature.googlephotos.session.GooglePhotosMapSessionTracker
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -12,16 +16,20 @@ internal class GooglePhotosS2QueryHook(
     context: HookContext,
     private val logger: GooglePhotosLocationLogger,
     private val sessionTracker: GooglePhotosMapSessionTracker,
+    private val diagnosticsPolicy: GooglePhotosDiagnosticsPolicy,
 ) {
     private val engine = context.engine
     private val coordinatePolicy = S2QueryCoordinatePolicy()
     private val observedQueryCount = AtomicInteger()
 
-    fun install(classLoader: ClassLoader) {
-        val indexClass = classLoader.loadClass(S2IndexClassName)
-        val resultClass = classLoader.loadClass(S2ResultClassName)
-        installQueryHook(resolveQueryMethod(indexClass))
-        installResultCountHook(resolveResultCountMethod(indexClass, resultClass))
+    fun install(resolver: GooglePhotosTargetResolver) {
+        val indexClass = resolver.resolve(GooglePhotosTarget.S2_INDEX).targetClass
+        val resultClass = resolver.resolve(GooglePhotosTarget.S2_RESULT).targetClass
+        val queryMethod = resolveQueryMethod(indexClass)
+        val resultCountMethod = resolveResultCountMethod(indexClass, resultClass)
+        resolver.bindingSelected(GooglePhotosTarget.S2_INDEX, queryMethod.toGenericString())
+        installQueryHook(queryMethod)
+        installResultCountHook(resultCountMethod)
     }
 
     private fun installQueryHook(method: Method) {
@@ -109,12 +117,14 @@ internal class GooglePhotosS2QueryHook(
     }
 
     private fun shouldIncludeDiagnostics(callCount: Int): Boolean {
-        return callCount <= DetailedQueryLimit || callCount % QuerySummaryInterval == 0
+        return diagnosticsPolicy.shouldCaptureStack(
+            callCount,
+            DetailedQueryLimit,
+            QuerySummaryInterval,
+        )
     }
 
     private companion object {
-        private const val S2IndexClassName = "com.google.android.apps.photos.geo.S2Index"
-        private const val S2ResultClassName = "com.google.android.apps.photos.geo.S2Index\$ResultImpl"
         private const val QueryMethodName = "nativeIndexQuery"
         private const val ResultCountMethodName = "nativeResultGetCount"
         private const val ResultHandleArgumentIndex = 1

@@ -1,7 +1,12 @@
-package io.github.togls.hypertweaks.feature.googlephotos.xposed
+package io.github.togls.hypertweaks.feature.googlephotos.session
 
 import android.app.Activity
 import android.view.View
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosClassNames
+import io.github.togls.hypertweaks.feature.googlephotos.xposed.ActivityLogSnapshot
+import io.github.togls.hypertweaks.feature.googlephotos.xposed.GooglePhotosLocationLogger
+import io.github.togls.hypertweaks.feature.googlephotos.xposed.MapSessionLogSnapshot
+import io.github.togls.hypertweaks.feature.googlephotos.xposed.MapViewLogSnapshot
 
 internal enum class MapSessionRejectionReason {
     NOT_MAP_EXPLORE,

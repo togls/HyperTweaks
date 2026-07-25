@@ -22,6 +22,7 @@ data class LogSettingsUiState(
 data class SettingsServiceUiState(
     val connected: Boolean = false,
     val message: String = "",
+    val systemServerFeaturesEnabled: Boolean = true,
 )
 
 fun HyperTweaksConfig.toSettingsUiState(
@@ -32,6 +33,7 @@ fun HyperTweaksConfig.toSettingsUiState(
         service = SettingsServiceUiState(
             connected = serviceConnected,
             message = message,
+            systemServerFeaturesEnabled = features.systemServerFeaturesEnabled,
         ),
         ime = ImeSettingsUiState(
             enabled = features.imeEnabled,

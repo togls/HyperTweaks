@@ -11,6 +11,7 @@ import io.github.togls.hypertweaks.core.xposed.HookSettingsSnapshot
 import io.github.togls.hypertweaks.core.xposed.HookSettingsSubscription
 import io.github.togls.hypertweaks.core.xposed.snapshotOrDisabled
 import io.github.togls.hypertweaks.core.xposed.util.dpToPx
+import io.github.togls.hypertweaks.feature.ime.installer.ImeTargetInstallResult
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -28,29 +29,39 @@ class NavigationBarControllerHook(
     private val settingsSubscriptions = mutableListOf<HookSettingsSubscription>()
 
     @SuppressLint("PrivateApi")
-    fun install(classLoader: ClassLoader) {
+    internal fun install(classLoader: ClassLoader): List<ImeTargetInstallResult> {
+        logImeTargetResolveStarted(log, CaptionBarTarget)
+        logImeTargetResolveStarted(log, ImeSwitchTarget)
         val targetClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
         }.onFailure { error ->
             log.w("skip NavigationBarControllerHook: class not found", error)
-        }.getOrNull() ?: return
+        }.getOrNull() ?: return listOf(
+            skipImeTarget(
+                CaptionBarTarget,
+                "NavigationBarController.Impl class not found",
+                log,
+            ),
+            skipImeTarget(ImeSwitchTarget, "NavigationBarController.Impl class not found", log),
+        )
 
         observeSettings()
 
-        installCaptionBarHeightHook(targetClass)
-        installImeSwitchButtonClickHook(targetClass)
-
-        log.i("NavigationBarControllerHook installed")
+        return listOf(
+            installCaptionBarHeightHook(targetClass),
+            installImeSwitchButtonClickHook(targetClass),
+        )
     }
 
-    private fun installCaptionBarHeightHook(targetClass: Class<*>) {
+    private fun installCaptionBarHeightHook(targetClass: Class<*>): ImeTargetInstallResult {
         val imeDrawsImeNavBarField = runCatching {
             targetClass.getDeclaredField("mImeDrawsImeNavBar").apply {
                 isAccessible = true
             }
         }.onFailure { error ->
             log.w("skip caption bar hook: mImeDrawsImeNavBar not found", error)
-        }.getOrNull() ?: return
+        }.getOrNull()
+            ?: return skipImeTarget(CaptionBarTarget, "mImeDrawsImeNavBar not found", log)
 
         val serviceField = runCatching {
             targetClass.getDeclaredField("mService").apply {
@@ -58,43 +69,48 @@ class NavigationBarControllerHook(
             }
         }.onFailure { error ->
             log.w("skip caption bar hook: mService not found", error)
-        }.getOrNull() ?: return
+        }.getOrNull() ?: return skipImeTarget(CaptionBarTarget, "mService not found", log)
 
         val captionBarHeightMethod = findCaptionBarHeightMethod(targetClass)
             ?: run {
                 log.w("skip caption bar hook: getImeCaptionBarHeight method not found")
-                return
+                return skipImeTarget(CaptionBarTarget, "getImeCaptionBarHeight not found", log)
             }
 
-        engine.hook(captionBarHeightMethod) { chain ->
-                runCatching {
-                    val thisObject = chain.thisObject ?: return@runCatching null
-
-                    val args = chain.args
-                    val imeShouldShowImeNavBar = if (args.isNotEmpty() && args[0] is Boolean) {
-                        args[0] as Boolean
-                    } else {
-                        imeDrawsImeNavBarField.getBoolean(thisObject)
-                    }
-
-                    if (!imeShouldShowImeNavBar) {
-                        return@runCatching null
-                    }
-
-                    val service = serviceField.get(thisObject) as? InputMethodService
-                        ?: return@runCatching null
-
-                    dpToPx(48, service.resources)
-                }.onFailure { error ->
-                    log.e("hook getImeCaptionBarHeight failed", error)
-                }.getOrNull()
-                    ?: chain.proceed()
-            }
-
-        log.i($$"hooked NavigationBarController$Impl#getImeCaptionBarHeight")
+        return installImeTarget(CaptionBarTarget, log) {
+            hookCaptionBarHeight(
+                captionBarHeightMethod,
+                imeDrawsImeNavBarField,
+                serviceField,
+            )
+            log.i($$"hooked NavigationBarController$Impl#getImeCaptionBarHeight")
+        }
     }
 
-    private fun installImeSwitchButtonClickHook(targetClass: Class<*>) {
+    private fun hookCaptionBarHeight(
+        method: Method,
+        imeDrawsImeNavBarField: java.lang.reflect.Field,
+        serviceField: java.lang.reflect.Field,
+    ) {
+        engine.hook(method) { chain ->
+            val replacementHeight = preserveOriginalOnFailure(
+                log = log,
+                event = CaptionBarTarget,
+                originalValue = null,
+            ) {
+                val receiver = chain.thisObject ?: return@preserveOriginalOnFailure null
+                val drawsNavBar = (chain.args.firstOrNull() as? Boolean)
+                    ?: imeDrawsImeNavBarField.getBoolean(receiver)
+                if (!drawsNavBar) return@preserveOriginalOnFailure null
+                val service = serviceField.get(receiver) as? InputMethodService
+                    ?: return@preserveOriginalOnFailure null
+                dpToPx(48, service.resources)
+            }
+            replacementHeight ?: chain.proceed()
+        }
+    }
+
+    private fun installImeSwitchButtonClickHook(targetClass: Class<*>): ImeTargetInstallResult {
         val clickMethod = runCatching {
             targetClass.getDeclaredMethod(
                 "onImeSwitchButtonClick",
@@ -107,34 +123,40 @@ class NavigationBarControllerHook(
                 "skip IME picker short-click hook: onImeSwitchButtonClick(View) not found",
                 error,
             )
-        }.getOrNull() ?: return
+        }.getOrNull()
+            ?: return skipImeTarget(
+                ImeSwitchTarget,
+                "onImeSwitchButtonClick(View) not found",
+                log,
+            )
 
-        engine.hook(clickMethod) { chain ->
-                if (!imePickerShortClickEnabled.get()) {
-                    return@hook chain.proceed()
-                }
+        return installImeTarget(ImeSwitchTarget, log) {
+            hookImeSwitchButtonClick(clickMethod)
+            log.i($$"hooked NavigationBarController$Impl#onImeSwitchButtonClick(View)")
+        }
+    }
 
-                runCatching {
-                    val view = chain.getArg(0) as? View
-                        ?: return@runCatching false
-
-                    val inputMethodManager =
-                        view.context.getSystemService(InputMethodManager::class.java)
-                            ?: return@runCatching false
-
-                    inputMethodManager.showInputMethodPicker()
-
-                    log.i("show input method picker from IME switch short click")
-
-                    true
-                }.onFailure { error ->
-                    log.e("show input method picker failed", error)
-                }.getOrDefault(false)
-
-                null
+    private fun hookImeSwitchButtonClick(method: Method) {
+        engine.hook(method) { chain ->
+            if (!imePickerShortClickEnabled.get()) {
+                logImeCallbackBypassed(log, ImeSwitchTarget, "ime_picker_short_click_disabled")
+                return@hook chain.proceed()
             }
-
-        log.i($$"hooked NavigationBarController$Impl#onImeSwitchButtonClick(View)")
+            val handled = preserveOriginalOnFailure(
+                log = log,
+                event = ImeSwitchTarget,
+                originalValue = false,
+            ) {
+                val view = chain.getArg(0) as? View
+                    ?: return@preserveOriginalOnFailure false
+                val manager = view.context.getSystemService(InputMethodManager::class.java)
+                    ?: return@preserveOriginalOnFailure false
+                manager.showInputMethodPicker()
+                log.i("show input method picker from IME switch short click")
+                true
+            }
+            if (handled) null else chain.proceed()
+        }
     }
 
     private fun findCaptionBarHeightMethod(targetClass: Class<*>): Method? {
@@ -185,6 +207,9 @@ class NavigationBarControllerHook(
 
     private companion object {
         private const val ImePickerValue = "ime_picker"
+        private const val CaptionBarTarget = "navigation_bar_controller.get_ime_caption_bar_height"
+        private const val ImeSwitchTarget =
+            "navigation_bar_controller.on_ime_switch_button_click"
         private const val TARGET_CLASS_NAME =
             $$"android.inputmethodservice.NavigationBarController$Impl"
     }

@@ -94,6 +94,11 @@ class RemoteHookSettingsProvider private constructor(
 
     private fun SharedPreferences.readSnapshot(): HookSettingsSnapshot {
         return HookSettingsSnapshot(
+            version = getLong(RemotePreferenceKeys.HookConfigVersion, 0L),
+            systemServerFeaturesEnabled = getBoolean(
+                RemotePreferenceKeys.SystemServerFeaturesEnabled,
+                true,
+            ),
             enabledPreferenceKeys = readEnabledPreferenceKeys(),
             navBarLayoutStart = getString(
                 RemotePreferenceKeys.NavBarLayoutStart,

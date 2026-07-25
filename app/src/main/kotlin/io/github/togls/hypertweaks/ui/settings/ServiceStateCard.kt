@@ -10,11 +10,14 @@ import io.github.togls.hypertweaks.ui.components.AppButton
 import io.github.togls.hypertweaks.ui.components.AppInfoPreference
 import io.github.togls.hypertweaks.ui.components.AppPreferenceGroup
 import io.github.togls.hypertweaks.ui.components.AppSpacing
+import io.github.togls.hypertweaks.ui.components.AppSwitchPreference
 
 @Composable
 fun ServiceStateCard(
     serviceConnected: Boolean,
     message: String,
+    systemServerFeaturesEnabled: Boolean,
+    onSystemServerFeaturesEnabledChange: (Boolean) -> Unit,
     onReloadClick: () -> Unit,
     modifier: Modifier = Modifier,
     showDebugInfo: Boolean = false,
@@ -32,6 +35,13 @@ fun ServiceStateCard(
         AppInfoPreference(
             title = statusTitle,
             summary = statusSummary.takeIf { showDebugInfo },
+        )
+        AppSwitchPreference(
+            title = stringResource(R.string.system_server_features_title),
+            summary = stringResource(R.string.system_server_features_summary),
+            checked = systemServerFeaturesEnabled,
+            enabled = serviceConnected,
+            onCheckedChange = onSystemServerFeaturesEnabledChange,
         )
         if (showDebugInfo) {
             AppButton(

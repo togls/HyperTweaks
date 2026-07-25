@@ -8,6 +8,7 @@ import io.github.togls.hypertweaks.core.xposed.HookFeatureProvider
 import io.github.togls.hypertweaks.core.xposed.HookInstallResult
 import io.github.togls.hypertweaks.core.xposed.HookTarget
 import io.github.togls.hypertweaks.feature.googlephotos.data.GooglePhotosPackageMatcher
+import io.github.togls.hypertweaks.feature.googlephotos.logging.GooglePhotosDiagnosticsPolicy
 import io.github.togls.hypertweaks.feature.googlephotos.xposed.GooglePhotosLocationHook
 
 class GooglePhotosHookFeatureProvider : HookFeatureProvider {
@@ -27,7 +28,10 @@ private object GooglePhotosLocationFeature : HookFeature {
     }
 
     override fun install(context: HookFeatureContext): HookInstallResult {
-        GooglePhotosLocationHook(context.child("GooglePhotosLocationHook"))
+        GooglePhotosLocationHook(
+            context.child("GooglePhotosLocationHook"),
+            GooglePhotosDiagnosticsPolicy.forCurrentBuild(),
+        )
             .install(context.environment.classLoader)
         return HookInstallResult.Installed(
             installedTargets = setOf("google_photos_location"),

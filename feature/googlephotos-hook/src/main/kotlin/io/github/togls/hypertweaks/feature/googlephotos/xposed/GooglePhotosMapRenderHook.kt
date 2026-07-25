@@ -4,7 +4,11 @@ import io.github.togls.hypertweaks.core.xposed.HookChain
 import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.ChinaCoordinateConverter
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.Coordinate
-import io.github.togls.hypertweaks.feature.googlephotos.coordinate.CoordinateValidator
+import io.github.togls.hypertweaks.feature.googlephotos.policy.CoordinateTransformOutcome
+import io.github.togls.hypertweaks.feature.googlephotos.policy.CoordinateTransformPolicy
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTarget
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTargetResolver
+import io.github.togls.hypertweaks.feature.googlephotos.session.GooglePhotosMapSessionTracker
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
@@ -21,16 +25,20 @@ internal class GooglePhotosMapRenderHook(
     private lateinit var coordinateAccessors: CoordinateAccessors
     private lateinit var renderBinding: MapRenderBinding
 
-    fun install(classLoader: ClassLoader) {
-        val coordinateClass = classLoader.loadClass(LatLngClassName)
+    fun install(resolver: GooglePhotosTargetResolver) {
+        val coordinateClass = resolver.resolve(GooglePhotosTarget.LAT_LNG).targetClass
         coordinateAccessors = CoordinateAccessorResolver.resolve(coordinateClass)
             ?: error("LatLng accessors are ambiguous")
-        val activityClass = classLoader.loadClass(GooglePhotosClassNames.MapExploreActivity)
+        val activityClass = resolver.resolve(GooglePhotosTarget.MAP_EXPLORE_ACTIVITY).targetClass
         logger.markerMatcherStart(activityClass.name)
         val report = GooglePhotosMapRenderMethodMatcher(coordinateClass).inspect(activityClass)
         logger.markerMatcherCompleted(report)
         renderBinding = report.binding
             ?: error("Marker render method is ambiguous or unavailable")
+        resolver.bindingSelected(
+            GooglePhotosTarget.MAP_EXPLORE_ACTIVITY,
+            renderBinding.method.toGenericString(),
+        )
         installRenderInterceptor()
     }
 
@@ -97,9 +105,6 @@ internal class GooglePhotosMapRenderHook(
         }
     }
 
-    private companion object {
-        private const val LatLngClassName = "com.google.android.gms.maps.model.LatLng"
-    }
 }
 
 internal enum class MarkerConversionOutcome(val logEvent: String) {
@@ -134,25 +139,15 @@ internal class MarkerCoordinateTransformer(
     private val conversionGuard: MarkerCoordinateConversionGuard =
         MarkerCoordinateConversionGuard(),
 ) {
+    private val coordinatePolicy = CoordinateTransformPolicy(converter)
+
     fun transform(
         target: Any,
         original: Coordinate,
         applyConversion: (Coordinate) -> Unit,
     ): MarkerConversionResult {
-        if (
-            !CoordinateValidator.isValid(
-                original.latitude,
-                original.longitude,
-            )
-        ) {
-            return unchanged(
-                "INVALID_COORDINATE",
-                original,
-            )
-        }
-
         /*
-         * 必须在 China 范围判断和 converter 调用之前检查。
+         * 必须在区域判断和 converter 调用之前检查。
          *
          * 已转换后的 GCJ02 坐标仍然位于中国范围内，
          * 如果先执行 converter，就会产生二次偏移。
@@ -169,38 +164,20 @@ internal class MarkerCoordinateTransformer(
             )
         }
 
-        if (
-            !CoordinateValidator.isInMainlandChina(
-                original.latitude,
-                original.longitude,
-            )
-        ) {
-            return unchanged(
-                "OUTSIDE_CHINA",
-                original,
-            )
-        }
-
-        val converted = try {
-            converter(
-                original.latitude,
-                original.longitude,
-            )
-        } catch (error: Exception) {
-            return MarkerConversionResult
-                .failed(
-                    "CONVERSION_FAILED",
-                    error,
+        val policyResult = coordinatePolicy.transform(original)
+        if (policyResult.outcome != CoordinateTransformOutcome.CONVERTED) {
+            return when (policyResult.outcome) {
+                CoordinateTransformOutcome.FAILED -> MarkerConversionResult(
+                    outcome = MarkerConversionOutcome.FAILED,
+                    reason = policyResult.reason,
+                    original = original,
+                    failure = policyResult.failure,
                 )
-                .copy(original = original)
+                CoordinateTransformOutcome.UNCHANGED -> unchanged(policyResult.reason, original)
+                CoordinateTransformOutcome.CONVERTED -> error("unreachable coordinate outcome")
+            }
         }
-
-        if (converted == original) {
-            return unchanged(
-                "NO_OFFSET",
-                original,
-            )
-        }
+        val converted = checkNotNull(policyResult.converted)
 
         return applyConversion(
             target = target,

@@ -25,20 +25,26 @@ import io.github.togls.hypertweaks.feature.keepalive.ui.KeepAliveTweaksCard
 import io.github.togls.hypertweaks.ui.components.AppScaffold
 import io.github.togls.hypertweaks.ui.components.AppSpacing
 
+internal data class SettingsCallbacks(
+    val onLogModeChange: (LogMode) -> Unit,
+    val onViewLogsClick: () -> Unit,
+    val onViewDiagnosticsClick: () -> Unit,
+    val onSystemServerFeaturesEnabledChange: (Boolean) -> Unit,
+    val onImeEnabledChange: (Boolean) -> Unit,
+    val onGooglePhotosLocationEnabledChange: (Boolean) -> Unit,
+    val onKeepAliveEnabledChange: (Boolean) -> Unit,
+    val onStartButtonChange: (NavBarButton) -> Unit,
+    val onEndButtonChange: (NavBarButton) -> Unit,
+    val onKeepAliveModeChange: (KeepAliveMode) -> Unit,
+    val onKeepAlivePackagesTextChange: (String) -> Unit,
+    val onSaveKeepAlivePackagesClick: () -> Unit,
+    val onReloadClick: () -> Unit,
+)
+
 @Composable
-fun SettingsScreen(
+internal fun SettingsScreen(
     uiState: SettingsUiState,
-    onLogModeChange: (LogMode) -> Unit,
-    onViewLogsClick: () -> Unit,
-    onImeEnabledChange: (Boolean) -> Unit,
-    onGooglePhotosLocationEnabledChange: (Boolean) -> Unit,
-    onKeepAliveEnabledChange: (Boolean) -> Unit,
-    onStartButtonChange: (NavBarButton) -> Unit,
-    onEndButtonChange: (NavBarButton) -> Unit,
-    onKeepAliveModeChange: (KeepAliveMode) -> Unit,
-    onKeepAlivePackagesTextChange: (String) -> Unit,
-    onSaveKeepAlivePackagesClick: () -> Unit,
-    onReloadClick: () -> Unit,
+    callbacks: SettingsCallbacks,
     modifier: Modifier = Modifier,
     showDebugInfo: Boolean = BuildConfig.DEBUG,
 ) {
@@ -49,17 +55,7 @@ fun SettingsScreen(
     ) {
         SettingsContent(
             uiState = uiState,
-            onLogModeChange = onLogModeChange,
-            onViewLogsClick = onViewLogsClick,
-            onImeEnabledChange = onImeEnabledChange,
-            onGooglePhotosLocationEnabledChange = onGooglePhotosLocationEnabledChange,
-            onKeepAliveEnabledChange = onKeepAliveEnabledChange,
-            onStartButtonChange = onStartButtonChange,
-            onEndButtonChange = onEndButtonChange,
-            onKeepAliveModeChange = onKeepAliveModeChange,
-            onKeepAlivePackagesTextChange = onKeepAlivePackagesTextChange,
-            onSaveKeepAlivePackagesClick = onSaveKeepAlivePackagesClick,
-            onReloadClick = onReloadClick,
+            callbacks = callbacks,
             contentPadding = it,
             showDebugInfo = showDebugInfo,
         )
@@ -69,17 +65,7 @@ fun SettingsScreen(
 @Composable
 private fun SettingsContent(
     uiState: SettingsUiState,
-    onLogModeChange: (LogMode) -> Unit,
-    onViewLogsClick: () -> Unit,
-    onImeEnabledChange: (Boolean) -> Unit,
-    onGooglePhotosLocationEnabledChange: (Boolean) -> Unit,
-    onKeepAliveEnabledChange: (Boolean) -> Unit,
-    onStartButtonChange: (NavBarButton) -> Unit,
-    onEndButtonChange: (NavBarButton) -> Unit,
-    onKeepAliveModeChange: (KeepAliveMode) -> Unit,
-    onKeepAlivePackagesTextChange: (String) -> Unit,
-    onSaveKeepAlivePackagesClick: () -> Unit,
-    onReloadClick: () -> Unit,
+    callbacks: SettingsCallbacks,
     contentPadding: PaddingValues,
     showDebugInfo: Boolean = false,
 ) {
@@ -104,17 +90,7 @@ private fun SettingsContent(
         ) {
             SettingsSections(
                 uiState = uiState,
-                onLogModeChange = onLogModeChange,
-                onViewLogsClick = onViewLogsClick,
-                onImeEnabledChange = onImeEnabledChange,
-                onGooglePhotosLocationEnabledChange = onGooglePhotosLocationEnabledChange,
-                onKeepAliveEnabledChange = onKeepAliveEnabledChange,
-                onStartButtonChange = onStartButtonChange,
-                onEndButtonChange = onEndButtonChange,
-                onKeepAliveModeChange = onKeepAliveModeChange,
-                onKeepAlivePackagesTextChange = onKeepAlivePackagesTextChange,
-                onSaveKeepAlivePackagesClick = onSaveKeepAlivePackagesClick,
-                onReloadClick = onReloadClick,
+                callbacks = callbacks,
                 showDebugInfo = showDebugInfo,
             )
         }
@@ -124,49 +100,42 @@ private fun SettingsContent(
 @Composable
 private fun SettingsSections(
     uiState: SettingsUiState,
-    onLogModeChange: (LogMode) -> Unit,
-    onViewLogsClick: () -> Unit,
-    onImeEnabledChange: (Boolean) -> Unit,
-    onGooglePhotosLocationEnabledChange: (Boolean) -> Unit,
-    onKeepAliveEnabledChange: (Boolean) -> Unit,
-    onStartButtonChange: (NavBarButton) -> Unit,
-    onEndButtonChange: (NavBarButton) -> Unit,
-    onKeepAliveModeChange: (KeepAliveMode) -> Unit,
-    onKeepAlivePackagesTextChange: (String) -> Unit,
-    onSaveKeepAlivePackagesClick: () -> Unit,
-    onReloadClick: () -> Unit,
+    callbacks: SettingsCallbacks,
     showDebugInfo: Boolean,
 ) {
     ServiceStateCard(
         serviceConnected = uiState.service.connected,
         message = uiState.service.message,
-        onReloadClick = onReloadClick,
+        systemServerFeaturesEnabled = uiState.service.systemServerFeaturesEnabled,
+        onSystemServerFeaturesEnabledChange = callbacks.onSystemServerFeaturesEnabledChange,
+        onReloadClick = callbacks.onReloadClick,
         showDebugInfo = showDebugInfo,
     )
     LogSettingsCard(
         mode = uiState.logging.mode,
         serviceConnected = uiState.service.connected,
-        onModeChange = onLogModeChange,
-        onViewLogsClick = onViewLogsClick,
+        onModeChange = callbacks.onLogModeChange,
+        onViewLogsClick = callbacks.onViewLogsClick,
+        onViewDiagnosticsClick = callbacks.onViewDiagnosticsClick,
     )
     ImeTweaksCard(
         serviceConnected = uiState.service.connected,
         uiState = uiState.ime,
         showDebugInfo = showDebugInfo,
-        onImeEnabledChange = onImeEnabledChange,
-        onStartButtonChange = onStartButtonChange,
-        onEndButtonChange = onEndButtonChange,
+        onImeEnabledChange = callbacks.onImeEnabledChange,
+        onStartButtonChange = callbacks.onStartButtonChange,
+        onEndButtonChange = callbacks.onEndButtonChange,
     )
     GooglePhotosTweaksCard(
         uiState = uiState.googlePhotos,
-        onLocationEnabledChange = onGooglePhotosLocationEnabledChange,
+        onLocationEnabledChange = callbacks.onGooglePhotosLocationEnabledChange,
     )
     KeepAliveTweaksCard(
         serviceConnected = uiState.service.connected,
         uiState = uiState.keepAlive,
-        onKeepAliveEnabledChange = onKeepAliveEnabledChange,
-        onKeepAliveModeChange = onKeepAliveModeChange,
-        onPackagesTextChange = onKeepAlivePackagesTextChange,
-        onSaveClick = onSaveKeepAlivePackagesClick,
+        onKeepAliveEnabledChange = callbacks.onKeepAliveEnabledChange,
+        onKeepAliveModeChange = callbacks.onKeepAliveModeChange,
+        onPackagesTextChange = callbacks.onKeepAlivePackagesTextChange,
+        onSaveClick = callbacks.onSaveKeepAlivePackagesClick,
     )
 }

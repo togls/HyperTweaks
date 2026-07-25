@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.Flow
 interface LogRepository {
     fun pagedLogs(query: LogQuery): Flow<PagingData<LogEvent>>
 
+    suspend fun recentHookEvents(events: Set<String>, limit: Int): List<LogEvent>
+
     suspend fun insertEvents(events: List<LogEvent>)
 
     suspend fun insertSession(session: LogSessionEntity)

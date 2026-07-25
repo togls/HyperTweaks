@@ -1,5 +1,6 @@
-package io.github.togls.hypertweaks.feature.googlephotos.xposed
+package io.github.togls.hypertweaks.feature.googlephotos.session
 
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosClassNames
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -318,6 +319,66 @@ class GooglePhotosMapSessionStateMachineTest {
 
         assertNull(paused.currentResumedActivity)
         assertNull(stateMachine.currentResumedActivity())
+    }
+
+    @Test
+    fun mapSessionActivationDoesNotDependOnPreviousEntryActivity() {
+        listOf(
+            GooglePhotosClassNames.HomeActivity,
+            GooglePhotosClassNames.CollectionsActivity,
+        ).forEach { sourceActivityClass ->
+            val stateMachine = stateMachine()
+            val sourceActivity = ActivityKey()
+            val mapActivity = ActivityKey()
+            stateMachine.onActivityCreated(sourceActivity, sourceActivityClass)
+            stateMachine.onActivityResumed(sourceActivity, sourceActivityClass)
+
+            val transition = stateMachine.onActivityCreated(
+                mapActivity,
+                GooglePhotosClassNames.MapExploreActivity,
+            )
+
+            assertSame(mapActivity, transition.activeSession?.hostActivity)
+            assertNotNull(transition.activatedSession)
+        }
+    }
+
+    @Test
+    fun configurationRecreationCreatesFreshSession() {
+        val stateMachine = stateMachine()
+        val firstActivity = activateMapExplore(stateMachine)
+        val firstSessionId = stateMachine.currentSession()!!.sessionId
+        stateMachine.onActivityResumed(firstActivity, GooglePhotosClassNames.MapExploreActivity)
+        stateMachine.onActivityPaused(firstActivity)
+        stateMachine.onActivityDestroyed(firstActivity)
+        val recreatedActivity = activateMapExplore(stateMachine)
+
+        assertSame(recreatedActivity, stateMachine.currentSession()?.hostActivity)
+        assertEquals(firstSessionId + 1L, stateMachine.currentSession()?.sessionId)
+    }
+
+    @Test
+    fun destroyingOldActivityAfterRapidSwitchKeepsNewestSession() {
+        val stateMachine = stateMachine()
+        val firstActivity = activateMapExplore(stateMachine)
+        val secondActivity = activateMapExplore(stateMachine)
+
+        val staleDestroy = stateMachine.onActivityDestroyed(firstActivity)
+
+        assertNull(staleDestroy.deactivatedSession)
+        assertSame(secondActivity, stateMachine.currentSession()?.hostActivity)
+    }
+
+    @Test
+    fun callbacksAfterSessionEndCannotReviveSession() {
+        val stateMachine = stateMachine()
+        val activity = activateMapExplore(stateMachine)
+
+        stateMachine.onActivityPaused(activity)
+        val destroyed = stateMachine.onActivityDestroyed(activity)
+
+        assertNull(destroyed.activeSession)
+        assertNull(stateMachine.currentSession())
     }
 
     private fun activateMapExplore(

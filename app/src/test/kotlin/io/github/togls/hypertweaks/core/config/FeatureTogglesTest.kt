@@ -3,6 +3,7 @@ package io.github.togls.hypertweaks.core.config
 import io.github.togls.hypertweaks.feature.googlephotos.GooglePhotosHookFeatureProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FeatureTogglesTest {
@@ -10,6 +11,11 @@ class FeatureTogglesTest {
     @Test
     fun `Google Photos location toggle should be disabled by default`() {
         assertFalse(FeatureToggles().googlePhotosLocationEnabled)
+    }
+
+    @Test
+    fun `system server features should preserve current behavior by default`() {
+        assertTrue(FeatureToggles().systemServerFeaturesEnabled)
     }
 
     @Test

@@ -135,6 +135,7 @@ fun registerXposedMetadataVerificationTask(variantName: String): TaskProvider<Ta
     val variantDisplayName = variantName.replaceFirstChar(Char::uppercase)
     val expectedApiVersion = libs.versions.libxposedApi.get().substringBefore('.')
     val expectedJavaEntry = "io.github.togls.hypertweaks.xposed.HyperTweaksModule"
+    val expectedEntryDescriptor = "L${expectedJavaEntry.replace('.', '/')};"
     val apkDirectory = layout.buildDirectory.dir("outputs/apk/$variantName")
     return tasks.register("verify${variantDisplayName}XposedMetadata") {
         group = "verification"
@@ -159,7 +160,25 @@ fun registerXposedMetadataVerificationTask(variantName: String): TaskProvider<Ta
                         .bufferedReader()
                         .useLines { lines -> lines.filter(String::isNotBlank).toList() }
                     check(javaEntries == listOf(expectedJavaEntry))
-                    checkNotNull(apk.getEntry("META-INF/xposed/scope.list"))
+                    val dexEntries = apk.entries()
+                    var entryDescriptorFound = false
+                    while (dexEntries.hasMoreElements() && !entryDescriptorFound) {
+                        val dexEntry = dexEntries.nextElement()
+                        if (!dexEntry.name.matches(Regex("classes\\d*\\.dex"))) continue
+                        entryDescriptorFound = apk.getInputStream(dexEntry).use { input ->
+                            expectedEntryDescriptor in input.readBytes().toString(Charsets.ISO_8859_1)
+                        }
+                    }
+                    check(entryDescriptorFound) {
+                        "Xposed entry class is missing from packaged DEX: $expectedJavaEntry"
+                    }
+                    val scopeEntry = checkNotNull(apk.getEntry("META-INF/xposed/scope.list"))
+                    val scopes = apk.getInputStream(scopeEntry)
+                        .bufferedReader()
+                        .useLines { lines -> lines.map(String::trim).filter(String::isNotBlank).toSet() }
+                    check("keepass2android.keepass2android" !in scopes) {
+                        "Unsupported KeePass scope must not be packaged"
+                    }
                 }
             }
         }

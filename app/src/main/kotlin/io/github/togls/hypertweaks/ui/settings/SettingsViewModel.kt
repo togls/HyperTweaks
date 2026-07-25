@@ -32,6 +32,9 @@ class SettingsViewModel(
         action: SettingsAction,
     ) {
         when (action) {
+            is SettingsAction.SetSystemServerFeaturesEnabled -> {
+                updateSystemServerFeaturesEnabled(action.enabled)
+            }
             is SettingsAction.SetLogMode -> updateLogMode(action.mode)
             is SettingsAction.SetImeEnabled -> updateImeEnabled(action.enabled)
             is SettingsAction.SetGooglePhotosLocationEnabled -> {
@@ -174,6 +177,12 @@ class SettingsViewModel(
         )
     }
 
+    private fun updateSystemServerFeaturesEnabled(enabled: Boolean) {
+        saveFeatureToggles(
+            toggles = currentFeatureToggles().copy(systemServerFeaturesEnabled = enabled),
+        )
+    }
+
     private fun updateLogMode(mode: LogMode) {
         val previousMode = uiState.logging.mode
         configRepository.saveLogMode(mode)
@@ -224,6 +233,7 @@ class SettingsViewModel(
                     service = uiState.service.copy(
                         connected = true,
                         message = string(R.string.status_feature_toggle_saved),
+                        systemServerFeaturesEnabled = savedToggles.systemServerFeaturesEnabled,
                     ),
                     ime = uiState.ime.copy(
                         enabled = savedToggles.imeEnabled,
@@ -248,6 +258,7 @@ class SettingsViewModel(
 
     private fun currentFeatureToggles(): FeatureToggles {
         return FeatureToggles(
+            systemServerFeaturesEnabled = uiState.service.systemServerFeaturesEnabled,
             imeEnabled = uiState.ime.enabled,
             googlePhotosLocationEnabled = uiState.googlePhotos.enabled,
             keepAliveEnabled = uiState.keepAlive.enabled,

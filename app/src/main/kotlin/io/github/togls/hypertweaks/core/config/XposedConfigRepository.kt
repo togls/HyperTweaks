@@ -1,7 +1,6 @@
 package io.github.togls.hypertweaks.core.config
 
 import android.content.SharedPreferences
-import androidx.core.content.edit
 import io.github.libxposed.service.XposedService
 import io.github.togls.hypertweaks.feature.ime.data.NavBarButton
 import io.github.togls.hypertweaks.feature.ime.data.NavBarLayoutConfig
@@ -47,18 +46,17 @@ class XposedConfigRepository(
     override fun saveLogMode(mode: LogMode): Result<LogMode> {
         return withRemotePreferences { prefs ->
             val nextVersion = prefs.getLong(RemotePreferenceKeys.LogConfigVersion, 0L) + 1L
-            val saved = prefs.edit()
-                .putString(RemotePreferenceKeys.LogMode, mode.persistedValue)
-                .putLong(RemotePreferenceKeys.LogConfigVersion, nextVersion)
-                .commit()
-            check(saved) { "Failed to persist remote log mode" }
+            prefs.persistHookConfig {
+                putString(RemotePreferenceKeys.LogMode, mode.persistedValue)
+                    .putLong(RemotePreferenceKeys.LogConfigVersion, nextVersion)
+            }
             mode
         }
     }
 
     override fun saveImeConfig(config: ImeConfig): Result<ImeConfig> {
         return withRemotePreferences { prefs ->
-            prefs.edit {
+            prefs.persistHookConfig {
                 putString(RemotePreferenceKeys.NavBarLayoutStart, config.navBarLayout.start.value)
                     .putString(RemotePreferenceKeys.NavBarLayoutEnd, config.navBarLayout.end.value)
                     .putString(
@@ -73,7 +71,7 @@ class XposedConfigRepository(
 
     override fun saveNavBarLayout(config: NavBarLayoutConfig): Result<NavBarLayoutConfig> {
         return withRemotePreferences { prefs ->
-            prefs.edit {
+            prefs.persistHookConfig {
                 putString(RemotePreferenceKeys.NavBarLayoutStart, config.start.value)
                     .putString(RemotePreferenceKeys.NavBarLayoutEnd, config.end.value)
                     .putString(RemotePreferenceKeys.NavBarLayoutHandle, config.toHandleLayout())
@@ -85,8 +83,12 @@ class XposedConfigRepository(
 
     override fun saveFeatureToggles(toggles: FeatureToggles): Result<FeatureToggles> {
         return withRemotePreferences { prefs ->
-            prefs.edit {
-                putBoolean(RemotePreferenceKeys.ImeEnabled, toggles.imeEnabled)
+            prefs.persistHookConfig {
+                putBoolean(
+                    RemotePreferenceKeys.SystemServerFeaturesEnabled,
+                    toggles.systemServerFeaturesEnabled,
+                )
+                    .putBoolean(RemotePreferenceKeys.ImeEnabled, toggles.imeEnabled)
                     .putBoolean(
                         RemotePreferenceKeys.GooglePhotosLocationEnabled,
                         toggles.googlePhotosLocationEnabled,
@@ -102,7 +104,7 @@ class XposedConfigRepository(
         return withRemotePreferences { prefs ->
             val normalized = config.packages.toSortedSet()
 
-            prefs.edit {
+            prefs.persistHookConfig {
                 putString(RemotePreferenceKeys.KeepAliveMode, config.mode.value)
                     .putString(
                         RemotePreferenceKeys.KeepAlivePackages,
@@ -118,7 +120,7 @@ class XposedConfigRepository(
         return withRemotePreferences { prefs ->
             val normalized = packages.toSortedSet()
 
-            prefs.edit {
+            prefs.persistHookConfig {
                 putString(
                     RemotePreferenceKeys.KeepAlivePackages,
                     KeepAlivePackages.format(normalized),
@@ -131,7 +133,7 @@ class XposedConfigRepository(
 
     override fun saveKeepAliveMode(mode: KeepAliveMode): Result<KeepAliveMode> {
         return withRemotePreferences { prefs ->
-            prefs.edit {
+            prefs.persistHookConfig {
                 putString(RemotePreferenceKeys.KeepAliveMode, mode.value)
             }
 
@@ -162,6 +164,10 @@ class XposedConfigRepository(
         prefs: SharedPreferences,
     ): FeatureToggles {
         return FeatureToggles(
+            systemServerFeaturesEnabled = prefs.getBoolean(
+                RemotePreferenceKeys.SystemServerFeaturesEnabled,
+                true,
+            ),
             imeEnabled = prefs.getBoolean(RemotePreferenceKeys.ImeEnabled, false),
             googlePhotosLocationEnabled = prefs.getBoolean(
                 RemotePreferenceKeys.GooglePhotosLocationEnabled,
@@ -227,7 +233,7 @@ class XposedConfigRepository(
             return
         }
 
-        prefs.edit {
+        prefs.persistHookConfig {
             putString(RemotePreferenceKeys.NavBarLayoutStart, config.start.value)
                 .putString(RemotePreferenceKeys.NavBarLayoutEnd, config.end.value)
                 .putString(RemotePreferenceKeys.NavBarLayoutHandle, config.toHandleLayout())
@@ -240,5 +246,16 @@ class XposedConfigRepository(
         if (!supported) {
             error("The current Xposed framework does not support remote preferences")
         }
+    }
+
+    @Suppress("UseKtx") // The raw editor exposes commit() success for explicit persistence failure handling.
+    private fun SharedPreferences.persistHookConfig(
+        update: SharedPreferences.Editor.() -> Unit,
+    ) {
+        val nextVersion = getLong(RemotePreferenceKeys.HookConfigVersion, 0L) + 1L
+        val editor = edit()
+        editor.update()
+        editor.putLong(RemotePreferenceKeys.HookConfigVersion, nextVersion)
+        check(editor.commit()) { "Failed to persist remote Hook configuration" }
     }
 }

@@ -63,6 +63,29 @@ class HookDispatcherTest {
         assertTrue(dispatcher.dispatch(environment()).isEmpty())
     }
 
+    @Test
+    fun systemServerSafeModeDisablesMatchingFeatures() {
+        val feature = TestFeature("blocked") { error("must not run") }
+        val dispatcher = HookDispatcher(
+            catalog = HookFeatureCatalog(listOf(TestProvider(listOf(feature)))),
+            engine = TestEngine,
+            settingsProvider = TestSettingsProvider(
+                HookSettingsState.Ready(
+                    HookSettingsSnapshot(
+                        systemServerFeaturesEnabled = false,
+                        enabledPreferenceKeys = setOf(PreferenceKey),
+                    ),
+                ),
+            ),
+            installGuard = ProcessHookInstallGuard(),
+            logger = NoOpLogger,
+        )
+
+        val result = dispatcher.dispatch(environment()).single()
+
+        assertTrue(result is HookFeatureDispatchResult.Disabled)
+    }
+
     private fun dispatcher(features: List<HookFeature>): HookDispatcher {
         return HookDispatcher(
             catalog = HookFeatureCatalog(listOf(TestProvider(features))),

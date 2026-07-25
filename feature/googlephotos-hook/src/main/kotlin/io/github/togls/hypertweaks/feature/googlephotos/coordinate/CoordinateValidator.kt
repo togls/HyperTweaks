@@ -18,7 +18,9 @@ object CoordinateValidator {
     ): Boolean {
         return latitude in MainlandMinimumLatitude..MainlandMaximumLatitude &&
             longitude in MainlandMinimumLongitude..MainlandMaximumLongitude &&
-            !isInHongKong(latitude, longitude)
+            !isInHongKong(latitude, longitude) &&
+            !isInMacau(latitude, longitude) &&
+            !isInTaiwan(latitude, longitude)
     }
 
     private fun isInHongKong(
@@ -39,6 +41,14 @@ object CoordinateValidator {
             return latitude <= boundaryLatitude + HongKongBoundaryPadding
         }
         return false
+    }
+
+    private fun isInMacau(latitude: Double, longitude: Double): Boolean {
+        return MacauRegions.any { region -> region.contains(latitude, longitude) }
+    }
+
+    private fun isInTaiwan(latitude: Double, longitude: Double): Boolean {
+        return TaiwanRegions.any { region -> region.contains(latitude, longitude) }
     }
 
     private const val MinimumLatitude = -90.0
@@ -83,9 +93,34 @@ object CoordinateValidator {
         BoundaryPoint(114.48, 22.414079),
         BoundaryPoint(114.50, 22.370511),
     )
+
+    /*
+     * 港澳台不使用大陆 GCJ-02 展示策略。这里用收紧后的区域框，避免把珠海和福建沿海
+     * 大片误排除；多个框分别覆盖澳门半岛、氹仔路环、台湾本岛和澎湖。
+     */
+    private val MacauRegions = listOf(
+        CoordinateRegion(22.17, 22.23, 113.52, 113.57),
+        CoordinateRegion(22.10, 22.18, 113.52, 113.61),
+    )
+    private val TaiwanRegions = listOf(
+        CoordinateRegion(21.80, 25.50, 119.90, 122.10),
+        CoordinateRegion(23.10, 23.80, 119.20, 119.80),
+    )
 }
 
 private data class BoundaryPoint(
     val longitude: Double,
     val latitude: Double,
 )
+
+private data class CoordinateRegion(
+    val minimumLatitude: Double,
+    val maximumLatitude: Double,
+    val minimumLongitude: Double,
+    val maximumLongitude: Double,
+) {
+    fun contains(latitude: Double, longitude: Double): Boolean {
+        return latitude in minimumLatitude..maximumLatitude &&
+            longitude in minimumLongitude..maximumLongitude
+    }
+}

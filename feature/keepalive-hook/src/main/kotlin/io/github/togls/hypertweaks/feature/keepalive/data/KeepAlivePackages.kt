@@ -1,8 +1,11 @@
 package io.github.togls.hypertweaks.feature.keepalive.data
 
+import io.github.togls.hypertweaks.feature.keepalive.policy.CriticalPackageGuard
+import java.util.Locale
+
 object KeepAlivePackages {
     private val packageNameRegex = Regex(
-        pattern = "^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)+$",
+        pattern = "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$",
     )
 
     fun parse(raw: String): Set<String> {
@@ -10,12 +13,18 @@ object KeepAlivePackages {
     }
 
     fun parseWithInvalid(raw: String): ParseResult {
-        val values =
-            raw.split('\n', ',', ';', ' ', '\t').map { it.trim() }.filter { it.isNotBlank() }
-
-        val validPackages = values.filter { packageNameRegex.matches(it) }.toSortedSet()
-
-        val invalidValues = values.filterNot { packageNameRegex.matches(it) }.distinct()
+        val values = splitValues(raw)
+        val normalizedValues = values.map { value -> value to normalizeCandidate(value) }
+        val validPackages = normalizedValues
+            .mapNotNull { (_, normalized) -> normalized }
+            .filterNot(CriticalPackageGuard::isCritical)
+            .toSortedSet()
+        val invalidValues = normalizedValues
+            .filter { (_, normalized) ->
+                normalized == null || CriticalPackageGuard.isCritical(normalized)
+            }
+            .map { (original, _) -> original }
+            .distinct()
 
         return ParseResult(
             packages = validPackages,
@@ -24,7 +33,27 @@ object KeepAlivePackages {
     }
 
     fun format(packages: Set<String>): String {
-        return packages.toSortedSet().joinToString(separator = "\n")
+        return packages
+            .mapNotNull(::normalizeCandidate)
+            .filterNot(CriticalPackageGuard::isCritical)
+            .toSortedSet()
+            .joinToString(separator = "\n")
+    }
+
+    fun normalizeCandidate(value: String?): String? {
+        val normalized = value
+            ?.trim()
+            ?.substringBefore(':')
+            ?.lowercase(Locale.ROOT)
+            ?.takeIf(String::isNotEmpty)
+            ?: return null
+        return normalized.takeIf(packageNameRegex::matches)
+    }
+
+    private fun splitValues(raw: String): List<String> {
+        return raw.split('\n', ',', ';', ' ', '\t')
+            .map(String::trim)
+            .filter(String::isNotBlank)
     }
 
     data class ParseResult(

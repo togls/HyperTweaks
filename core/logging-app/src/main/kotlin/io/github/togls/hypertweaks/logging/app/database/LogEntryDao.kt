@@ -20,6 +20,20 @@ interface LogEntryDao {
     @Query("SELECT * FROM log_entries WHERE event_id = :eventId LIMIT 1")
     suspend fun findByEventId(eventId: String): LogEntryEntity?
 
+    @Query(
+        """
+        SELECT * FROM log_entries
+        WHERE source = :source AND event IN (:events)
+        ORDER BY timestamp_millis DESC, id DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun recentEvents(
+        source: String,
+        events: List<String>,
+        limit: Int,
+    ): List<LogEntryEntity>
+
     @Query("DELETE FROM log_entries")
     suspend fun deleteAll()
 

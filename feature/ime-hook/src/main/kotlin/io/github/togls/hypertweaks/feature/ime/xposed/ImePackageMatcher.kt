@@ -11,7 +11,6 @@ object ImePackageMatcher {
         "com.iflytek.inputmethod",
         "com.iflytek.inputmethod.miui",
         "com.tencent.wetype",
-        "keepass2android.keepass2android",
     )
 
     fun matches(packageName: String): Boolean {

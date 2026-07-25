@@ -6,7 +6,11 @@ import io.github.togls.hypertweaks.core.xposed.HookChain
 import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.ChinaCoordinateConverter
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.Coordinate
-import io.github.togls.hypertweaks.feature.googlephotos.coordinate.CoordinateValidator
+import io.github.togls.hypertweaks.feature.googlephotos.policy.CoordinateTransformOutcome
+import io.github.togls.hypertweaks.feature.googlephotos.policy.CoordinateTransformPolicy
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTarget
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTargetResolver
+import io.github.togls.hypertweaks.feature.googlephotos.session.GooglePhotosMapSessionTracker
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -27,13 +31,17 @@ internal class GooglePhotosMapLocationHook(
     private lateinit var latitudeMethod: Method
     private lateinit var longitudeMethod: Method
 
-    fun install(classLoader: ClassLoader) {
-        val coordinateClass = classLoader.loadClass(LatLngClassName)
-        val activityClass = classLoader.loadClass(GooglePhotosClassNames.MapExploreActivity)
+    fun install(resolver: GooglePhotosTargetResolver) {
+        val coordinateClass = resolver.resolve(GooglePhotosTarget.LAT_LNG).targetClass
+        val activityClass = resolver.resolve(GooglePhotosTarget.MAP_EXPLORE_ACTIVITY).targetClass
         renderBinding = GooglePhotosMapRenderMethodMatcher(coordinateClass)
             .inspect(activityClass)
             .binding ?: error("Marker render method is ambiguous or unavailable")
-        val locationClass = classLoader.loadClass(LocationClassName)
+        resolver.bindingSelected(
+            GooglePhotosTarget.MAP_EXPLORE_ACTIVITY,
+            renderBinding.method.toGenericString(),
+        )
+        val locationClass = resolver.resolve(GooglePhotosTarget.LOCATION).targetClass
         latitudeMethod = locationClass.getDeclaredMethod("getLatitude").apply { isAccessible = true }
         longitudeMethod = locationClass.getDeclaredMethod("getLongitude").apply { isAccessible = true }
         installCoordinateGetter(latitudeMethod, CoordinateAxis.LATITUDE)
@@ -104,10 +112,6 @@ internal class GooglePhotosMapLocationHook(
         return Thread.currentThread().stackTrace.map(StackTraceElement::getClassName)
     }
 
-    private companion object {
-        private const val LatLngClassName = "com.google.android.gms.maps.model.LatLng"
-        private const val LocationClassName = "android.location.Location"
-    }
 }
 
 internal enum class CoordinateAxis {
@@ -139,23 +143,24 @@ internal data class LocationCoordinateResult(
 internal class LocationCoordinateTransformer(
     private val converter: (Double, Double) -> Coordinate = ChinaCoordinateConverter::wgs84ToGcj02,
 ) {
+    private val coordinatePolicy = CoordinateTransformPolicy(converter)
+
     fun transform(original: Coordinate): LocationCoordinateResult {
-        if (!CoordinateValidator.isValid(original.latitude, original.longitude)) {
-            return unchanged("INVALID_COORDINATE", original)
-        }
-        if (!CoordinateValidator.isInMainlandChina(original.latitude, original.longitude)) {
-            return unchanged("OUTSIDE_CHINA", original)
-        }
-        return try {
-            val converted = converter(original.latitude, original.longitude)
-            if (converted == original) unchanged("NO_OFFSET", original) else LocationCoordinateResult(
+        val result = coordinatePolicy.transform(original)
+        return when (result.outcome) {
+            CoordinateTransformOutcome.CONVERTED -> LocationCoordinateResult(
                 outcome = LocationCoordinateOutcome.CONVERTED,
-                reason = "WGS84_TO_GCJ02",
+                reason = result.reason,
                 original = original,
-                converted = converted,
+                converted = result.converted,
             )
-        } catch (error: Exception) {
-            LocationCoordinateResult(LocationCoordinateOutcome.FAILED, "CONVERSION_FAILED", original, failure = error)
+            CoordinateTransformOutcome.UNCHANGED -> unchanged(result.reason, original)
+            CoordinateTransformOutcome.FAILED -> LocationCoordinateResult(
+                outcome = LocationCoordinateOutcome.FAILED,
+                reason = result.reason,
+                original = original,
+                failure = result.failure,
+            )
         }
     }
 

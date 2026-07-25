@@ -5,6 +5,7 @@ import android.content.Context
 import android.view.inputmethod.InputMethodManager
 import io.github.togls.hypertweaks.core.xposed.HookChain
 import io.github.togls.hypertweaks.core.xposed.HookContext
+import io.github.togls.hypertweaks.feature.ime.installer.ImeTargetInstallResult
 import java.lang.reflect.Method
 
 class InputMethodManagerServiceImplHook(
@@ -15,12 +16,13 @@ class InputMethodManagerServiceImplHook(
     private val log = context.log
 
     @SuppressLint("PrivateApi")
-    fun install(classLoader: ClassLoader) {
+    internal fun install(classLoader: ClassLoader): List<ImeTargetInstallResult> {
+        logImeTargetResolveStarted(log, Target)
         val targetClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
         }.onFailure { error ->
             log.w("skip InputMethodManagerServiceImplHook: class not found", error)
-        }.getOrNull() ?: return
+        }.getOrNull() ?: return skipped("InputMethodManagerServiceImpl class not found")
 
         val method = runCatching {
             targetClass.getDeclaredMethod(
@@ -36,20 +38,30 @@ class InputMethodManagerServiceImplHook(
                 "skip InputMethodManagerServiceImplHook: isCallingBetweenCustomIME not found",
                 error,
             )
-        }.getOrNull() ?: return
+        }.getOrNull()
+            ?: return skipped("InputMethodManagerServiceImpl.isCallingBetweenCustomIME not found")
 
-        engine.hook(method) { chain ->
+        val installResult = installImeTarget(Target, log) {
+            engine.hook(method) { chain ->
                 val args = chain.args
-                val result = chain.proceed()
+                val originalResult = chain.proceed()
+                val shouldOverride = preserveOriginalOnFailure(
+                    log = log,
+                    event = "InputMethodManagerServiceImpl.isCallingBetweenCustomIME",
+                    originalValue = false,
+                ) {
+                    shouldTreatAsCallingBetweenCustomIme(args)
+                }
 
-                if (result is Boolean && !result && shouldTreatAsCallingBetweenCustomIme(args)) {
+                if (originalResult is Boolean && !originalResult && shouldOverride) {
                     return@hook true
                 }
 
-                result
+                originalResult
             }
-
-        log.i("hooked InputMethodManagerServiceImpl#isCallingBetweenCustomIME")
+            log.i("hooked InputMethodManagerServiceImpl#isCallingBetweenCustomIME")
+        }
+        return listOf(installResult)
     }
 
     private fun shouldTreatAsCallingBetweenCustomIme(args: List<Any?>): Boolean {
@@ -125,7 +137,13 @@ class InputMethodManagerServiceImplHook(
         return null
     }
 
+    private fun skipped(reason: String): List<ImeTargetInstallResult> {
+        return listOf(skipImeTarget(Target, reason, log))
+    }
+
     private companion object {
+        private const val Target =
+            "input_method_manager_service_impl.is_calling_between_custom_ime"
         private const val TARGET_CLASS_NAME =
             "com.android.server.inputmethod.InputMethodManagerServiceImpl"
     }

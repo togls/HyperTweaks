@@ -94,4 +94,23 @@ class KeepAlivePackagesTest {
             result,
         )
     }
+
+    @Test
+    fun `parse should normalize case whitespace and process suffix`() {
+        val result = KeepAlivePackages.parse(
+            " Com.Example.App:worker,com.example.app ",
+        )
+
+        assertEquals(setOf("com.example.app"), result)
+    }
+
+    @Test
+    fun `parse should reject critical system packages`() {
+        val result = KeepAlivePackages.parseWithInvalid(
+            "com.example.app\ncom.android.systemui\nandroid",
+        )
+
+        assertEquals(setOf("com.example.app"), result.packages)
+        assertEquals(listOf("com.android.systemui", "android"), result.invalidValues)
+    }
 }

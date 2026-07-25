@@ -5,7 +5,17 @@ import io.github.togls.hypertweaks.logging.api.Logger
 internal class HookInstallLogger(
     private val logger: Logger,
 ) {
-    fun loggerFor(featureId: String): Logger = logger.child(featureId)
+    fun loggerFor(
+        featureId: String,
+        configVersion: Long,
+    ): Logger {
+        return logger.child(featureId).withFields(
+            mapOf(
+                "feature" to featureId,
+                "config_version" to configVersion.toString(),
+            ),
+        )
+    }
 
     fun registryStarted(environment: HookEnvironment) {
         logger.info(
@@ -28,10 +38,14 @@ internal class HookInstallLogger(
         )
     }
 
-    fun disabled(feature: HookFeature, environment: HookEnvironment) {
+    fun disabled(
+        feature: HookFeature,
+        environment: HookEnvironment,
+        reason: String = "preference_disabled",
+    ) {
         logger.info(
             event = "feature.config.disabled",
-            fields = featureFields(feature, environment),
+            fields = featureFields(feature, environment) + ("reason" to reason),
         )
     }
 

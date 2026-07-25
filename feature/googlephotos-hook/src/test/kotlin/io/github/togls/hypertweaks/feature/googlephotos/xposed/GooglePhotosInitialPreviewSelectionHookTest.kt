@@ -1,5 +1,6 @@
 package io.github.togls.hypertweaks.feature.googlephotos.xposed
 
+import io.github.togls.hypertweaks.feature.googlephotos.policy.InitialPreviewSelectionPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

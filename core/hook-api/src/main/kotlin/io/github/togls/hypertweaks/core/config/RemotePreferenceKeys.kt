@@ -2,6 +2,8 @@ package io.github.togls.hypertweaks.core.config
 
 object RemotePreferenceKeys {
     const val GroupName = "conf"
+    const val HookConfigVersion = "hook_config_version"
+    const val SystemServerFeaturesEnabled = "system_server_features_enabled"
 
     const val ImeEnabled = "ime_enabled"
     const val NavBarLayoutStart = "nav_bar_layout_start"

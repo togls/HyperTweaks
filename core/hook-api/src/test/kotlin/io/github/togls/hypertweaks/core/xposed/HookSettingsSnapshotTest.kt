@@ -12,6 +12,7 @@ class HookSettingsSnapshotTest {
             .snapshotOrDisabled()
 
         assertFalse(snapshot.isEnabled("ime_enabled"))
+        assertTrue(snapshot.systemServerFeaturesEnabled)
         assertEquals(HookSettingsSnapshot.DefaultKeepAliveMode, snapshot.keepAliveMode)
         assertEquals("", snapshot.keepAlivePackages)
     }
@@ -19,6 +20,7 @@ class HookSettingsSnapshotTest {
     @Test
     fun readySnapshotKeepsAllValuesTogether() {
         val snapshot = HookSettingsSnapshot(
+            version = 9L,
             enabledPreferenceKeys = setOf("ime_enabled"),
             navBarLayoutHandle = "back[70AC];home_handle;ime_picker[70AC]",
             keepAliveMode = "conservative",
@@ -26,6 +28,7 @@ class HookSettingsSnapshotTest {
         )
 
         assertTrue(snapshot.isEnabled("ime_enabled"))
+        assertEquals(9L, snapshot.version)
         assertEquals("conservative", snapshot.keepAliveMode)
         assertEquals("org.example.app", snapshot.keepAlivePackages)
     }

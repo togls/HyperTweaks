@@ -51,6 +51,8 @@
     <string name="keep_alive_mode_aggressive_description">Also block force stop and process kill calls. May make manual app termination ineffective.</string>
     <string name="keep_alive_mode_oom_only_title">OOM only</string>
     <string name="keep_alive_mode_oom_only_description">Only protect OOM priority. Do not block kill or force stop calls.</string>
+    <string name="keep_alive_mode_audit_title">Audit only</string>
+    <string name="keep_alive_mode_audit_description">Record matching protection decisions without changing system behavior.</string>
     <string name="status_keep_alive_mode_saved">Keep alive mode saved</string>
 
     <string name="logging_title">Logs</string>
@@ -67,4 +69,26 @@
     <string name="status_keep_alive_saved">Keep-alive package list saved.</string>
     <string name="status_keep_alive_invalid_packages">Keep-alive list contains invalid package names: %1$s</string>
     <string name="keep_alive_invalid_packages_hint">Invalid package names: %1$s</string>
+
+    <string name="hook_diagnostics_title">Hook diagnostics</string>
+    <string name="hook_diagnostics_subtitle">Framework, scope, targets and runtime event status</string>
+    <string name="hook_diagnostics_entry_summary">Inspect framework connection, active targets and Hook results.</string>
+    <string name="hook_diagnostics_back">Back to settings</string>
+    <string name="hook_diagnostics_refresh">Refresh diagnostics</string>
+    <string name="hook_diagnostics_framework">Framework</string>
+    <string name="hook_diagnostics_framework_api">Framework API</string>
+    <string name="hook_diagnostics_target_api">Module target API</string>
+    <string name="hook_diagnostics_config_version">Configuration version</string>
+    <string name="hook_diagnostics_database">Diagnostic log database</string>
+    <string name="hook_diagnostics_scope">Current scope</string>
+    <string name="hook_diagnostics_running_targets">Running targets</string>
+    <string name="hook_diagnostics_feature_installs">Feature install results</string>
+    <string name="hook_diagnostics_resolve_results">Resolve results</string>
+    <string name="hook_diagnostics_recent_callbacks">Recent callbacks</string>
+    <string name="hook_diagnostics_failure_stage">Latest failure stage</string>
+    <string name="hook_diagnostics_read_error">Diagnostic read error</string>
+    <string name="hook_diagnostics_empty">No records</string>
+    <string name="hook_diagnostics_unavailable">Unavailable</string>
+    <string name="system_server_features_title">Enable system_server Hooks</string>
+    <string name="system_server_features_summary">Safe mode: turn this off to disable IME and keep-alive Hooks in system_server.</string>
 </resources>

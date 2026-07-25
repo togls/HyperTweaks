@@ -21,6 +21,17 @@ class KeepAliveModeTest {
             KeepAliveMode.OomOnly,
             KeepAliveMode.fromValue("oom_only"),
         )
+
+        assertEquals(
+            KeepAliveMode.Audit,
+            KeepAliveMode.fromValue("audit"),
+        )
+    }
+
+    @Test
+    fun `full should remain compatible with aggressive persistence`() {
+        assertEquals(KeepAliveMode.Aggressive, KeepAliveMode.Full)
+        assertEquals(KeepAliveMode.Aggressive, KeepAliveMode.fromValue("full"))
     }
 
     @Test

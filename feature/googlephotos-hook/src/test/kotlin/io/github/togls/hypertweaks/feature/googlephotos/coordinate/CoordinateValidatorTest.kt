@@ -35,10 +35,24 @@ class CoordinateValidatorTest {
 
     @Test
     fun excludesHongKongWithoutExcludingNearbyShenzhen() {
-        assertFalse(CoordinateValidator.isInMainlandChina(22.3193, 114.1694))
-        assertFalse(CoordinateValidator.isInMainlandChina(22.5285, 114.1133))
-        assertFalse(CoordinateValidator.isInMainlandChina(22.5455, 114.2037))
-        assertTrue(CoordinateValidator.isInMainlandChina(22.543096, 114.057865))
-        assertTrue(CoordinateValidator.isInMainlandChina(22.5998, 114.2784))
+        listOf(
+            22.3193 to 114.1694,
+            22.5285 to 114.1133,
+            22.5455 to 114.2037,
+            22.1987 to 113.5439,
+            22.1567 to 113.5525,
+            25.0330 to 121.5654,
+            22.6273 to 120.3014,
+            23.5711 to 119.5793,
+        ).forEach { (latitude, longitude) ->
+            assertFalse(CoordinateValidator.isInMainlandChina(latitude, longitude))
+        }
+        listOf(
+            22.543096 to 114.057865,
+            22.5998 to 114.2784,
+            22.2707 to 113.5767,
+        ).forEach { (latitude, longitude) ->
+            assertTrue(CoordinateValidator.isInMainlandChina(latitude, longitude))
+        }
     }
 }

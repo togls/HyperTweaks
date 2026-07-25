@@ -13,6 +13,7 @@ class RemoteHookSettingsProviderTest {
     fun preferenceChangeAtomicallyReplacesCompleteSnapshot() {
         val preferences = FakeSharedPreferences(
             mutableMapOf(
+                RemotePreferenceKeys.HookConfigVersion to 3L,
                 RemotePreferenceKeys.ImeEnabled to true,
                 RemotePreferenceKeys.NavBarLayoutHandle to "initial",
                 RemotePreferenceKeys.KeepAliveMode to "oom_only",
@@ -22,6 +23,8 @@ class RemoteHookSettingsProviderTest {
 
         preferences.update(
             mapOf(
+                RemotePreferenceKeys.HookConfigVersion to 4L,
+                RemotePreferenceKeys.SystemServerFeaturesEnabled to false,
                 RemotePreferenceKeys.ImeEnabled to false,
                 RemotePreferenceKeys.KeepAliveEnabled to true,
                 RemotePreferenceKeys.NavBarLayoutHandle to "updated",
@@ -31,6 +34,8 @@ class RemoteHookSettingsProviderTest {
         )
 
         val snapshot = (provider.currentState as HookSettingsState.Ready).snapshot
+        assertEquals(4L, snapshot.version)
+        assertFalse(snapshot.systemServerFeaturesEnabled)
         assertFalse(snapshot.isEnabled(RemotePreferenceKeys.ImeEnabled))
         assertTrue(snapshot.isEnabled(RemotePreferenceKeys.KeepAliveEnabled))
         assertEquals("updated", snapshot.navBarLayoutHandle)

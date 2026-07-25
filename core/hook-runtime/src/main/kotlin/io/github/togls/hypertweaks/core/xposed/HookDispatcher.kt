@@ -19,7 +19,14 @@ class HookDispatcher(
             return emptyList()
         }
         val settings = (settingsState as HookSettingsState.Ready).snapshot
-        return catalog.matching(environment).map { feature ->
+        val matchingFeatures = catalog.matching(environment)
+        if (environment.isSystemServer && !settings.systemServerFeaturesEnabled) {
+            return matchingFeatures.map { feature ->
+                installLogger.disabled(feature, environment, "system_server_safe_mode")
+                HookFeatureDispatchResult.Disabled(feature.id)
+            }
+        }
+        return matchingFeatures.map { feature ->
             dispatchFeature(feature, environment, settings)
         }
     }
@@ -54,7 +61,7 @@ class HookDispatcher(
             environment = environment,
             engine = engine,
             settings = settings,
-            logger = installLogger.loggerFor(feature.id),
+            logger = installLogger.loggerFor(feature.id, settings.version),
             installGuard = installGuard,
             settingsProvider = settingsProvider,
         )

@@ -14,7 +14,6 @@ class ImePackageMatcherTest {
         assertTrue(ImePackageMatcher.matches("com.sohu.inputmethod.sogou.xiaomi"))
         assertTrue(ImePackageMatcher.matches("com.iflytek.inputmethod.miui"))
         assertTrue(ImePackageMatcher.matches("com.tencent.wetype"))
-        assertTrue(ImePackageMatcher.matches("keepass2android.keepass2android"))
     }
 
     @Test
@@ -22,5 +21,6 @@ class ImePackageMatcherTest {
         assertFalse(ImePackageMatcher.matches("org.mozilla.firefox"))
         assertFalse(ImePackageMatcher.matches("com.android.systemui"))
         assertFalse(ImePackageMatcher.matches("io.github.togls.hypertweaks"))
+        assertFalse(ImePackageMatcher.matches("keepass2android.keepass2android"))
     }
 }

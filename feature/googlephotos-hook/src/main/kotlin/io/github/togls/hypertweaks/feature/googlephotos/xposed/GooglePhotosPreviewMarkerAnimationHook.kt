@@ -3,6 +3,9 @@ package io.github.togls.hypertweaks.feature.googlephotos.xposed
 import io.github.togls.hypertweaks.core.xposed.HookChain
 import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.Coordinate
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTarget
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTargetResolver
+import io.github.togls.hypertweaks.feature.googlephotos.session.GooglePhotosMapSessionTracker
 import java.lang.reflect.Constructor
 
 internal class GooglePhotosPreviewMarkerAnimationHook(
@@ -16,16 +19,20 @@ internal class GooglePhotosPreviewMarkerAnimationHook(
     private lateinit var markerClass: Class<*>
     private lateinit var coordinateAccessors: CoordinateAccessors
 
-    fun install(classLoader: ClassLoader) {
-        coordinateClass = classLoader.loadClass(LatLngClassName)
-        markerClass = classLoader.loadClass(MarkerClassName)
+    fun install(resolver: GooglePhotosTargetResolver) {
+        coordinateClass = resolver.resolve(GooglePhotosTarget.LAT_LNG).targetClass
+        markerClass = resolver.resolve(GooglePhotosTarget.MARKER).targetClass
         coordinateAccessors = CoordinateAccessorResolver.resolve(coordinateClass)
             ?: error("LatLng accessors are ambiguous")
-        val listenerClass = classLoader.loadClass(AnimationListenerClassName)
+        val listenerClass = resolver.resolve(GooglePhotosTarget.ANIMATION_LISTENER).targetClass
         val constructors = PreviewMarkerAnimationBindingResolver().resolve(listenerClass)
         check(constructors.size == ExpectedConstructorCount) {
             "Preview marker animation constructors are ambiguous: ${constructors.size}"
         }
+        resolver.bindingSelected(
+            GooglePhotosTarget.ANIMATION_LISTENER,
+            constructors.single().toGenericString(),
+        )
         installInterceptor(constructors.single())
     }
 
@@ -74,9 +81,6 @@ internal class GooglePhotosPreviewMarkerAnimationHook(
     }
 
     private companion object {
-        private const val AnimationListenerClassName = "apzz"
-        private const val MarkerClassName = "bnej"
-        private const val LatLngClassName = "com.google.android.gms.maps.model.LatLng"
         private const val ExpectedConstructorCount = 1
         private const val TargetArgumentIndex = 1
     }

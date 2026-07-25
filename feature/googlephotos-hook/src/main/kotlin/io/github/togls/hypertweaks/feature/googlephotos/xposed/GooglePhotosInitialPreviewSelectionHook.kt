@@ -2,6 +2,10 @@ package io.github.togls.hypertweaks.feature.googlephotos.xposed
 
 import io.github.togls.hypertweaks.core.xposed.HookChain
 import io.github.togls.hypertweaks.core.xposed.HookContext
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTarget
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTargetResolver
+import io.github.togls.hypertweaks.feature.googlephotos.session.GooglePhotosMapSessionTracker
+import io.github.togls.hypertweaks.feature.googlephotos.policy.InitialPreviewSelectionPolicy
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -16,13 +20,17 @@ internal class GooglePhotosInitialPreviewSelectionHook(
     private val policy = InitialPreviewSelectionPolicy()
     private lateinit var binding: InitialPreviewSelectionBinding
 
-    fun install(classLoader: ClassLoader) {
-        val mediaClass = classLoader.loadClass(MediaClassName)
-        val selectionClass = classLoader.loadClass(SelectionClassName)
-        val previewControllerClass = classLoader.loadClass(PreviewControllerClassName)
+    fun install(resolver: GooglePhotosTargetResolver) {
+        val mediaClass = resolver.resolve(GooglePhotosTarget.MEDIA).targetClass
+        val selectionClass = resolver.resolve(GooglePhotosTarget.PREVIEW_SELECTION).targetClass
+        val previewControllerClass = resolver.resolve(GooglePhotosTarget.PREVIEW_CONTROLLER).targetClass
         binding = InitialPreviewSelectionBindingResolver(mediaClass).resolve(
             selectionClass,
             previewControllerClass,
+        )
+        resolver.bindingSelected(
+            GooglePhotosTarget.PREVIEW_SELECTION,
+            binding.selectionMethod.toGenericString(),
         )
         installBoundsUpdateInterceptor()
         installSelectionInterceptor()
@@ -72,9 +80,6 @@ internal class GooglePhotosInitialPreviewSelectionHook(
     private fun currentBoundsUpdateDepth(): Int = boundsUpdateDepth.get() ?: 0
 
     private companion object {
-        private const val SelectionClassName = "atxa"
-        private const val MediaClassName = "bsdv"
-        private const val PreviewControllerClassName = "ahdq"
         private const val InitialMediaExtra = "extra_initial_media"
     }
 }
@@ -115,31 +120,5 @@ internal class InitialPreviewSelectionBindingResolver(
         private const val SelectionMethodName = "b"
         private const val CurrentSelectionFieldName = "d"
         private const val BoundsUpdateMethodName = "v"
-    }
-}
-
-internal class InitialPreviewSelectionPolicy {
-    private var preservedSessionId: Long? = null
-
-    @Synchronized
-    fun shouldPreserve(
-        sessionId: Long?,
-        singlePhotoEntry: Boolean,
-        boundsUpdateActive: Boolean,
-        clearingSelection: Boolean,
-        currentSelectionPresent: Boolean,
-    ): Boolean {
-        if (
-            sessionId == null ||
-            !singlePhotoEntry ||
-            !boundsUpdateActive ||
-            !clearingSelection ||
-            !currentSelectionPresent
-        ) {
-            return false
-        }
-        if (preservedSessionId == sessionId) return false
-        preservedSessionId = sessionId
-        return true
     }
 }

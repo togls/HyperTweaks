@@ -5,6 +5,7 @@ import android.content.Context
 import android.inputmethodservice.InputMethodService
 import io.github.togls.hypertweaks.core.xposed.HookChain
 import io.github.togls.hypertweaks.core.xposed.HookContext
+import io.github.togls.hypertweaks.feature.ime.installer.ImeTargetInstallResult
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -16,18 +17,25 @@ class InputMethodServiceHook(
     private val engine = context.engine
     private val log = context.log
 
-    fun install(classLoader: ClassLoader) {
-        val inputMethodServiceClass = resolveTargetClass(classLoader) ?: return
+    internal fun install(classLoader: ClassLoader): List<ImeTargetInstallResult> {
+        logImeTargetResolveStarted(log, Target)
+        val inputMethodServiceClass = resolveTargetClass(classLoader)
+            ?: return skipped("InputMethodService class not found")
         val internationalBuildField =
-            resolveInternationalBuildField(inputMethodServiceClass) ?: return
-        val hideImeRenderMethod = resolveHideImeRenderMethod(inputMethodServiceClass) ?: return
+            resolveInternationalBuildField(inputMethodServiceClass)
+                ?: return skipped("InputMethodService.IS_INTERNATIONAL_BUILD not found")
+        val hideImeRenderMethod = resolveHideImeRenderMethod(inputMethodServiceClass)
+            ?: return skipped("InputMethodService.hideImeRenderGesturalNavButtons not found")
 
-        installHideImeRenderHook(
-            classLoader,
-            internationalBuildField,
-            hideImeRenderMethod,
-        )
-        log.i("hooked InputMethodService#hideImeRenderGesturalNavButtons(String)")
+        val installResult = installImeTarget(Target, log) {
+            installHideImeRenderHook(
+                classLoader,
+                internationalBuildField,
+                hideImeRenderMethod,
+            )
+            log.i("hooked InputMethodService#hideImeRenderGesturalNavButtons(String)")
+        }
+        return listOf(installResult)
     }
 
     private fun resolveTargetClass(classLoader: ClassLoader): Class<*>? {
@@ -73,25 +81,24 @@ class InputMethodServiceHook(
         hideImeRenderMethod: Method,
     ) {
         engine.hook(hideImeRenderMethod) { chain ->
-            runCatching {
-                val thisObject = chain.thisObject ?: return@runCatching
-                val inputMethodService = thisObject as? InputMethodService ?: return@runCatching
+            preserveOriginalOnFailure(log, "InputMethodService.hideImeRenderGesturalNavButtons", Unit) {
+                val thisObject = chain.thisObject ?: return@preserveOriginalOnFailure
+                val inputMethodService =
+                    thisObject as? InputMethodService ?: return@preserveOriginalOnFailure
 
                 val stub = loadInputMethodServiceStub(
                     classLoader = classLoader,
                     receiver = thisObject,
-                ) ?: return@runCatching
+                ) ?: return@preserveOriginalOnFailure
 
                 val isImeSupport = callIsImeSupport(
                     stub = stub,
                     context = inputMethodService.applicationContext,
-                ) ?: return@runCatching
+                ) ?: return@preserveOriginalOnFailure
 
                 if (!isImeSupport) {
                     internationalBuildField.setBoolean(thisObject, true)
                 }
-            }.onFailure { error ->
-                log.e("hook hideImeRenderGesturalNavButtons failed", error)
             }
 
             chain.proceed()
@@ -142,7 +149,12 @@ class InputMethodServiceHook(
         return method.invoke(target)
     }
 
+    private fun skipped(reason: String): List<ImeTargetInstallResult> {
+        return listOf(skipImeTarget(Target, reason, log))
+    }
+
     private companion object {
+        private const val Target = "input_method_service.hide_ime_render_gestural_nav_buttons"
         private const val TARGET_CLASS_NAME = "android.inputmethodservice.InputMethodService"
     }
 }

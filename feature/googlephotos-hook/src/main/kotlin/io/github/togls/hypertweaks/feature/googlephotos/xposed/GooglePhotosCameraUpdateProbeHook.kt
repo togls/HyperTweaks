@@ -3,6 +3,10 @@ package io.github.togls.hypertweaks.feature.googlephotos.xposed
 import io.github.togls.hypertweaks.core.xposed.HookChain
 import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.Coordinate
+import io.github.togls.hypertweaks.feature.googlephotos.logging.GooglePhotosDiagnosticsPolicy
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTarget
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTargetResolver
+import io.github.togls.hypertweaks.feature.googlephotos.session.GooglePhotosMapSessionTracker
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 
@@ -10,20 +14,25 @@ internal class GooglePhotosCameraUpdateHook(
     context: HookContext,
     private val logger: GooglePhotosLocationLogger,
     private val sessionTracker: GooglePhotosMapSessionTracker,
+    private val diagnosticsPolicy: GooglePhotosDiagnosticsPolicy,
 ) {
     private val engine = context.engine
     private val coordinatePolicy = CameraUpdateCoordinatePolicy()
     private lateinit var coordinateAccessors: CoordinateAccessors
 
-    fun install(classLoader: ClassLoader) {
-        val coordinateClass = classLoader.loadClass(LatLngClassName)
+    fun install(resolver: GooglePhotosTargetResolver) {
+        val coordinateClass = resolver.resolve(GooglePhotosTarget.LAT_LNG).targetClass
         coordinateAccessors = CoordinateAccessorResolver.resolve(coordinateClass)
             ?: error("LatLng accessors are ambiguous")
-        val factoryClass = classLoader.loadClass(CameraUpdateFactoryClassName)
+        val factoryClass = resolver.resolve(GooglePhotosTarget.CAMERA_UPDATE_FACTORY).targetClass
         val methods = CameraUpdateBindingResolver(coordinateClass).resolve(factoryClass)
         check(methods.size == ExpectedFactoryMethodCount) {
             "Camera update methods are ambiguous: ${methods.size}"
         }
+        resolver.bindingSelected(
+            GooglePhotosTarget.CAMERA_UPDATE_FACTORY,
+            "methods=${methods.joinToString { method -> method.name }}",
+        )
         methods.forEach(::installProbe)
     }
 
@@ -67,6 +76,7 @@ internal class GooglePhotosCameraUpdateHook(
     }
 
     private fun cameraUpdateStack(): String {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return DiagnosticsDisabledValue
         return Thread.currentThread().stackTrace.asSequence()
             .filterNot { frame -> frame.className.startsWith(ModulePackagePrefix) }
             .filterNot { frame -> frame.className == VmStackClassName }
@@ -75,13 +85,12 @@ internal class GooglePhotosCameraUpdateHook(
     }
 
     private companion object {
-        private const val CameraUpdateFactoryClassName = "bmeb"
-        private const val LatLngClassName = "com.google.android.gms.maps.model.LatLng"
         private const val CoordinateArgumentIndex = 0
         private const val ExpectedFactoryMethodCount = 2
         private const val StackFrameLimit = 16
         private const val ModulePackagePrefix = "io.github.togls.hypertweaks"
         private const val VmStackClassName = "dalvik.system.VMStack"
+        private const val DiagnosticsDisabledValue = "disabled"
     }
 }
 

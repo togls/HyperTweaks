@@ -1,6 +1,8 @@
 package io.github.togls.hypertweaks.core.xposed
 
 data class HookSettingsSnapshot(
+    val version: Long = 0L,
+    val systemServerFeaturesEnabled: Boolean = true,
     val enabledPreferenceKeys: Set<String> = emptySet(),
     val navBarLayoutStart: String = DefaultNavBarStart,
     val navBarLayoutEnd: String = DefaultNavBarEnd,

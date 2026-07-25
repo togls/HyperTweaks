@@ -6,6 +6,10 @@ import io.github.togls.hypertweaks.logging.api.LogMode
 
 sealed interface SettingsAction {
 
+    data class SetSystemServerFeaturesEnabled(
+        val enabled: Boolean,
+    ) : SettingsAction
+
     data class SetLogMode(
         val mode: LogMode,
     ) : SettingsAction

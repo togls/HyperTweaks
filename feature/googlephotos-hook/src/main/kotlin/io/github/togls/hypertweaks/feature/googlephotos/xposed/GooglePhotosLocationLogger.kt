@@ -2,6 +2,14 @@ package io.github.togls.hypertweaks.feature.googlephotos.xposed
 
 import io.github.togls.hypertweaks.logging.api.Logger
 import io.github.togls.hypertweaks.feature.googlephotos.coordinate.Coordinate
+import io.github.togls.hypertweaks.feature.googlephotos.logging.GooglePhotosDiagnosticsPolicy
+import io.github.togls.hypertweaks.feature.googlephotos.install.GooglePhotosHookInstallResult
+import io.github.togls.hypertweaks.feature.googlephotos.install.GooglePhotosInstallTarget
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.ResolveDiagnostic
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.ResolveOutcome
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.ResolveStage
+import io.github.togls.hypertweaks.feature.googlephotos.session.GooglePhotosMapSession
+import io.github.togls.hypertweaks.feature.googlephotos.session.MapSessionRejectionReason
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -49,6 +57,7 @@ internal data class ProbeSessionLogSnapshot(
 
 internal class GooglePhotosLocationLogger(
     private val log: Logger,
+    private val diagnosticsPolicy: GooglePhotosDiagnosticsPolicy,
 ) {
     private val errorCounts = ConcurrentHashMap<String, AtomicInteger>()
     private val eventCounts = ConcurrentHashMap<String, AtomicInteger>()
@@ -59,6 +68,7 @@ internal class GooglePhotosLocationLogger(
     private val previewMarkerAnimationCallCount = AtomicInteger()
     private val s2QueryCallCount = AtomicInteger()
     private val s2QueryResultCount = AtomicInteger()
+    private val heatmapCallCount = AtomicInteger()
 
     fun installBegin() {
         log.info(
@@ -90,6 +100,17 @@ internal class GooglePhotosLocationLogger(
         )
     }
 
+    fun installTargetSkipped(target: GooglePhotosInstallTarget) {
+        log.info(
+            event = "hook.install.skipped",
+            message = "GooglePhotosLocation: diagnostic target disabled",
+            fields = mapOf(
+                "subtarget" to target.logName,
+                "reason" to "RELEASE_DIAGNOSTICS_DISABLED",
+            ),
+        )
+    }
+
     fun installTargetFailure(target: GooglePhotosInstallTarget, error: Throwable) {
         val message = if (target.isStrategy) {
             "GooglePhotosLocation: strategy install failed"
@@ -118,6 +139,7 @@ internal class GooglePhotosLocationLogger(
                     result.installed(GooglePhotosInstallTarget.INITIAL_PREVIEW_SELECTION),
                 "mapLocation" to result.installed(GooglePhotosInstallTarget.MAP_LOCATION),
                 "cameraUpdate" to result.installed(GooglePhotosInstallTarget.CAMERA_UPDATE),
+                "heatmapIndex" to result.installed(GooglePhotosInstallTarget.HEATMAP_INDEX),
                 "s2Query" to result.installed(GooglePhotosInstallTarget.S2_QUERY),
                 "mapView" to result.installed(GooglePhotosInstallTarget.MAP_VIEW),
                 "lifecycle" to result.installed(GooglePhotosInstallTarget.LIFECYCLE),
@@ -125,7 +147,31 @@ internal class GooglePhotosLocationLogger(
         )
     }
 
+    fun resolveDiagnostic(diagnostic: ResolveDiagnostic) {
+        val event = when (diagnostic.stage) {
+            ResolveStage.STARTED -> "target.resolve.started"
+            ResolveStage.COMPLETED -> "target.resolve.succeeded"
+            ResolveStage.FAILED -> "target.resolve.failed"
+            else -> "target.resolve.candidate"
+        }
+        val fields = arrayOf(
+            "subtarget" to diagnostic.target,
+            "reason" to (diagnostic.detail ?: diagnostic.outcome.name),
+            "stage" to diagnostic.stage,
+            "className" to diagnostic.className,
+            "classLoaderSource" to diagnostic.classLoaderSource,
+        ).toLogFields()
+        if (diagnostic.stage == ResolveStage.FAILED ||
+            diagnostic.outcome == ResolveOutcome.REJECTED
+        ) {
+            log.warn(event, "GooglePhotosTargetResolver: candidate rejected", fields = fields)
+        } else {
+            log.info(event, "GooglePhotosTargetResolver: resolved target", fields = fields)
+        }
+    }
+
     fun activityEvent(event: String, snapshot: ActivityLogSnapshot) {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return
         if (!shouldLogEvent("activity_$event")) return
         log.debug(
             event = "hook.callback.completed",
@@ -142,6 +188,7 @@ internal class GooglePhotosLocationLogger(
     }
 
     fun mapViewEvent(event: String, snapshot: MapViewLogSnapshot) {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return
         if (!shouldLogEvent("map_view_$event")) return
         log.debug(
             event = "hook.callback.completed",
@@ -164,6 +211,7 @@ internal class GooglePhotosLocationLogger(
     }
 
     fun sessionTransition(event: String, snapshot: MapSessionLogSnapshot) {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return
         if (!shouldLogEvent("session_evaluation")) return
         log.debug(
             event = "adapter.probe.started",
@@ -182,6 +230,7 @@ internal class GooglePhotosLocationLogger(
     }
 
     fun markerMatcherStart(activityClass: String) {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return
         log.debug(
             event = "adapter.probe.started",
             message = "GooglePhotosMarker: matcher start",
@@ -211,13 +260,16 @@ internal class GooglePhotosLocationLogger(
         session: ProbeSessionLogSnapshot?,
         coordinate: Coordinate?,
     ): Int {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return DiagnosticsDisabledCallCount
         val sessionKey = session?.sessionId ?: InactiveSessionKey
         val callCount = markerCallCounts.computeIfAbsent(sessionKey) { AtomicInteger() }.incrementAndGet()
         if (shouldLogProbe(callCount, MarkerDetailedCallLimit)) {
             log.debug(
-                event = "hook.callback.started",
+                event = "hook.callback.entered",
                 message = "GooglePhotosMarker: invoked",
                 fields = arrayOf(
+                    "subtarget" to "marker",
+                    "reason" to "CALLBACK_ENTERED",
                     "callCount" to callCount,
                     "method" to method,
                     "receiverClass" to receiverClass,
@@ -247,6 +299,7 @@ internal class GooglePhotosLocationLogger(
     }
 
     fun locationRequestArmed(receiverClass: String, session: ProbeSessionLogSnapshot) {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return
         if (!shouldLogEvent("location_request")) return
         log.debug(
             event = "hook.callback.started",
@@ -264,6 +317,7 @@ internal class GooglePhotosLocationLogger(
         session: ProbeSessionLogSnapshot,
         result: LocationCoordinateResult,
     ) {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return
         val callCount = locationReadCount.incrementAndGet()
         if (!shouldLogProbe(callCount, LocationDetailedCallLimit)) return
         val fields = locationResultFields(callCount, axis, decision, session, result).toLogFields()
@@ -280,6 +334,10 @@ internal class GooglePhotosLocationLogger(
         session: ProbeSessionLogSnapshot?,
         result: MarkerConversionResult,
     ) {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) {
+            if (result.outcome == MarkerConversionOutcome.FAILED) warning("marker_conversion", result.failure)
+            return
+        }
         val sessionKey = session?.sessionId ?: InactiveSessionKey
         val stats = markerSessionStats.computeIfAbsent(sessionKey) { MarkerSessionStats() }
         stats.record(result.outcome)
@@ -291,9 +349,81 @@ internal class GooglePhotosLocationLogger(
             markerSummaryFields(callCount, session, result.reason, stats)
         }
         if (result.outcome == MarkerConversionOutcome.FAILED) {
-            log.warn("hook.callback.failed", message, result.failure, fields.toLogFields())
+            log.warn(
+                "hook.callback.failed",
+                message,
+                result.failure,
+                callbackFields("marker", result.reason, fields.toLogFields()),
+            )
         } else {
-            log.debug("hook.callback.completed", message, fields = fields.toLogFields())
+            log.debug(
+                markerCallbackEvent(result.outcome),
+                message,
+                fields = callbackFields("marker", result.reason, fields.toLogFields()),
+            )
+        }
+    }
+
+    fun heatmapInvoked(
+        method: String,
+        receiverClass: String?,
+        itemCount: Int?,
+        session: ProbeSessionLogSnapshot?,
+    ): Int {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return DiagnosticsDisabledCallCount
+        val callCount = heatmapCallCount.incrementAndGet()
+        if (!shouldLogProbe(callCount, HeatmapDetailedCallLimit)) return callCount
+        log.debug(
+            event = "hook.callback.entered",
+            message = "GooglePhotosHeatmap: invoked",
+            fields = arrayOf(
+                "subtarget" to "s2_builder",
+                "reason" to "CALLBACK_ENTERED",
+                "callCount" to callCount,
+                "method" to method,
+                "receiverClass" to receiverClass,
+                "itemCount" to itemCount,
+                "sessionId" to session?.sessionId,
+                "sessionActive" to (session != null),
+                "hostActivity" to session?.hostActivity,
+                "thread" to Thread.currentThread().name,
+            ).toLogFields(),
+        )
+        return callCount
+    }
+
+    fun heatmapResult(
+        callCount: Int,
+        session: ProbeSessionLogSnapshot?,
+        result: HeatmapConversionResult,
+    ) {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) {
+            if (result.outcome == HeatmapConversionOutcome.FAILED) warning("heatmap_conversion", result.failure)
+            return
+        }
+        if (!shouldLogProbe(callCount, HeatmapDetailedCallLimit)) return
+        val fields = arrayOf(
+            "callCount" to callCount,
+            "sessionId" to session?.sessionId,
+            "sessionActive" to (session != null),
+            "reason" to result.reason,
+            "validCount" to result.batchResult.validCount,
+            "mainlandCount" to result.batchResult.mainlandCount,
+            "convertedCount" to result.batchResult.convertedCount,
+        ).toLogFields()
+        if (result.outcome == HeatmapConversionOutcome.FAILED) {
+            log.warn(
+                "hook.callback.failed",
+                "GooglePhotosHeatmap: failed",
+                result.failure,
+                callbackFields("s2_builder", result.reason, fields),
+            )
+        } else {
+            log.debug(
+                heatmapCallbackEvent(result.outcome),
+                "GooglePhotosHeatmap: completed",
+                fields = callbackFields("s2_builder", result.reason, fields),
+            )
         }
     }
 
@@ -305,12 +435,17 @@ internal class GooglePhotosLocationLogger(
         caller: String,
         stack: String,
     ): Int {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return DiagnosticsDisabledCallCount
         val callCount = s2QueryCallCount.incrementAndGet()
         if (!shouldLogProbe(callCount, S2QueryDetailedCallLimit)) return callCount
         log.debug(
-            event = "hook.callback.started",
+            event = "hook.callback.entered",
             message = "GooglePhotosS2Query: invoked",
-            fields = s2QueryFields(callCount, bounds, dataBounds, session, thread, caller, stack),
+            fields = callbackFields(
+                "s2_query",
+                if (dataBounds == null) "NO_SESSION_OR_BOUNDS" else "GCJ02_TO_WGS84_QUERY",
+                s2QueryFields(callCount, bounds, dataBounds, session, thread, caller, stack),
+            ),
         )
         return callCount
     }
@@ -321,12 +456,15 @@ internal class GooglePhotosLocationLogger(
         session: ProbeSessionLogSnapshot?,
         stack: String,
     ): Int {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return DiagnosticsDisabledCallCount
         val callCount = cameraUpdateCallCount.incrementAndGet()
         if (shouldLogProbe(callCount, CameraUpdateDetailedCallLimit)) {
             log.debug(
-                event = "hook.callback.started",
+                event = "hook.callback.entered",
                 message = "GooglePhotosCameraUpdate: invoked",
                 fields = arrayOf(
+                    "subtarget" to "camera_update",
+                    "reason" to "CALLBACK_ENTERED",
                     "callCount" to callCount,
                     "method" to method,
                     "latitude" to formatCoordinate(coordinate?.latitude),
@@ -347,6 +485,10 @@ internal class GooglePhotosLocationLogger(
         session: ProbeSessionLogSnapshot?,
         result: LocationCoordinateResult,
     ) {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) {
+            if (result.outcome == LocationCoordinateOutcome.FAILED) warning("camera_update", result.failure)
+            return
+        }
         if (!shouldLogProbe(callCount, CameraUpdateDetailedCallLimit)) return
         val fields = arrayOf(
             "callCount" to callCount,
@@ -358,9 +500,18 @@ internal class GooglePhotosLocationLogger(
             "convertedLongitude" to formatCoordinate(result.converted?.longitude),
         ).toLogFields()
         if (result.outcome == LocationCoordinateOutcome.FAILED) {
-            log.warn("hook.callback.failed", "GooglePhotosCameraUpdate: failed", result.failure, fields)
+            log.warn(
+                "hook.callback.failed",
+                "GooglePhotosCameraUpdate: failed",
+                result.failure,
+                callbackFields("camera_update", result.reason, fields),
+            )
         } else {
-            log.debug("hook.callback.completed", "GooglePhotosCameraUpdate: ${result.outcome}", fields = fields)
+            log.debug(
+                locationCallbackEvent(result.outcome),
+                "GooglePhotosCameraUpdate: ${result.outcome}",
+                fields = callbackFields("camera_update", result.reason, fields),
+            )
         }
     }
 
@@ -369,12 +520,15 @@ internal class GooglePhotosLocationLogger(
         target: Coordinate,
         session: ProbeSessionLogSnapshot?,
     ): Int {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return DiagnosticsDisabledCallCount
         val callCount = previewMarkerAnimationCallCount.incrementAndGet()
         if (!shouldLogProbe(callCount, PreviewMarkerAnimationDetailedCallLimit)) return callCount
         log.debug(
-            event = "hook.callback.started",
+            event = "hook.callback.entered",
             message = "GooglePhotosPreviewMarkerAnimation: invoked",
             fields = arrayOf(
+                "subtarget" to "marker_animation",
+                "reason" to "CALLBACK_ENTERED",
                 "callCount" to callCount,
                 "constructor" to constructor,
                 "targetLatitude" to formatCoordinate(target.latitude),
@@ -388,6 +542,7 @@ internal class GooglePhotosLocationLogger(
     }
 
     fun initialPreviewSelectionPreserved(session: ProbeSessionLogSnapshot) {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return
         log.info(
             event = "hook.callback.completed",
             message = "GooglePhotosInitialPreviewSelection: preserved",
@@ -404,6 +559,12 @@ internal class GooglePhotosLocationLogger(
         session: ProbeSessionLogSnapshot?,
         result: LocationCoordinateResult,
     ) {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) {
+            if (result.outcome == LocationCoordinateOutcome.FAILED) {
+                warning("preview_marker_animation", result.failure)
+            }
+            return
+        }
         if (!shouldLogProbe(callCount, PreviewMarkerAnimationDetailedCallLimit)) return
         val fields = arrayOf(
             "callCount" to callCount,
@@ -415,17 +576,23 @@ internal class GooglePhotosLocationLogger(
             "convertedLongitude" to formatCoordinate(result.converted?.longitude),
         ).toLogFields()
         if (result.outcome == LocationCoordinateOutcome.FAILED) {
-            log.warn("hook.callback.failed", "GooglePhotosPreviewMarkerAnimation: failed", result.failure, fields)
+            log.warn(
+                "hook.callback.failed",
+                "GooglePhotosPreviewMarkerAnimation: failed",
+                result.failure,
+                callbackFields("marker_animation", result.reason, fields),
+            )
         } else {
             log.debug(
-                "hook.callback.completed",
+                locationCallbackEvent(result.outcome),
                 "GooglePhotosPreviewMarkerAnimation: ${result.outcome}",
-                fields = fields,
+                fields = callbackFields("marker_animation", result.reason, fields),
             )
         }
     }
 
     fun s2QueryCompleted(callCount: Int, resultHandle: Long?) {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return
         if (!shouldLogProbe(callCount, S2QueryDetailedCallLimit)) return
         log.debug(
             event = "hook.callback.completed",
@@ -438,6 +605,7 @@ internal class GooglePhotosLocationLogger(
     }
 
     fun s2QueryResultCount(resultHandle: Long?, itemCount: Int?) {
+        if (!diagnosticsPolicy.highFrequencyProbesEnabled) return
         val callCount = s2QueryResultCount.incrementAndGet()
         if (!shouldLogProbe(callCount, S2QueryDetailedCallLimit)) return
         log.debug(
@@ -593,6 +761,40 @@ internal class GooglePhotosLocationLogger(
         return value?.let { String.format(Locale.US, "%.6f", it) }
     }
 
+    private fun callbackFields(
+        subtarget: String,
+        reason: String,
+        fields: Map<String, String>,
+    ): Map<String, String> {
+        return fields + mapOf("subtarget" to subtarget, "reason" to reason)
+    }
+
+    private fun markerCallbackEvent(outcome: MarkerConversionOutcome): String {
+        return when (outcome) {
+            MarkerConversionOutcome.CONVERTED -> "hook.callback.transformed"
+            MarkerConversionOutcome.SKIPPED,
+            MarkerConversionOutcome.UNCHANGED,
+            -> "hook.callback.bypassed"
+            MarkerConversionOutcome.FAILED -> "hook.callback.failed"
+        }
+    }
+
+    private fun heatmapCallbackEvent(outcome: HeatmapConversionOutcome): String {
+        return when (outcome) {
+            HeatmapConversionOutcome.CONVERTED -> "hook.callback.transformed"
+            HeatmapConversionOutcome.SKIPPED -> "hook.callback.bypassed"
+            HeatmapConversionOutcome.FAILED -> "hook.callback.failed"
+        }
+    }
+
+    private fun locationCallbackEvent(outcome: LocationCoordinateOutcome): String {
+        return when (outcome) {
+            LocationCoordinateOutcome.CONVERTED -> "hook.callback.transformed"
+            LocationCoordinateOutcome.UNCHANGED -> "hook.callback.bypassed"
+            LocationCoordinateOutcome.FAILED -> "hook.callback.failed"
+        }
+    }
+
     private fun Array<out Pair<String, Any?>>.toLogFields(): Map<String, String> {
         return associate { (key, value) ->
             key to when (value) {
@@ -605,6 +807,7 @@ internal class GooglePhotosLocationLogger(
 
     private companion object {
         private const val InactiveSessionKey = -1L
+        private const val DiagnosticsDisabledCallCount = 0
         private const val MaximumLogsPerErrorType = 3
         private const val EventDetailedCallLimit = 100
         private const val MarkerDetailedCallLimit = 20
@@ -612,6 +815,7 @@ internal class GooglePhotosLocationLogger(
         private const val CameraUpdateDetailedCallLimit = 50
         private const val PreviewMarkerAnimationDetailedCallLimit = 50
         private const val S2QueryDetailedCallLimit = 50
+        private const val HeatmapDetailedCallLimit = 20
         private const val SummaryInterval = 100
     }
 }

@@ -6,6 +6,7 @@ import androidx.paging.PagingData
 import androidx.paging.map
 import io.github.togls.hypertweaks.logging.api.LogEvent
 import io.github.togls.hypertweaks.logging.api.LogLevel
+import io.github.togls.hypertweaks.logging.api.LogSource
 import io.github.togls.hypertweaks.logging.app.database.HyperTweaksLogDatabase
 import io.github.togls.hypertweaks.logging.app.database.LogEntityMapper
 import io.github.togls.hypertweaks.logging.app.database.LogSessionEntity
@@ -34,6 +35,15 @@ class RoomLogRepository(
                 toMillis = normalized.toMillis,
             )
         }.flow.map { pagingData -> pagingData.map(LogEntityMapper::toEvent) }
+    }
+
+    override suspend fun recentHookEvents(events: Set<String>, limit: Int): List<LogEvent> {
+        if (events.isEmpty() || limit <= 0) return emptyList()
+        return entryDao.recentEvents(
+            source = LogSource.HOOK.name,
+            events = events.sorted(),
+            limit = limit,
+        ).map(LogEntityMapper::toEvent)
     }
 
     override suspend fun insertEvents(events: List<LogEvent>) {

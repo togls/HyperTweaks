@@ -51,6 +51,8 @@
     <string name="keep_alive_mode_aggressive_description">额外拦截强制停止和进程终止调用，可能导致手动结束应用无效。</string>
     <string name="keep_alive_mode_oom_only_title">仅 OOM 保护</string>
     <string name="keep_alive_mode_oom_only_description">只保护 OOM 优先级，不拦截 kill 或 force stop 调用。</string>
+    <string name="keep_alive_mode_audit_title">仅审计</string>
+    <string name="keep_alive_mode_audit_description">只记录命中的保护决策，不改变系统原有行为。</string>
     <string name="status_keep_alive_mode_saved">保活模式已保存</string>
 
     <string name="logging_title">日志</string>
@@ -67,4 +69,26 @@
     <string name="status_keep_alive_saved">保活包名列表已保存</string>
     <string name="status_keep_alive_invalid_packages">保活列表包含无效包名：%1$s</string>
     <string name="keep_alive_invalid_packages_hint">无效包名：%1$s</string>
+
+    <string name="hook_diagnostics_title">Hook 运行诊断</string>
+    <string name="hook_diagnostics_subtitle">框架、作用域、目标进程与运行事件状态</string>
+    <string name="hook_diagnostics_entry_summary">查看框架连接、运行目标和 Hook 执行结果。</string>
+    <string name="hook_diagnostics_back">返回设置</string>
+    <string name="hook_diagnostics_refresh">刷新诊断</string>
+    <string name="hook_diagnostics_framework">框架</string>
+    <string name="hook_diagnostics_framework_api">框架 API</string>
+    <string name="hook_diagnostics_target_api">模块目标 API</string>
+    <string name="hook_diagnostics_config_version">配置版本</string>
+    <string name="hook_diagnostics_database">诊断日志数据库</string>
+    <string name="hook_diagnostics_scope">当前作用域</string>
+    <string name="hook_diagnostics_running_targets">运行目标</string>
+    <string name="hook_diagnostics_feature_installs">Feature 安装结果</string>
+    <string name="hook_diagnostics_resolve_results">目标解析结果</string>
+    <string name="hook_diagnostics_recent_callbacks">最近回调</string>
+    <string name="hook_diagnostics_failure_stage">最近失败阶段</string>
+    <string name="hook_diagnostics_read_error">诊断读取错误</string>
+    <string name="hook_diagnostics_empty">暂无记录</string>
+    <string name="hook_diagnostics_unavailable">不可用</string>
+    <string name="system_server_features_title">启用 system_server Hook</string>
+    <string name="system_server_features_summary">安全模式：关闭后禁用 system_server 中的输入法与保活 Hook。</string>
 </resources>

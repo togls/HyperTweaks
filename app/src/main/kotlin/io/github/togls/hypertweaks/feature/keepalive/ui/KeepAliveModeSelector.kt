@@ -32,6 +32,14 @@ fun KeepAliveModeSelector(
         )
 
         AppRadioPreference(
+            title = stringResource(R.string.keep_alive_mode_audit_title),
+            summary = stringResource(R.string.keep_alive_mode_audit_description),
+            selected = selectedMode == KeepAliveMode.Audit,
+            enabled = enabled,
+            onClick = { onModeChange(KeepAliveMode.Audit) },
+        )
+
+        AppRadioPreference(
             title = stringResource(R.string.keep_alive_mode_conservative_title),
             summary = stringResource(R.string.keep_alive_mode_conservative_description),
             selected = selectedMode == KeepAliveMode.Conservative,

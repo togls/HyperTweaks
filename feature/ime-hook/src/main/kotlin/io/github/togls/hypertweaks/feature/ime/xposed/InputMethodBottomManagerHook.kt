@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.view.inputmethod.InputMethodManager
 import io.github.togls.hypertweaks.core.xposed.HookChain
 import io.github.togls.hypertweaks.core.xposed.HookContext
+import io.github.togls.hypertweaks.feature.ime.installer.ImeTargetInstallResult
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.Collections
@@ -20,7 +21,8 @@ class InputMethodBottomManagerHook(
     )
 
     @SuppressLint("PrivateApi")
-    fun install(classLoader: ClassLoader) {
+    internal fun install(classLoader: ClassLoader): List<ImeTargetInstallResult> {
+        logImeTargetResolveStarted(log, Target)
         val moduleManagerClass = runCatching {
             classLoader.loadClass(TARGET_CLASS_NAME)
         }.onFailure { error ->
@@ -28,7 +30,7 @@ class InputMethodBottomManagerHook(
                 "skip InputMethodBottomManagerHook: InputMethodModuleManager not found",
                 error
             )
-        }.getOrNull() ?: return
+        }.getOrNull() ?: return skipped("InputMethodModuleManager class not found")
 
         val loadDexMethod = runCatching {
             moduleManagerClass.getDeclaredMethod(
@@ -43,33 +45,29 @@ class InputMethodBottomManagerHook(
                 "skip InputMethodBottomManagerHook: loadDex(ClassLoader, String) not found",
                 error,
             )
-        }.getOrNull() ?: return
+        }.getOrNull() ?: return skipped("InputMethodModuleManager.loadDex not found")
 
-        engine.hook(loadDexMethod) { chain ->
+        val installResult = installImeTarget(Target, log) {
+            engine.hook(loadDexMethod) { chain ->
                 val result = chain.proceed()
 
-                runCatching {
+                preserveOriginalOnFailure(log, "InputMethodModuleManager.loadDex", Unit) {
                     val imeModuleClassLoader = chain.args
                         .firstOrNull() as? ClassLoader
-                        ?: return@runCatching
+                        ?: return@preserveOriginalOnFailure
 
                     installBottomManagerHookOnce(imeModuleClassLoader)
-                }.onFailure { error ->
-                    log.e("hook InputMethodModuleManager.loadDex failed", error)
                 }
 
                 result
             }
-
-        log.i("hooked InputMethodModuleManager#loadDex(ClassLoader, String)")
+            log.i("hooked InputMethodModuleManager#loadDex(ClassLoader, String)")
+        }
+        return listOf(installResult)
     }
 
     private fun installBottomManagerHookOnce(imeModuleClassLoader: ClassLoader) {
-        synchronized(hookedClassLoaders) {
-            if (!hookedClassLoaders.add(imeModuleClassLoader)) {
-                return
-            }
-        }
+        if (!markClassLoaderForInstall(imeModuleClassLoader)) return
 
         val bottomManagerClass = runCatching {
             imeModuleClassLoader.loadClass(BOTTOM_MANAGER_CLASS_NAME)
@@ -116,31 +114,40 @@ class InputMethodBottomManagerHook(
         log.i("hooked InputMethodBottomManager#getSupportIme")
     }
 
+    private fun markClassLoaderForInstall(classLoader: ClassLoader): Boolean {
+        return synchronized(hookedClassLoaders) {
+            hookedClassLoaders.add(classLoader)
+        }
+    }
+
     private fun hookGetSupportIme(
         getSupportImeMethod: Method,
         bottomViewHelperField: Field,
         immField: Field,
     ) {
         engine.hook(getSupportImeMethod) { chain ->
-                runCatching {
-                    val thisObject = chain.thisObject
-                        ?: return@runCatching null
-
-                    val bottomViewHelper = bottomViewHelperField.get(thisObject)
-                        ?: return@runCatching null
-
-                    val inputMethodManager = immField.get(bottomViewHelper) as? InputMethodManager
-                        ?: return@runCatching null
-
-                    inputMethodManager.enabledInputMethodList
-                }.onFailure { error ->
-                    log.e("hook InputMethodBottomManager.getSupportIme failed", error)
-                }.getOrNull()
-                    ?: chain.proceed()
+            val replacement = preserveOriginalOnFailure(
+                log = log,
+                event = "InputMethodBottomManager.getSupportIme",
+                originalValue = null,
+            ) {
+                val thisObject = chain.thisObject ?: return@preserveOriginalOnFailure null
+                val bottomViewHelper = bottomViewHelperField.get(thisObject)
+                    ?: return@preserveOriginalOnFailure null
+                val inputMethodManager = immField.get(bottomViewHelper) as? InputMethodManager
+                    ?: return@preserveOriginalOnFailure null
+                inputMethodManager.enabledInputMethodList
             }
+            replacement ?: chain.proceed()
+        }
+    }
+
+    private fun skipped(reason: String): List<ImeTargetInstallResult> {
+        return listOf(skipImeTarget(Target, reason, log))
     }
 
     private companion object {
+        private const val Target = "input_method_bottom_manager.load_dex"
         private const val TARGET_CLASS_NAME =
             "android.inputmethodservice.InputMethodModuleManager"
 

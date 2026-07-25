@@ -14,6 +14,7 @@ fun LogSettingsCard(
     serviceConnected: Boolean,
     onModeChange: (LogMode) -> Unit,
     onViewLogsClick: () -> Unit,
+    onViewDiagnosticsClick: () -> Unit,
 ) {
     AppPreferenceGroup(title = stringResource(R.string.logging_title)) {
         AppDropdownPreference(
@@ -29,6 +30,11 @@ fun LogSettingsCard(
             title = stringResource(R.string.logging_view_logs),
             summary = stringResource(R.string.logging_view_logs_summary),
             onClick = onViewLogsClick,
+        )
+        AppClickablePreference(
+            title = stringResource(R.string.hook_diagnostics_title),
+            summary = stringResource(R.string.hook_diagnostics_entry_summary),
+            onClick = onViewDiagnosticsClick,
         )
     }
 }

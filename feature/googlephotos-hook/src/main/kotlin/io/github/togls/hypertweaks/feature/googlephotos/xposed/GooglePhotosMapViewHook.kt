@@ -6,6 +6,9 @@ import android.content.ContextWrapper
 import android.view.View
 import io.github.togls.hypertweaks.core.xposed.HookChain
 import io.github.togls.hypertweaks.core.xposed.HookContext
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTarget
+import io.github.togls.hypertweaks.feature.googlephotos.resolver.GooglePhotosTargetResolver
+import io.github.togls.hypertweaks.feature.googlephotos.session.GooglePhotosMapSessionTracker
 import java.lang.reflect.Method
 
 internal class GooglePhotosMapViewHook(
@@ -15,8 +18,8 @@ internal class GooglePhotosMapViewHook(
 ) {
     private val engine = context.engine
 
-    fun install(classLoader: ClassLoader) {
-        val mapViewClass = classLoader.loadClass(GooglePhotosClassNames.MapView)
+    fun install(resolver: GooglePhotosTargetResolver) {
+        val mapViewClass = resolver.resolve(GooglePhotosTarget.MAP_VIEW).targetClass
         require(View::class.java.isAssignableFrom(mapViewClass)) {
             "Google Maps target does not extend android.view.View"
         }
@@ -26,6 +29,10 @@ internal class GooglePhotosMapViewHook(
             mapViewClass,
             "onWindowVisibilityChanged",
             Int::class.javaPrimitiveType!!,
+        )
+        resolver.bindingSelected(
+            GooglePhotosTarget.MAP_VIEW,
+            "callbacks=onAttachedToWindow,onDetachedFromWindow,onWindowVisibilityChanged",
         )
         hookAfter(attachedMethod, "map_view_attached") { view, _ ->
             sessionTracker.onMapViewAttached(view, findHostActivity(view.context))
