@@ -24,49 +24,40 @@ class NavigationBarInflaterHook(
 
     internal fun install(classLoader: ClassLoader): List<ImeTargetInstallResult> {
         logImeTargetResolveStarted(log, Target)
-        val inflateLayoutMethod = findInflateLayoutMethod(classLoader)
+        val getDefaultLayoutMethod = findGetDefaultLayoutMethod(classLoader)
             ?: return listOf(
-                skipImeTarget(Target, "NavigationBarInflaterView.inflateLayout not found", log),
+                skipImeTarget(Target, "NavigationBarInflaterView.getDefaultLayout not found", log),
             )
 
         observeSettings()
 
         val installResult = installImeTarget(Target, log) {
-            engine.hook(inflateLayoutMethod) { chain ->
-                val replacement = preserveOriginalOnFailure(
-                    log = log,
-                    event = "NavigationBarInflaterView.inflateLayout",
-                    originalValue = null,
-                ) {
-                    resolveReplacementLayout(chain.getArg(0) as? String)
-                }
-                replacement?.let { layout ->
-                    chain.proceed(arrayOf<Any>(layout))
-                } ?: chain.proceed()
-            }
-            log.i("hooked $TARGET_CLASS_NAME#inflateLayout(String)")
+            engine.hook(getDefaultLayoutMethod, ::interceptDefaultLayout)
+            log.i("hooked $TARGET_CLASS_NAME#getDefaultLayout()")
         }
         return listOf(installResult)
     }
 
-    private fun resolveReplacementLayout(originalLayout: String?): String? {
+    private fun interceptDefaultLayout(chain: HookChain): Any? {
+        val originalLayout = chain.proceed() as? String
         val configuredLayout = navBarLayoutHandle.get().trim()
-        if (configuredLayout.isBlank() || originalLayout == null) return null
-        if (configuredLayout != originalLayout) {
-            log.i("replace nav bar layout: $originalLayout -> $configuredLayout")
+        val bypassReason = navigationBarLayoutBypassReason(configuredLayout, originalLayout)
+        if (bypassReason != null) {
+            logImeCallbackBypassed(log, Target, bypassReason)
+            return originalLayout
         }
-        return configuredLayout
+        return preserveOriginalOnFailure(log, Target, originalLayout) {
+            log.i("replace nav bar layout: $originalLayout -> $configuredLayout")
+            configuredLayout
+        }
     }
 
     @SuppressLint("PrivateApi")
-    private fun findInflateLayoutMethod(classLoader: ClassLoader) =
+    private fun findGetDefaultLayoutMethod(classLoader: ClassLoader) =
         runCatching {
             val targetClass = classLoader.loadClass(TARGET_CLASS_NAME)
 
-            targetClass.getDeclaredMethod(
-                "inflateLayout",
-                String::class.java,
-            ).apply {
+            targetClass.getDeclaredMethod("getDefaultLayout").apply {
                 isAccessible = true
             }
         }.onFailure { error ->
@@ -87,8 +78,25 @@ class NavigationBarInflaterHook(
     }
 
     private companion object {
-        private const val Target = "navigation_bar_inflater.inflate_layout"
+        private const val Target = "navigation_bar_inflater.get_default_layout"
         private const val TARGET_CLASS_NAME =
             "android.inputmethodservice.navigationbar.NavigationBarInflaterView"
     }
+}
+
+internal fun resolveNavigationBarLayoutReplacement(
+    configuredLayout: String,
+    originalLayout: String?,
+): String? {
+    val bypassReason = navigationBarLayoutBypassReason(configuredLayout, originalLayout)
+    return configuredLayout.takeIf { bypassReason == null }
+}
+
+internal fun navigationBarLayoutBypassReason(
+    configuredLayout: String,
+    originalLayout: String?,
+): String? {
+    if (configuredLayout.isBlank()) return "blank_configuration"
+    if (originalLayout == null) return "original_layout_unavailable"
+    return "same_as_original".takeIf { configuredLayout == originalLayout }
 }
