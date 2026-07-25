@@ -8,6 +8,7 @@ import io.github.togls.hypertweaks.core.xposed.HookFeatureProvider
 import io.github.togls.hypertweaks.core.xposed.HookInstallResult
 import io.github.togls.hypertweaks.core.xposed.HookTarget
 import io.github.togls.hypertweaks.feature.keepalive.xposed.KeepAliveHook
+import io.github.togls.hypertweaks.feature.keepalive.xposed.HookInstallationReport
 import io.github.togls.hypertweaks.feature.keepalive.xposed.OomAdjProtectHook
 
 class KeepAliveHookFeatureProvider(
@@ -36,9 +37,12 @@ private class KeepAliveProcessKillFeature(
         if (!systemServerFeatureEnabled()) {
             return HookInstallResult.Unsupported("keepalive system_server safety switch is disabled")
         }
-        KeepAliveHook(context.child("KeepAliveHook"))
+        val report = KeepAliveHook(context.child("KeepAliveHook"))
             .installSystemServer(context.environment.classLoader)
-        return HookInstallResult.Installed(installedTargets = setOf("process_kill_runtime"))
+        return report.toHookInstallResult(
+            capability = "process_kill",
+            unsupportedReason = "No supported process-kill Hook target was resolved",
+        )
     }
 }
 
@@ -57,8 +61,42 @@ private class OomAdjProtectFeature(
         if (!systemServerFeatureEnabled()) {
             return HookInstallResult.Unsupported("keepalive system_server safety switch is disabled")
         }
-        OomAdjProtectHook(context.child("OomAdjProtectHook"))
+        val report = OomAdjProtectHook(context.child("OomAdjProtectHook"))
             .installSystemServer(context.environment.classLoader)
-        return HookInstallResult.Installed(installedTargets = setOf("oom_adj_runtime"))
+        return report.toHookInstallResult(
+            capability = "oom_adj",
+            unsupportedReason = "No supported OOM-adj Hook target was resolved",
+        )
+    }
+}
+
+private fun HookInstallationReport.toHookInstallResult(
+    capability: String,
+    unsupportedReason: String,
+): HookInstallResult {
+    return when (this) {
+        HookInstallationReport.Deferred -> HookInstallResult.Deferred(
+            "$capability is waiting for a compatible non-empty configuration",
+        )
+        is HookInstallationReport.AlreadyInstalled -> HookInstallResult.Installed(
+            installedTargets = installedTargets.mapTo(mutableSetOf()) { target ->
+                "$capability:$target"
+            },
+        )
+        is HookInstallationReport.Failed -> HookInstallResult.Failed(error)
+        is HookInstallationReport.Completed -> when {
+            installedTargets.isNotEmpty() -> HookInstallResult.Installed(
+                installedTargets = installedTargets.mapTo(mutableSetOf()) { target ->
+                    "$capability:$target"
+                },
+                failedTargets = failedTargets,
+            )
+            failedTargets.isNotEmpty() -> HookInstallResult.Failed(
+                IllegalStateException(
+                    "$capability Hook installation failed: ${failedTargets.sorted().joinToString()}",
+                ),
+            )
+            else -> HookInstallResult.Unsupported(unsupportedReason)
+        }
     }
 }

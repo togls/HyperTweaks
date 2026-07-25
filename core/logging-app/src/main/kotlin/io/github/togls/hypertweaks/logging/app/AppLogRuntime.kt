@@ -32,7 +32,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 object AppLogRuntime {
-    private val initialized = AtomicBoolean(false)
+    private val initializationState = AtomicReference(AppLogInitializationState.UNINITIALIZED)
     private val recoveryScheduled = AtomicBoolean(false)
     private val mode = AtomicReference(LogMode.Default)
     private val modeStateFlow = MutableStateFlow(LogMode.Default)
@@ -55,15 +55,45 @@ object AppLogRuntime {
         get() = loggerReference ?: NoOpLogger
 
     fun initialize(context: Context) {
-        if (!initialized.compareAndSet(false, true)) return
-        runCatching { initializeInternal(context) }
-            .onFailure { error ->
-                loggerReference = NoOpLogger
-                databaseStateFlow.value = LogDatabaseState.Failed(
-                    error.message ?: "Logging runtime initialization failed",
-                )
-                Log.e("HyperTweaks", "logging.runtime.failed", error)
+        if (!beginInitialization()) return
+        try {
+            initializeInternal(context)
+            initializationState.set(AppLogInitializationState.READY)
+        } catch (error: Throwable) {
+            handleInitializationFailure(error)
+            if (error is Error) throw error
+        }
+    }
+
+    private fun beginInitialization(): Boolean {
+        while (true) {
+            val currentState = initializationState.get()
+            if (
+                currentState == AppLogInitializationState.INITIALIZING ||
+                currentState == AppLogInitializationState.READY
+            ) {
+                return false
             }
+            if (
+                initializationState.compareAndSet(
+                    currentState,
+                    AppLogInitializationState.INITIALIZING,
+                )
+            ) {
+                return true
+            }
+        }
+    }
+
+    private fun handleInitializationFailure(error: Throwable) {
+        loggerReference = NoOpLogger
+        modeCache = null
+        applicationContext = null
+        databaseStateFlow.value = LogDatabaseState.Failed(
+            error.message ?: "Logging runtime initialization failed",
+        )
+        initializationState.set(AppLogInitializationState.FAILED_RETRYABLE)
+        Log.e("HyperTweaks", "logging.runtime.failed", error)
     }
 
     private fun initializeInternal(context: Context) {
@@ -213,6 +243,13 @@ object AppLogRuntime {
     private const val CleanupWriteThreshold = 1_000
     private const val MillisPerDay = 24L * 60L * 60L * 1_000L
     private const val DatabaseRetryMillis = 5_000L
+}
+
+private enum class AppLogInitializationState {
+    UNINITIALIZED,
+    INITIALIZING,
+    READY,
+    FAILED_RETRYABLE,
 }
 
 internal fun countAcceptedPrefix(

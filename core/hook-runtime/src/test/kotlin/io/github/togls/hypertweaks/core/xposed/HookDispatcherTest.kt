@@ -15,7 +15,7 @@ class HookDispatcherTest {
             TestFeature("broken") { error("install failed") },
             TestFeature("healthy") {
                 installed += "healthy"
-                HookInstallResult.Installed()
+                HookInstallResult.Installed(setOf("healthy"))
             },
         )
         val dispatcher = dispatcher(features)
@@ -67,7 +67,11 @@ class HookDispatcherTest {
             logger = NoOpLogger,
         )
         val dispatcher = dispatcher(
-            features = listOf(TestFeature("recovered") { HookInstallResult.Installed() }),
+            features = listOf(
+                TestFeature("recovered") {
+                    HookInstallResult.Installed(setOf("recovered"))
+                },
+            ),
             settingsProvider = settingsProvider,
         )
 
@@ -104,7 +108,7 @@ class HookDispatcherTest {
             listOf(
                 TestFeature("once") {
                     installCount++
-                    HookInstallResult.Installed()
+                    HookInstallResult.Installed(setOf("once"))
                 },
             ),
         )
@@ -132,6 +136,35 @@ class HookDispatcherTest {
         )
 
         assertTrue(dispatcher.dispatch(environment()).isEmpty())
+    }
+
+    @Test
+    fun settingsRecoveryRedispatchesWaitingEnvironment() {
+        var installCount = 0
+        val settingsProvider = MutableTestSettingsProvider(
+            HookSettingsState.Unavailable(IllegalStateException("offline")),
+        )
+        val retryScheduler = RecordingRetryScheduler()
+        val dispatcher = dispatcher(
+            features = listOf(
+                TestFeature("recover-later") {
+                    installCount++
+                    HookInstallResult.Installed(setOf("recover-later"))
+                },
+            ),
+            settingsProvider = settingsProvider,
+            retryScheduler = retryScheduler,
+        )
+
+        assertTrue(dispatcher.dispatch(environment()).isEmpty())
+        assertEquals(listOf(100L), retryScheduler.delays)
+        settingsProvider.state = HookSettingsState.Ready(
+            HookSettingsSnapshot(enabledPreferenceKeys = setOf(PreferenceKey)),
+        )
+
+        retryScheduler.runNext()
+
+        assertEquals(1, installCount)
     }
 
     @Test
@@ -164,6 +197,7 @@ class HookDispatcherTest {
                 HookSettingsSnapshot(enabledPreferenceKeys = setOf(PreferenceKey)),
             ),
         ),
+        retryScheduler: HookRetryScheduler = RecordingRetryScheduler(),
     ): HookDispatcher {
         return HookDispatcher(
             catalog = HookFeatureCatalog(listOf(TestProvider(features))),
@@ -171,6 +205,7 @@ class HookDispatcherTest {
             settingsProvider = settingsProvider,
             installGuard = ProcessHookInstallGuard(),
             logger = NoOpLogger,
+            retryScheduler = retryScheduler,
         )
     }
 
@@ -207,6 +242,33 @@ class HookDispatcherTest {
         override fun subscribe(
             listener: (HookSettingsState) -> Unit,
         ): HookSettingsSubscription = HookSettingsSubscription {}
+    }
+
+    private class MutableTestSettingsProvider(
+        initialState: HookSettingsState,
+    ) : HookSettingsProvider {
+        var state: HookSettingsState = initialState
+
+        override val currentState: HookSettingsState
+            get() = state
+
+        override fun subscribe(
+            listener: (HookSettingsState) -> Unit,
+        ): HookSettingsSubscription = HookSettingsSubscription {}
+    }
+
+    private class RecordingRetryScheduler : HookRetryScheduler {
+        private val actions = ArrayDeque<() -> Unit>()
+        val delays = mutableListOf<Long>()
+
+        override fun schedule(delayMillis: Long, action: () -> Unit) {
+            delays += delayMillis
+            actions += action
+        }
+
+        fun runNext() {
+            actions.removeFirst().invoke()
+        }
     }
 
     private object TestEngine : HookEngine {

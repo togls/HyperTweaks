@@ -7,10 +7,15 @@ internal data class GooglePhotosDiagnosticsPolicy(
 ) {
     fun shouldCaptureStack(callCount: Int, detailedCallLimit: Int, summaryInterval: Int): Boolean {
         if (!highFrequencyProbesEnabled) return false
-        return callCount <= detailedCallLimit || callCount % summaryInterval == 0
+        val boundedDetailedLimit = minOf(detailedCallLimit, MaximumDetailedStacks)
+        val boundedSummaryInterval = maxOf(summaryInterval, StackSummaryInterval)
+        return callCount <= boundedDetailedLimit || callCount % boundedSummaryInterval == 0
     }
 
     companion object {
+        private const val MaximumDetailedStacks = 3
+        private const val StackSummaryInterval = 500
+
         fun forCurrentBuild(): GooglePhotosDiagnosticsPolicy {
             return forBuild(BuildConfig.DEBUG)
         }

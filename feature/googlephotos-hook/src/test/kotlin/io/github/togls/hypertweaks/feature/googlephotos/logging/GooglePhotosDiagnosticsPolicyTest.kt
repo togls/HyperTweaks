@@ -20,8 +20,10 @@ class GooglePhotosDiagnosticsPolicyTest {
         val policy = GooglePhotosDiagnosticsPolicy.forBuild(debug = true)
 
         assertTrue(policy.shouldCaptureStack(1, 5, 100))
-        assertTrue(policy.shouldCaptureStack(100, 5, 100))
-        assertFalse(policy.shouldCaptureStack(6, 5, 100))
+        assertTrue(policy.shouldCaptureStack(3, 5, 100))
+        assertTrue(policy.shouldCaptureStack(500, 5, 100))
+        assertFalse(policy.shouldCaptureStack(4, 5, 100))
+        assertFalse(policy.shouldCaptureStack(100, 5, 100))
     }
 
     @Test

@@ -18,7 +18,10 @@ internal class OomAdjInstaller(
     private val identityResolver: ProcessIdentityResolver = ProcessIdentityResolver(logger),
     private val processAccess: OomAdjProcessAccess = OomAdjProcessAccess(logger),
 ) {
-    private val installationStarted = AtomicBoolean(false)
+    private val installationInProgress = AtomicBoolean(false)
+    private val installed = AtomicBoolean(false)
+    @Volatile
+    private var installedTargets: Set<String> = emptySet()
     private val protectedProcesses = ConcurrentHashMap<Int, ProtectedProcess>()
 
     fun install(classLoader: ClassLoader): HookInstallationReport {
@@ -29,25 +32,35 @@ internal class OomAdjInstaller(
             )
             return HookInstallationReport.Deferred
         }
-        if (!installationStarted.compareAndSet(false, true)) {
-            return HookInstallationReport.AlreadyInstalled
+        if (installed.get()) {
+            return HookInstallationReport.AlreadyInstalled(installedTargets)
         }
-        logger.info(
-            event = "target.resolve.started",
-            fields = mapOf("subtarget" to "keepalive.oom_adj", "reason" to "install_requested"),
-        )
-        val resolution = resolver.resolve(classLoader)
-        logResolutionFailures(resolution)
-        logger.info(
-            event = "target.resolve.succeeded",
-            fields = mapOf(
-                "subtarget" to "keepalive.oom_adj",
-                "reason" to "resolution_completed",
-                "resolved_count" to
-                    (resolution.setPidMethods.size + resolution.setOomAdjMethods.size).toString(),
-            ),
-        )
-        return installResolvedTargets(resolution)
+        if (!installationInProgress.compareAndSet(false, true)) {
+            return HookInstallationReport.Deferred
+        }
+        return try {
+            logger.info(
+                event = "target.resolve.started",
+                fields = mapOf("subtarget" to "keepalive.oom_adj", "reason" to "install_requested"),
+            )
+            val resolution = resolver.resolve(classLoader)
+            logResolutionFailures(resolution)
+            logger.info(
+                event = "target.resolve.succeeded",
+                fields = mapOf(
+                    "subtarget" to "keepalive.oom_adj",
+                    "reason" to "resolution_completed",
+                    "resolved_count" to
+                        (resolution.setPidMethods.size + resolution.setOomAdjMethods.size).toString(),
+                ),
+            )
+            installResolvedTargets(resolution).also { report ->
+                installedTargets = report.installedTargets
+                installed.set(report.installedTargets.isNotEmpty())
+            }
+        } finally {
+            installationInProgress.set(false)
+        }
     }
 
     fun reconcileConfiguredPackages(configuredPackages: Set<String>) {
@@ -62,7 +75,8 @@ internal class OomAdjInstaller(
         resolution: OomAdjResolution,
     ): HookInstallationReport.Completed {
         val installedTargets = mutableSetOf<String>()
-        val failedTargets = mutableSetOf<String>()
+        val failedTargets = resolution.failures.keys
+            .mapTo(mutableSetOf()) { className -> "resolve:$className" }
         resolution.setPidMethods.forEach { method ->
             installMethod(method, installedTargets, failedTargets, ::interceptSetPid)
         }

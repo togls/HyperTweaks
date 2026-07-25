@@ -22,10 +22,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
         with:
           distribution: temurin
           java-version: 17
@@ -66,15 +66,22 @@ jobs:
 
       - name: Prepare pre-release artifact
         run: |
+          APKSIGNER_PATH="$(find "${ANDROID_HOME}/build-tools" -type f -name apksigner \
+            | sort -V | tail -n 1)"
+          test -n "${APKSIGNER_PATH}"
           mkdir -p release
           cp app/build/outputs/apk/release/app-release.apk "release/${APK_NAME}"
+          "${APKSIGNER_PATH}" verify --verbose "release/${APK_NAME}"
+          sha256sum "release/${APK_NAME}" > "release/${APK_NAME}.sha256"
 
       - name: Create GitHub Pre-release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
           tag_name: ${{ env.TAG_NAME }}
           name: ${{ env.RELEASE_NAME }}
-          files: release/*.apk
+          files: |
+            release/*.apk
+            release/*.sha256
           prerelease: true
           make_latest: false
           generate_release_notes: true

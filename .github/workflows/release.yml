@@ -13,13 +13,14 @@ jobs:
   release:
     name: Build and publish release APK
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
         with:
           distribution: temurin
           java-version: 17
@@ -43,13 +44,28 @@ jobs:
       - name: Prepare release artifact
         run: |
           VERSION_NAME="${GITHUB_REF_NAME}"
+          APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            EXPECTED_VERSION="${GITHUB_REF_NAME#v}"
+            ACTUAL_VERSION="$(jq -r '.elements[0].versionName' \
+              app/build/outputs/apk/release/output-metadata.json)"
+            test "${EXPECTED_VERSION}" = "${ACTUAL_VERSION}"
+          fi
+          APKSIGNER_PATH="$(find "${ANDROID_HOME}/build-tools" -type f -name apksigner \
+            | sort -V | tail -n 1)"
+          test -n "${APKSIGNER_PATH}"
           mkdir -p release
-          cp app/build/outputs/apk/release/app-release.apk "release/HyperTweaks-${VERSION_NAME}.apk"
+          cp "${APK_PATH}" "release/HyperTweaks-${VERSION_NAME}.apk"
+          "${APKSIGNER_PATH}" verify --verbose "release/HyperTweaks-${VERSION_NAME}.apk"
+          sha256sum "release/HyperTweaks-${VERSION_NAME}.apk" \
+            > "release/HyperTweaks-${VERSION_NAME}.apk.sha256"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
-          files: release/*.apk
+          files: |
+            release/*.apk
+            release/*.sha256
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

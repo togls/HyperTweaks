@@ -758,7 +758,7 @@ internal class GooglePhotosLocationLogger(
     }
 
     private fun formatCoordinate(value: Double?): String? {
-        return value?.let { String.format(Locale.US, "%.6f", it) }
+        return value?.let { String.format(Locale.US, "%.4f", it) }
     }
 
     private fun callbackFields(
@@ -809,14 +809,14 @@ internal class GooglePhotosLocationLogger(
         private const val InactiveSessionKey = -1L
         private const val DiagnosticsDisabledCallCount = 0
         private const val MaximumLogsPerErrorType = 3
-        private const val EventDetailedCallLimit = 100
-        private const val MarkerDetailedCallLimit = 20
-        private const val LocationDetailedCallLimit = 20
-        private const val CameraUpdateDetailedCallLimit = 50
-        private const val PreviewMarkerAnimationDetailedCallLimit = 50
-        private const val S2QueryDetailedCallLimit = 50
-        private const val HeatmapDetailedCallLimit = 20
-        private const val SummaryInterval = 100
+        private const val EventDetailedCallLimit = 20
+        private const val MarkerDetailedCallLimit = 10
+        private const val LocationDetailedCallLimit = 10
+        private const val CameraUpdateDetailedCallLimit = 10
+        private const val PreviewMarkerAnimationDetailedCallLimit = 10
+        private const val S2QueryDetailedCallLimit = 10
+        private const val HeatmapDetailedCallLimit = 10
+        private const val SummaryInterval = 250
     }
 }
 

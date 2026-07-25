@@ -17,19 +17,27 @@ class KeepAliveHook(
         policy = policy,
     )
     private val runtimeStarted = AtomicBoolean(false)
+    @Volatile
+    private var lastInstallReport: HookInstallationReport = HookInstallationReport.Deferred
     private var settingsSubscription: HookSettingsSubscription? = null
     private lateinit var systemServerClassLoader: ClassLoader
 
-    fun installSystemServer(classLoader: ClassLoader) {
+    internal fun installSystemServer(classLoader: ClassLoader): HookInstallationReport {
         if (!runtimeStarted.compareAndSet(false, true)) {
             context.log.info(
                 event = "keepalive.process_kill.runtime.duplicate_start_ignored",
             )
-            return
+            return lastInstallReport
         }
         systemServerClassLoader = classLoader
-        applySettings(context.settings)
-        observeSettings()
+        val report = applySettings(context.settings)
+        lastInstallReport = report
+        if (report.hasInstalledTargets()) {
+            observeSettings()
+        } else {
+            runtimeStarted.set(false)
+        }
+        return report
     }
 
     private fun observeSettings() {
@@ -46,8 +54,8 @@ class KeepAliveHook(
         }
     }
 
-    private fun applySettings(settings: HookSettingsSnapshot) {
-        try {
+    private fun applySettings(settings: HookSettingsSnapshot): HookInstallationReport {
+        return try {
             val configuration = policy.update(settings)
             context.log.info(
                 event = "keepalive.process_kill.configuration.updated",
@@ -64,6 +72,7 @@ class KeepAliveHook(
                 throwable = error,
             )
             policy.update(HookSettingsSnapshot.Disabled)
+            HookInstallationReport.Failed(error)
         }
     }
 }

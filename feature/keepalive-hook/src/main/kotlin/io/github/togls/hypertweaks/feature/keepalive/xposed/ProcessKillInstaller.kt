@@ -14,7 +14,10 @@ internal class ProcessKillInstaller(
     private val resolver: ProcessKillResolver = ProcessKillResolver(),
     private val identityResolver: ProcessIdentityResolver = ProcessIdentityResolver(logger),
 ) {
-    private val installationStarted = AtomicBoolean(false)
+    private val installationInProgress = AtomicBoolean(false)
+    private val installed = AtomicBoolean(false)
+    @Volatile
+    private var installedTargets: Set<String> = emptySet()
 
     fun install(classLoader: ClassLoader): HookInstallationReport {
         if (!policy.shouldInstallProcessKillHooks()) {
@@ -24,31 +27,46 @@ internal class ProcessKillInstaller(
             )
             return HookInstallationReport.Deferred
         }
-        if (!installationStarted.compareAndSet(false, true)) {
-            return HookInstallationReport.AlreadyInstalled
+        if (installed.get()) {
+            return HookInstallationReport.AlreadyInstalled(installedTargets)
         }
-        logger.info(
-            event = "target.resolve.started",
-            fields = mapOf("subtarget" to "keepalive.process_kill", "reason" to "install_requested"),
-        )
-        val resolution = resolver.resolve(classLoader)
-        logResolutionFailures(resolution)
-        logger.info(
-            event = "target.resolve.succeeded",
-            fields = mapOf(
-                "subtarget" to "keepalive.process_kill",
-                "reason" to "resolution_completed",
-                "resolved_count" to resolution.targets.size.toString(),
-            ),
-        )
-        return installResolvedTargets(resolution.targets)
+        if (!installationInProgress.compareAndSet(false, true)) {
+            return HookInstallationReport.Deferred
+        }
+        return try {
+            logger.info(
+                event = "target.resolve.started",
+                fields = mapOf("subtarget" to "keepalive.process_kill", "reason" to "install_requested"),
+            )
+            val resolution = resolver.resolve(classLoader)
+            logResolutionFailures(resolution)
+            logger.info(
+                event = "target.resolve.succeeded",
+                fields = mapOf(
+                    "subtarget" to "keepalive.process_kill",
+                    "reason" to "resolution_completed",
+                    "resolved_count" to resolution.targets.size.toString(),
+                ),
+            )
+            installResolvedTargets(
+                targets = resolution.targets,
+                resolutionFailures = resolution.failures.keys,
+            ).also { report ->
+                installedTargets = report.installedTargets
+                installed.set(report.installedTargets.isNotEmpty())
+            }
+        } finally {
+            installationInProgress.set(false)
+        }
     }
 
     internal fun installResolvedTargets(
         targets: List<ProcessKillTarget>,
+        resolutionFailures: Set<String> = emptySet(),
     ): HookInstallationReport.Completed {
         val installedTargets = mutableSetOf<String>()
-        val failedTargets = mutableSetOf<String>()
+        val failedTargets = resolutionFailures
+            .mapTo(mutableSetOf()) { className -> "resolve:$className" }
         targets.forEach { target ->
             val signature = target.method.describeSignature()
             if (installTarget(target)) {
@@ -187,11 +205,23 @@ internal class ProcessKillInstaller(
 
 internal sealed interface HookInstallationReport {
     data object Deferred : HookInstallationReport
-    data object AlreadyInstalled : HookInstallationReport
+    data class AlreadyInstalled(
+        val installedTargets: Set<String>,
+    ) : HookInstallationReport {
+        init {
+            require(installedTargets.isNotEmpty()) {
+                "Already-installed report requires concrete Hook targets"
+            }
+        }
+    }
 
     data class Completed(
         val installedTargets: Set<String>,
         val failedTargets: Set<String>,
+    ) : HookInstallationReport
+
+    data class Failed(
+        val error: Throwable,
     ) : HookInstallationReport
 }
 
@@ -201,5 +231,15 @@ internal fun Decision.actionName(): String {
         is Decision.Audit -> "audit"
         is Decision.Block -> "block"
         is Decision.Clamp -> "clamp"
+    }
+}
+
+internal fun HookInstallationReport.hasInstalledTargets(): Boolean {
+    return when (this) {
+        is HookInstallationReport.AlreadyInstalled -> installedTargets.isNotEmpty()
+        is HookInstallationReport.Completed -> installedTargets.isNotEmpty()
+        HookInstallationReport.Deferred,
+        is HookInstallationReport.Failed,
+        -> false
     }
 }

@@ -56,6 +56,44 @@ internal class HookInstallLogger(
         )
     }
 
+    fun retryScheduled(
+        feature: HookFeature,
+        environment: HookEnvironment,
+        record: HookInstallRecord,
+        delayMillis: Long,
+    ) {
+        logger.warn(
+            event = "hook.install.retry.scheduled",
+            fields = featureFields(feature, environment) + mapOf(
+                "attempt_count" to record.attemptCount.toString(),
+                "retry_count" to record.retryCount.toString(),
+                "delay_ms" to delayMillis.toString(),
+                "failure_stage" to record.lastFailureStage.orEmpty(),
+            ),
+        )
+    }
+
+    fun settingsRetryScheduled(
+        environment: HookEnvironment,
+        retryCount: Int,
+        delayMillis: Long,
+    ) {
+        logger.warn(
+            event = "config.snapshot.retry.scheduled",
+            fields = environmentFields(environment) + mapOf(
+                "retry_count" to retryCount.toString(),
+                "delay_ms" to delayMillis.toString(),
+            ),
+        )
+    }
+
+    fun settingsRetryExhausted(environment: HookEnvironment) {
+        logger.error(
+            event = "config.snapshot.retry.exhausted",
+            fields = environmentFields(environment),
+        )
+    }
+
     fun installStarted(feature: HookFeature, environment: HookEnvironment) {
         logger.info(
             event = "hook.install.started",
@@ -87,6 +125,19 @@ internal class HookInstallLogger(
             fields = featureFields(feature, environment) + mapOf(
                 "reason" to "unsupported_target",
                 "detail" to reason,
+            ),
+        )
+    }
+
+    fun deferred(
+        feature: HookFeature,
+        environment: HookEnvironment,
+        reason: String,
+    ) {
+        logger.info(
+            event = "hook.install.deferred",
+            fields = featureFields(feature, environment) + mapOf(
+                "reason" to reason,
             ),
         )
     }

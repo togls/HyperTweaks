@@ -12,6 +12,7 @@ import io.github.togls.hypertweaks.logging.app.AppLogRuntime
 
 class LogIngestProvider : ContentProvider() {
     private val decoder = LogBatchDecoder()
+    private val quota = LogIngestQuota()
 
     override fun onCreate(): Boolean {
         val providerContext = context ?: return false
@@ -29,18 +30,50 @@ class LogIngestProvider : ContentProvider() {
         val validator = CallerValidator(
             packagesForUid = { uid -> context?.packageManager?.getPackagesForUid(uid) },
         )
-        if (validator.validate(Binder.getCallingUid(), envelope.senderPackage).isFailure) {
+        val callingUid = Binder.getCallingUid()
+        val callingPid = Binder.getCallingPid()
+        if (
+            validator.validate(
+                uid = callingUid,
+                callingPid = callingPid,
+                senderPackage = envelope.senderPackage,
+                senderPid = envelope.senderPid,
+            ).isFailure
+        ) {
+            logRejection("caller_rejected", callingUid, callingPid, envelope.events.size)
             return LogProtocol.encodeResult(
                 LogIngestResult(0, envelope.events.size, false, "caller_rejected"),
             )
         }
+        if (!quota.tryAcquire(callingUid, envelope.events.size)) {
+            logRejection("rate_limited", callingUid, callingPid, envelope.events.size)
+            return LogProtocol.encodeResult(
+                LogIngestResult(0, envelope.events.size, false, "rate_limited"),
+            )
+        }
         val acceptedCount = AppLogRuntime.ingest(envelope.events)
+        val rejectedCount = envelope.events.size - acceptedCount
+        if (rejectedCount > 0) {
+            logRejection("buffer_full", callingUid, callingPid, rejectedCount)
+        }
         return LogProtocol.encodeResult(
             LogIngestResult(
                 acceptedCount = acceptedCount,
-                rejectedCount = envelope.events.size - acceptedCount,
+                rejectedCount = rejectedCount,
                 retryable = acceptedCount < envelope.events.size,
                 errorCode = if (acceptedCount < envelope.events.size) "buffer_full" else null,
+            ),
+        )
+    }
+
+    private fun logRejection(reason: String, uid: Int, pid: Int, eventCount: Int) {
+        AppLogRuntime.logger.warn(
+            event = "provider.ingest.rejected",
+            fields = mapOf(
+                "reason" to reason,
+                "calling_uid" to uid.toString(),
+                "calling_pid" to pid.toString(),
+                "event_count" to eventCount.toString(),
             ),
         )
     }

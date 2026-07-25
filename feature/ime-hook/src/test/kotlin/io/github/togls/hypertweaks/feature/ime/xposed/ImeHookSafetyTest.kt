@@ -30,6 +30,17 @@ class ImeHookSafetyTest {
         assertTrue(events.last().message.orEmpty().contains("test.callback"))
     }
 
+    @Test(expected = LinkageError::class)
+    fun `callback does not swallow linkage errors`() {
+        preserveOriginalOnFailure(
+            log = eventLogger(mutableListOf()),
+            event = "test.callback",
+            originalValue = Unit,
+        ) {
+            throw LinkageError("linkage failed")
+        }
+    }
+
     @Test
     fun `successful callback returns replacement value`() {
         val events = mutableListOf<LogEvent>()
@@ -84,6 +95,16 @@ class ImeHookSafetyTest {
             ),
             events.map(LogEvent::event),
         )
+    }
+
+    @Test(expected = LinkageError::class)
+    fun `target install does not swallow linkage errors`() {
+        installImeTarget(
+            target = "dead_zone",
+            log = eventLogger(mutableListOf()),
+        ) {
+            throw LinkageError("linkage failed")
+        }
     }
 
     @Test

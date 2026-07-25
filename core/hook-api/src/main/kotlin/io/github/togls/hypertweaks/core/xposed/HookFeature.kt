@@ -20,14 +20,25 @@ sealed interface HookInstallResult {
     data class Installed(
         val installedTargets: Set<String> = emptySet(),
         val failedTargets: Set<String> = emptySet(),
-    ) : HookInstallResult
+    ) : HookInstallResult {
+        init {
+            require(installedTargets.isNotEmpty()) {
+                "Installed requires at least one actual Hook target"
+            }
+        }
+    }
 
     data class Unsupported(
         val reason: String,
     ) : HookInstallResult
 
+    data class Deferred(
+        val reason: String,
+    ) : HookInstallResult
+
     data class Failed(
         val error: Throwable,
+        val retryable: Boolean = true,
     ) : HookInstallResult
 }
 

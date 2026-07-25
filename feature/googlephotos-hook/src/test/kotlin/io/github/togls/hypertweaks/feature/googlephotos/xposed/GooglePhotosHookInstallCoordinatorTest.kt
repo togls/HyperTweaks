@@ -131,6 +131,33 @@ class GooglePhotosHookInstallCoordinatorTest {
     }
 
     @Test
+    fun probeOnlyInstallationDoesNotReportFeatureInstalled() {
+        val result = GooglePhotosHookInstallCoordinator().install(
+            step(GooglePhotosInstallTarget.LIFECYCLE),
+            step(GooglePhotosInstallTarget.MAP_VIEW),
+            step(GooglePhotosInstallTarget.CAMERA_UPDATE),
+            step(GooglePhotosInstallTarget.S2_QUERY),
+        ).toHookInstallResult()
+
+        assertTrue(result is HookInstallResult.Unsupported)
+    }
+
+    @Test
+    fun auxiliaryPartialInstallationFailureIsTerminalToPreventDuplicateHooks() {
+        val result = GooglePhotosHookInstallCoordinator().install(
+            step(GooglePhotosInstallTarget.LIFECYCLE),
+            failingStep(
+                GooglePhotosInstallTarget.MARKER_API,
+                IllegalStateException("core marker failed"),
+            ),
+        ).toHookInstallResult()
+
+        assertTrue(result is HookInstallResult.Failed)
+        result as HookInstallResult.Failed
+        assertFalse(result.retryable)
+    }
+
+    @Test
     fun partialStrategySuccessExposesActualInstalledAndFailedTargets() {
         val cameraFailure = IllegalStateException("camera install failed")
         val result = GooglePhotosHookInstallCoordinator().install(

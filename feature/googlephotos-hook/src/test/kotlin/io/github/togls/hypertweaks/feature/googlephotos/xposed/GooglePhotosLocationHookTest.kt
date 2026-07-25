@@ -6,6 +6,7 @@ import io.github.togls.hypertweaks.core.xposed.HookEnvironment
 import io.github.togls.hypertweaks.core.xposed.HookHandle
 import io.github.togls.hypertweaks.core.xposed.HookInstallGuard
 import io.github.togls.hypertweaks.core.xposed.HookInstallKey
+import io.github.togls.hypertweaks.core.xposed.HookInstallRecord
 import io.github.togls.hypertweaks.core.xposed.HookInstallResult
 import io.github.togls.hypertweaks.core.xposed.HookInstallState
 import io.github.togls.hypertweaks.core.xposed.HookInterceptor
@@ -125,8 +126,15 @@ private object TestEngine : HookEngine {
 private object TestInstallGuard : HookInstallGuard {
     override fun tryStart(key: HookInstallKey): Boolean = true
     override fun markInstalled(key: HookInstallKey) = Unit
-    override fun markFailed(key: HookInstallKey) = Unit
+    override fun markDeferred(key: HookInstallKey) = Unit
+    override fun markFailed(
+        key: HookInstallKey,
+        retryable: Boolean,
+        failureStage: String,
+        failureMessage: String?,
+    ): Long? = null
     override fun state(key: HookInstallKey): HookInstallState = HookInstallState.NEW
+    override fun record(key: HookInstallKey): HookInstallRecord = HookInstallRecord()
 }
 
 private object TestSettingsProvider : HookSettingsProvider {

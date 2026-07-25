@@ -16,7 +16,10 @@ class InputMethodBottomManagerHook(
     private val engine = context.engine
     private val log = context.log
 
-    private val hookedClassLoaders = Collections.newSetFromMap(
+    private val installedClassLoaders = Collections.newSetFromMap(
+        IdentityHashMap<ClassLoader, Boolean>(),
+    )
+    private val installingClassLoaders = Collections.newSetFromMap(
         IdentityHashMap<ClassLoader, Boolean>(),
     )
 
@@ -67,56 +70,70 @@ class InputMethodBottomManagerHook(
     }
 
     private fun installBottomManagerHookOnce(imeModuleClassLoader: ClassLoader) {
-        if (!markClassLoaderForInstall(imeModuleClassLoader)) return
+        if (!beginClassLoaderInstall(imeModuleClassLoader)) return
+        var hookInstalled = false
+        try {
+            val bottomManagerClass = runCatching {
+                imeModuleClassLoader.loadClass(BOTTOM_MANAGER_CLASS_NAME)
+            }.onFailure { error ->
+                log.w("skip BottomManager hook: InputMethodBottomManager not found", error)
+            }.getOrNull() ?: return
 
-        val bottomManagerClass = runCatching {
-            imeModuleClassLoader.loadClass(BOTTOM_MANAGER_CLASS_NAME)
-        }.onFailure { error ->
-            log.w("skip BottomManager hook: InputMethodBottomManager not found", error)
-        }.getOrNull() ?: return
+            val getSupportImeMethod = runCatching {
+                bottomManagerClass.getDeclaredMethod("getSupportIme").apply {
+                    isAccessible = true
+                }
+            }.onFailure { error ->
+                log.w("skip BottomManager hook: getSupportIme not found", error)
+            }.getOrNull() ?: return
 
-        val getSupportImeMethod = runCatching {
-            bottomManagerClass.getDeclaredMethod("getSupportIme").apply {
-                isAccessible = true
-            }
-        }.onFailure { error ->
-            log.w("skip BottomManager hook: getSupportIme not found", error)
-        }.getOrNull() ?: return
+            val bottomViewHelperClass = runCatching {
+                imeModuleClassLoader.loadClass(BOTTOM_VIEW_HELPER_CLASS_NAME)
+            }.onFailure { error ->
+                log.w("skip BottomManager hook: BottomViewHelper not found", error)
+            }.getOrNull() ?: return
 
-        val bottomViewHelperClass = runCatching {
-            imeModuleClassLoader.loadClass(BOTTOM_VIEW_HELPER_CLASS_NAME)
-        }.onFailure { error ->
-            log.w("skip BottomManager hook: BottomViewHelper not found", error)
-        }.getOrNull() ?: return
+            val immField = runCatching {
+                bottomViewHelperClass.getDeclaredField("mImm").apply {
+                    isAccessible = true
+                }
+            }.onFailure { error ->
+                log.w("skip BottomManager hook: BottomViewHelper.mImm not found", error)
+            }.getOrNull() ?: return
 
-        val immField = runCatching {
-            bottomViewHelperClass.getDeclaredField("mImm").apply {
-                isAccessible = true
-            }
-        }.onFailure { error ->
-            log.w("skip BottomManager hook: BottomViewHelper.mImm not found", error)
-        }.getOrNull() ?: return
+            val bottomViewHelperField = runCatching {
+                bottomManagerClass.getDeclaredField("sBottomViewHelper").apply {
+                    isAccessible = true
+                }
+            }.onFailure { error ->
+                log.w("skip BottomManager hook: sBottomViewHelper not found", error)
+            }.getOrNull() ?: return
 
-        val bottomViewHelperField = runCatching {
-            bottomManagerClass.getDeclaredField("sBottomViewHelper").apply {
-                isAccessible = true
-            }
-        }.onFailure { error ->
-            log.w("skip BottomManager hook: sBottomViewHelper not found", error)
-        }.getOrNull() ?: return
-
-        hookGetSupportIme(
-            getSupportImeMethod = getSupportImeMethod,
-            bottomViewHelperField = bottomViewHelperField,
-            immField = immField,
-        )
-
-        log.i("hooked InputMethodBottomManager#getSupportIme")
+            hookGetSupportIme(
+                getSupportImeMethod = getSupportImeMethod,
+                bottomViewHelperField = bottomViewHelperField,
+                immField = immField,
+            )
+            hookInstalled = true
+            log.i("hooked InputMethodBottomManager#getSupportIme")
+        } finally {
+            finishClassLoaderInstall(imeModuleClassLoader, hookInstalled)
+        }
     }
 
-    private fun markClassLoaderForInstall(classLoader: ClassLoader): Boolean {
-        return synchronized(hookedClassLoaders) {
-            hookedClassLoaders.add(classLoader)
+    private fun beginClassLoaderInstall(classLoader: ClassLoader): Boolean {
+        return synchronized(installedClassLoaders) {
+            if (classLoader in installedClassLoaders || classLoader in installingClassLoaders) {
+                return@synchronized false
+            }
+            installingClassLoaders.add(classLoader)
+        }
+    }
+
+    private fun finishClassLoaderInstall(classLoader: ClassLoader, installed: Boolean) {
+        synchronized(installedClassLoaders) {
+            installingClassLoaders.remove(classLoader)
+            if (installed) installedClassLoaders.add(classLoader)
         }
     }
 

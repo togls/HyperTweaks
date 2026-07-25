@@ -19,7 +19,7 @@ internal inline fun <T> preserveOriginalOnFailure(
             )
         }
     } catch (error: Throwable) {
-        if (error is VirtualMachineError || error is ThreadDeath) throw error
+        if (error is Error) throw error
         log.error(
             event = "hook.callback.failed",
             message = event,
@@ -44,7 +44,7 @@ internal inline fun installImeTarget(
         action()
         ImeTargetInstallResult.Installed(target)
     } catch (error: Throwable) {
-        if (error is VirtualMachineError || error is ThreadDeath) throw error
+        if (error is Error) throw error
         log.error(
             event = "hook.install.failed",
             throwable = error,

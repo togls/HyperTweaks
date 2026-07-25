@@ -3,7 +3,7 @@ package io.github.togls.hypertweaks.feature.keepalive.xposed
 import java.lang.reflect.Method
 
 internal fun Throwable.rethrowIfFatal() {
-    if (this is VirtualMachineError || this is ThreadDeath) throw this
+    if (this is Error) throw this
 }
 
 internal fun Method.describeSignature(): String {

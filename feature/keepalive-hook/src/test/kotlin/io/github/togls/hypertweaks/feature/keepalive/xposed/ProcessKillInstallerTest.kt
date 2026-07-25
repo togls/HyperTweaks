@@ -106,6 +106,24 @@ class ProcessKillInstallerTest {
         assertTrue(engine.interceptors.isEmpty())
     }
 
+    @Test
+    fun `already installed report retains concrete hook targets`() {
+        val report = HookInstallationReport.AlreadyInstalled(
+            installedTargets = setOf("com.android.server.am.ProcessRecord#killLocked()"),
+        )
+
+        assertTrue(report.hasInstalledTargets())
+        assertEquals(
+            setOf("com.android.server.am.ProcessRecord#killLocked()"),
+            report.installedTargets,
+        )
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `already installed report rejects empty hook targets`() {
+        HookInstallationReport.AlreadyInstalled(emptySet())
+    }
+
     private fun createFixture(mode: KeepAliveMode): InstallerFixture {
         val engine = RecordingHookEngine()
         val logger = RecordingLogger()

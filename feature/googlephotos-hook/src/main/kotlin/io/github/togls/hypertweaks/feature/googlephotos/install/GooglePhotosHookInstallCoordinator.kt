@@ -8,15 +8,16 @@ import io.github.togls.hypertweaks.feature.googlephotos.resolver.UnsupportedGoog
 internal enum class GooglePhotosInstallTarget(
     val logName: String,
     val isStrategy: Boolean,
+    val isCoreCoordinateCapability: Boolean = false,
 ) {
     LIFECYCLE("lifecycle", false),
     MAP_VIEW("map_view", false),
-    MARKER_API("marker_api", true),
+    MARKER_API("marker_api", true, true),
     MARKER_ANIMATION("marker_animation", true),
     INITIAL_PREVIEW_SELECTION("initial_preview_selection", true),
     MAP_LOCATION("map_location", true),
     CAMERA_UPDATE("camera_update", true),
-    HEATMAP_INDEX("heatmap_index", true),
+    HEATMAP_INDEX("heatmap_index", true, true),
     S2_QUERY("s2_query", true),
 }
 
@@ -58,15 +59,22 @@ internal data class GooglePhotosHookInstallResult(
             (outcome as? GooglePhotosTargetInstallOutcome.Failed)
                 ?.let { target.logName to it.error }
         }.toMap()
-        val hasUsableStrategy = outcomes.any { (target, outcome) ->
-            target.isStrategy && outcome is GooglePhotosTargetInstallOutcome.Installed
+        val hasCoreCoordinateCapability = outcomes.any { (target, outcome) ->
+            target.isCoreCoordinateCapability &&
+                outcome is GooglePhotosTargetInstallOutcome.Installed
         }
-        return aggregateHookInstallResult(
+        val result = aggregateHookInstallResult(
             installedTargets = installedTargets,
             failedTargets = failedTargets,
-            unsupportedReason = "No supported Google Photos location strategy was installed",
-            hasUsableInstalledTarget = hasUsableStrategy,
+            unsupportedReason = "No core Google Photos Marker or heatmap capability was installed",
+            hasUsableInstalledTarget = hasCoreCoordinateCapability,
         )
+        // 辅助 Probe 已注册却没有核心坐标能力时，无法安全自动重试，否则会重复注册回调。
+        return if (result is HookInstallResult.Failed && installedTargets.isNotEmpty()) {
+            result.copy(retryable = false)
+        } else {
+            result
+        }
     }
 }
 
