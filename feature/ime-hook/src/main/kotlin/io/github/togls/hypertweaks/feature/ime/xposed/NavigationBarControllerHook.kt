@@ -1,6 +1,7 @@
 package io.github.togls.hypertweaks.feature.ime.xposed
 
 import android.annotation.SuppressLint
+import android.graphics.Insets
 import android.inputmethodservice.InputMethodService
 import android.os.Build
 import android.view.View
@@ -32,22 +33,29 @@ class NavigationBarControllerHook(
     @SuppressLint("PrivateApi")
     internal fun install(classLoader: ClassLoader): List<ImeTargetInstallResult> {
         logImeTargetResolveStarted(log, CaptionBarTarget)
+        if (sdkInt >= Android17Api) {
+            logImeTargetResolveStarted(log, SystemInsetsTarget)
+        }
         logImeTargetResolveStarted(log, ImeSwitchTarget)
-        val targetClass = resolveTargetClass(classLoader) ?: return listOf(
-            skipImeTarget(
-                CaptionBarTarget,
-                "NavigationBarController class not found",
-                log,
-            ),
-            skipImeTarget(ImeSwitchTarget, "NavigationBarController class not found", log),
-        )
+        val targetClass = resolveTargetClass(classLoader)
+            ?: return skippedControllerTargets()
 
         observeSettings()
 
-        return listOf(
-            installCaptionBarHeightHook(targetClass),
-            installImeSwitchButtonClickHook(targetClass),
-        )
+        return buildList {
+            add(installCaptionBarHeightHook(targetClass))
+            if (sdkInt >= Android17Api) {
+                add(installSystemInsetsHook(targetClass))
+            }
+            add(installImeSwitchButtonClickHook(targetClass))
+        }
+    }
+
+    private fun skippedControllerTargets(): List<ImeTargetInstallResult> = buildList {
+        val reason = "NavigationBarController class not found"
+        add(skipImeTarget(CaptionBarTarget, reason, log))
+        if (sdkInt >= Android17Api) add(skipImeTarget(SystemInsetsTarget, reason, log))
+        add(skipImeTarget(ImeSwitchTarget, reason, log))
     }
 
     private fun installCaptionBarHeightHook(targetClass: Class<*>): ImeTargetInstallResult {
@@ -105,6 +113,89 @@ class NavigationBarControllerHook(
             }
             replacementHeight ?: chain.proceed()
         }
+    }
+
+    private fun installSystemInsetsHook(targetClass: Class<*>): ImeTargetInstallResult {
+        val drawsNavBarField = runCatching {
+            targetClass.getDeclaredField("mImeDrawsImeNavBar").apply { isAccessible = true }
+        }.onFailure { error ->
+            log.w("skip system insets hook: mImeDrawsImeNavBar not found", error)
+        }.getOrNull()
+            ?: return skipImeTarget(SystemInsetsTarget, "mImeDrawsImeNavBar not found", log)
+
+        val captionBarHeightMethod = findCaptionBarHeightMethod(targetClass)
+            ?: return skipImeTarget(SystemInsetsTarget, "getImeCaptionBarHeight not found", log)
+        val systemInsetsMethod = findSystemInsetsMethod(targetClass)
+            ?: return skipImeTarget(SystemInsetsTarget, "getSystemInsets not found", log)
+
+        return installImeTarget(SystemInsetsTarget, log) {
+            hookSystemInsets(systemInsetsMethod, captionBarHeightMethod, drawsNavBarField)
+            log.i("hooked ${targetClass.name}#getSystemInsets")
+        }
+    }
+
+    private fun findSystemInsetsMethod(targetClass: Class<*>): Method? {
+        return runCatching {
+            targetClass.getDeclaredMethod("getSystemInsets").apply {
+                require(returnType == Insets::class.java) { "method must return Insets" }
+                isAccessible = true
+            }
+        }.onFailure { error ->
+            log.w("skip system insets hook: getSystemInsets() not found", error)
+        }.getOrNull()
+    }
+
+    private fun hookSystemInsets(
+        method: Method,
+        captionBarHeightMethod: Method,
+        drawsNavBarField: java.lang.reflect.Field,
+    ) {
+        engine.hook(method) { chain ->
+            val originalResult = chain.proceed()
+            preserveOriginalOnFailure(log, SystemInsetsTarget, originalResult) {
+                expandSystemInsets(chain, originalResult, captionBarHeightMethod, drawsNavBarField)
+            }
+        }
+    }
+
+    private fun expandSystemInsets(
+        chain: HookChain,
+        originalResult: Any?,
+        captionBarHeightMethod: Method,
+        drawsNavBarField: java.lang.reflect.Field,
+    ): Any? {
+        val originalInsets = originalResult as? Insets ?: return originalResult
+        val receiver = chain.thisObject ?: return originalResult
+        val drawsNavBar = drawsNavBarField.getBoolean(receiver)
+        val captionBarHeight = invokeCaptionBarHeight(captionBarHeightMethod, receiver)
+        val replacementBottom = resolveNavigationBarBottomInset(
+            drawsNavBar = drawsNavBar,
+            originalBottom = originalInsets.bottom,
+            captionBarHeight = captionBarHeight,
+        ) ?: return originalResult
+        if (replacementBottom == originalInsets.bottom) return originalResult
+        logExpandedSystemInsets(originalInsets.bottom, captionBarHeight, replacementBottom)
+        return Insets.of(originalInsets.left, originalInsets.top, originalInsets.right, replacementBottom)
+    }
+
+    private fun invokeCaptionBarHeight(method: Method, receiver: Any): Int? {
+        val result = if (method.parameterCount == 0) {
+            method.invoke(receiver)
+        } else {
+            method.invoke(receiver, true)
+        }
+        return result as? Int
+    }
+
+    private fun logExpandedSystemInsets(originalBottom: Int, targetBottom: Int?, resultBottom: Int) {
+        log.debug(
+            event = "ime.navigation_bar_insets.expanded",
+            fields = mapOf(
+                "original_bottom_px" to originalBottom.toString(),
+                "target_bottom_px" to targetBottom.toString(),
+                "result_bottom_px" to resultBottom.toString(),
+            ),
+        )
     }
 
     private fun installImeSwitchButtonClickHook(targetClass: Class<*>): ImeTargetInstallResult {
@@ -219,9 +310,19 @@ class NavigationBarControllerHook(
     private companion object {
         private const val ImePickerValue = "ime_picker"
         private const val CaptionBarTarget = "navigation_bar_controller.get_ime_caption_bar_height"
+        private const val SystemInsetsTarget = "navigation_bar_controller.get_system_insets"
         private const val ImeSwitchTarget =
             "navigation_bar_controller.on_ime_switch_button_click"
     }
+}
+
+internal fun resolveNavigationBarBottomInset(
+    drawsNavBar: Boolean,
+    originalBottom: Int?,
+    captionBarHeight: Int?,
+): Int? {
+    if (!drawsNavBar || originalBottom == null || captionBarHeight == null) return originalBottom
+    return maxOf(originalBottom, captionBarHeight)
 }
 
 internal fun navigationBarControllerClassNames(sdkInt: Int): List<String> {

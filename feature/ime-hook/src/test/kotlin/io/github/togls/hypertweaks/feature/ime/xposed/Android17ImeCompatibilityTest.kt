@@ -35,4 +35,51 @@ class Android17ImeCompatibilityTest {
             navigationBarControllerClassNames(36).first(),
         )
     }
+
+    @Test
+    fun `android 17 expands gesture inset to caption bar height`() {
+        assertEquals(
+            135,
+            resolveNavigationBarBottomInset(
+                drawsNavBar = true,
+                originalBottom = 56,
+                captionBarHeight = 135,
+            ),
+        )
+    }
+
+    @Test
+    fun `navigation bar inset policy preserves safe framework values`() {
+        assertEquals(
+            180,
+            resolveNavigationBarBottomInset(
+                drawsNavBar = true,
+                originalBottom = 180,
+                captionBarHeight = 135,
+            ),
+        )
+        assertEquals(
+            56,
+            resolveNavigationBarBottomInset(
+                drawsNavBar = false,
+                originalBottom = 56,
+                captionBarHeight = 135,
+            ),
+        )
+        assertEquals(
+            56,
+            resolveNavigationBarBottomInset(
+                drawsNavBar = true,
+                originalBottom = 56,
+                captionBarHeight = null,
+            ),
+        )
+        assertNull(
+            resolveNavigationBarBottomInset(
+                drawsNavBar = true,
+                originalBottom = null,
+                captionBarHeight = 135,
+            ),
+        )
+    }
 }
