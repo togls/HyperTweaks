@@ -23,6 +23,7 @@ class NavigationBarControllerHook(
     private val log = context.log
     private val initialSettings = context.settings
     private val settingsProvider = context.settingsProvider
+    private val sdkInt = context.environment.sdkInt
 
     private val imePickerShortClickEnabled = AtomicBoolean(false)
 
@@ -32,17 +33,13 @@ class NavigationBarControllerHook(
     internal fun install(classLoader: ClassLoader): List<ImeTargetInstallResult> {
         logImeTargetResolveStarted(log, CaptionBarTarget)
         logImeTargetResolveStarted(log, ImeSwitchTarget)
-        val targetClass = runCatching {
-            classLoader.loadClass(TARGET_CLASS_NAME)
-        }.onFailure { error ->
-            log.w("skip NavigationBarControllerHook: class not found", error)
-        }.getOrNull() ?: return listOf(
+        val targetClass = resolveTargetClass(classLoader) ?: return listOf(
             skipImeTarget(
                 CaptionBarTarget,
-                "NavigationBarController.Impl class not found",
+                "NavigationBarController class not found",
                 log,
             ),
-            skipImeTarget(ImeSwitchTarget, "NavigationBarController.Impl class not found", log),
+            skipImeTarget(ImeSwitchTarget, "NavigationBarController class not found", log),
         )
 
         observeSettings()
@@ -83,7 +80,7 @@ class NavigationBarControllerHook(
                 imeDrawsImeNavBarField,
                 serviceField,
             )
-            log.i($$"hooked NavigationBarController$Impl#getImeCaptionBarHeight")
+            log.i("hooked ${targetClass.name}#getImeCaptionBarHeight")
         }
     }
 
@@ -132,7 +129,7 @@ class NavigationBarControllerHook(
 
         return installImeTarget(ImeSwitchTarget, log) {
             hookImeSwitchButtonClick(clickMethod)
-            log.i($$"hooked NavigationBarController$Impl#onImeSwitchButtonClick(View)")
+            log.i("hooked ${targetClass.name}#onImeSwitchButtonClick(View)")
         }
     }
 
@@ -189,6 +186,20 @@ class NavigationBarControllerHook(
         return null
     }
 
+    private fun resolveTargetClass(classLoader: ClassLoader): Class<*>? {
+        var lastError: Throwable? = null
+        for (className in navigationBarControllerClassNames(sdkInt)) {
+            val targetClass = runCatching {
+                classLoader.loadClass(className)
+            }.onFailure { error ->
+                lastError = error
+            }.getOrNull()
+            if (targetClass != null) return targetClass
+        }
+        log.w("skip NavigationBarControllerHook: class candidates not found", lastError)
+        return null
+    }
+
     private fun observeSettings() {
         updateImePickerEnabled(initialSettings)
         settingsSubscriptions += settingsProvider.subscribe { state ->
@@ -210,7 +221,18 @@ class NavigationBarControllerHook(
         private const val CaptionBarTarget = "navigation_bar_controller.get_ime_caption_bar_height"
         private const val ImeSwitchTarget =
             "navigation_bar_controller.on_ime_switch_button_click"
-        private const val TARGET_CLASS_NAME =
-            $$"android.inputmethodservice.NavigationBarController$Impl"
     }
 }
+
+internal fun navigationBarControllerClassNames(sdkInt: Int): List<String> {
+    val currentClass = "android.inputmethodservice.NavigationBarController"
+    val legacyClass = "android.inputmethodservice.NavigationBarController\$Impl"
+    // API 37 将旧 Impl 实现折叠进控制器本身，候选顺序仍为旧系统保留回退。
+    return if (sdkInt >= Android17Api) {
+        listOf(currentClass, legacyClass)
+    } else {
+        listOf(legacyClass, currentClass)
+    }
+}
+
+private const val Android17Api = 37

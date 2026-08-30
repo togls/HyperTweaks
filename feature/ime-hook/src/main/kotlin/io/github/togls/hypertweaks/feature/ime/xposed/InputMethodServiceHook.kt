@@ -6,7 +6,6 @@ import android.inputmethodservice.InputMethodService
 import io.github.togls.hypertweaks.core.xposed.HookChain
 import io.github.togls.hypertweaks.core.xposed.HookContext
 import io.github.togls.hypertweaks.feature.ime.installer.ImeTargetInstallResult
-import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 
@@ -21,17 +20,16 @@ class InputMethodServiceHook(
         logImeTargetResolveStarted(log, Target)
         val inputMethodServiceClass = resolveTargetClass(classLoader)
             ?: return skipped("InputMethodService class not found")
-        val internationalBuildField =
-            resolveInternationalBuildField(inputMethodServiceClass)
-                ?: return skipped("InputMethodService.IS_INTERNATIONAL_BUILD not found")
         val hideImeRenderMethod = resolveHideImeRenderMethod(inputMethodServiceClass)
             ?: return skipped("InputMethodService.hideImeRenderGesturalNavButtons not found")
+        val canImeRenderMethod = resolveCanImeRenderMethod(inputMethodServiceClass)
+            ?: return skipped("InputMethodService.canImeRenderGesturalNavButtons not found")
 
         val installResult = installImeTarget(Target, log) {
             installHideImeRenderHook(
                 classLoader,
-                internationalBuildField,
                 hideImeRenderMethod,
+                canImeRenderMethod,
             )
             log.i("hooked InputMethodService#hideImeRenderGesturalNavButtons(String)")
         }
@@ -43,19 +41,6 @@ class InputMethodServiceHook(
             classLoader.loadClass(TARGET_CLASS_NAME)
         }.onFailure { error ->
             log.w("skip InputMethodServiceHook: class not found", error)
-        }.getOrNull()
-    }
-
-    private fun resolveInternationalBuildField(targetClass: Class<*>): Field? {
-        return runCatching {
-            targetClass.getDeclaredField("IS_INTERNATIONAL_BUILD").apply {
-                isAccessible = true
-            }
-        }.onFailure { error ->
-            log.w(
-                "skip InputMethodServiceHook: IS_INTERNATIONAL_BUILD not found",
-                error,
-            )
         }.getOrNull()
     }
 
@@ -75,34 +60,56 @@ class InputMethodServiceHook(
         }.getOrNull()
     }
 
+    private fun resolveCanImeRenderMethod(targetClass: Class<*>): Method? {
+        return runCatching {
+            targetClass.getDeclaredMethod("canImeRenderGesturalNavButtons").apply {
+                require(Modifier.isStatic(modifiers)) { "method must be static" }
+                require(returnType == Boolean::class.javaPrimitiveType) {
+                    "method must return boolean"
+                }
+                isAccessible = true
+            }
+        }.onFailure { error ->
+            log.w(
+                "skip InputMethodServiceHook: canImeRenderGesturalNavButtons() not found",
+                error,
+            )
+        }.getOrNull()
+    }
+
     private fun installHideImeRenderHook(
         classLoader: ClassLoader,
-        internationalBuildField: Field,
         hideImeRenderMethod: Method,
+        canImeRenderMethod: Method,
     ) {
         engine.hook(hideImeRenderMethod) { chain ->
-            preserveOriginalOnFailure(log, "InputMethodService.hideImeRenderGesturalNavButtons", Unit) {
-                val thisObject = chain.thisObject ?: return@preserveOriginalOnFailure
-                val inputMethodService =
-                    thisObject as? InputMethodService ?: return@preserveOriginalOnFailure
-
-                val stub = loadInputMethodServiceStub(
-                    classLoader = classLoader,
-                    receiver = thisObject,
-                ) ?: return@preserveOriginalOnFailure
-
-                val isImeSupport = callIsImeSupport(
-                    stub = stub,
-                    context = inputMethodService.applicationContext,
-                ) ?: return@preserveOriginalOnFailure
-
-                if (!isImeSupport) {
-                    internationalBuildField.setBoolean(thisObject, true)
-                }
+            val replacement = preserveOriginalOnFailure(
+                log = log,
+                event = CallbackEvent,
+                originalValue = null,
+            ) {
+                resolveHideImeRenderReplacement(
+                    isImeSupported = resolveImeSupport(classLoader, chain.thisObject),
+                    canImeRender = callCanImeRender(canImeRenderMethod),
+                )
             }
-
-            chain.proceed()
+            replacement?.also { shouldHide ->
+                log.debug(
+                    event = "ime.render_gestural_nav_buttons.overridden",
+                    fields = mapOf("hide_nav_buttons" to shouldHide.toString()),
+                )
+            } ?: chain.proceed()
         }
+    }
+
+    private fun resolveImeSupport(classLoader: ClassLoader, receiver: Any?): Boolean? {
+        val inputMethodService = receiver as? InputMethodService ?: return null
+        val stub = loadInputMethodServiceStub(classLoader, receiver) ?: return null
+        return callIsImeSupport(stub, inputMethodService.applicationContext)
+    }
+
+    private fun callCanImeRender(method: Method): Boolean? {
+        return method.invoke(null) as? Boolean
     }
 
     @SuppressLint("PrivateApi")
@@ -155,6 +162,17 @@ class InputMethodServiceHook(
 
     private companion object {
         private const val Target = "input_method_service.hide_ime_render_gestural_nav_buttons"
+        private const val CallbackEvent =
+            "InputMethodService.hideImeRenderGesturalNavButtons"
         private const val TARGET_CLASS_NAME = "android.inputmethodservice.InputMethodService"
     }
+}
+
+internal fun resolveHideImeRenderReplacement(
+    isImeSupported: Boolean?,
+    canImeRender: Boolean?,
+): Boolean? {
+    // API 37 将区域标记改为 static final；直接复用框架能力判断可避免修改全局常量。
+    if (isImeSupported != false) return null
+    return canImeRender?.not()
 }
